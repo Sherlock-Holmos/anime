@@ -1,15 +1,15 @@
 # 文档维护与 Wiki 同步
 
-## 唯一事实源
+## 规范性事实源
 
-项目设计以 [`anime项目完整详细设计文档.md`](anime项目完整详细设计文档.md) 为唯一事实源。根目录下其余探讨文档是历史研究材料，不作为开发约束，除非其结论已经合并到完整设计基线。
+项目设计以 [`anime项目完整详细设计文档.md`](anime项目完整详细设计文档.md) 为总体基线，以 [`frontend/`](frontend/) 九份分册为 CMP 页面、组件、状态、Fixture 契约和验收基线。它们共同位于主仓库 `docs/`，接受同一套版本审查。根目录和 `docs/` 中名称包含“探讨”的文档是历史研究材料，不作为开发约束，除非结论已经合并到规范性文档。
 
 Gitea Wiki 是面向阅读和导航的发布结果，不是第二个可编辑源。Wiki 页面顶部会包含源文件路径和 SHA-256，用于确认内容来自哪一版基线。
 
 ```text
-修改主仓库 docs/
+修改主仓库 docs/ 中的规范性文件
   -> 在同一个提交中评审设计和代码
-  -> scripts/sync_wiki.py 自动拆分页面
+  -> scripts/sync_wiki.py 拆分总体设计并原样发布前端分册
   -> 单向发布到 anime.wiki.git
 ```
 
@@ -23,7 +23,7 @@ Gitea Wiki 是面向阅读和导航的发布结果，不是第二个可编辑源
 python scripts/sync_wiki.py
 ```
 
-生成结果位于 `build/wiki/`。脚本只生成受管页面，不读取历史探讨文档。
+生成结果位于 `build/wiki/`。脚本生成 26 个受管页面，只读取总体设计和 `docs/frontend/`，不读取历史探讨文档。
 
 ## 检查在线 Wiki 是否同步
 
@@ -85,7 +85,16 @@ WIKI_SYNC_TOKEN
 | 12 Deployment and Operations | 16–18 |
 | 13 Testing and Roadmap | 19–20 |
 | 14 Decisions and Risks | 21–24 |
-| 99 References | 25–26 |
+| 15 Frontend Product and Navigation | `frontend/01-product-and-navigation.md` |
+| 16 UI Design System | `frontend/02-design-system.md` |
+| 17 Glass Motion and Accessibility | `frontend/03-glass-motion-and-accessibility.md` |
+| 18 Component Specifications | `frontend/04-component-specifications.md` |
+| 19 Screen Specifications | `frontend/05-screen-specifications.md` |
+| 20 UI State Matrix | `frontend/06-ui-state-matrix.md` |
+| 21 Demo Fixtures and Contracts | `frontend/07-demo-fixtures-and-contracts.md` |
+| 22 Frontend Testing and Acceptance | `frontend/08-testing-and-acceptance.md` |
+| 23 Frontend Development Roadmap | `frontend/09-development-roadmap.md` |
+| 99 References | 25–27 |
 | 99 Complete Design Baseline | 完整快照 |
 
 页面文件名属于稳定公开链接。即使章节名称发生调整，也不要随意修改文件名；需要迁移时应保留旧页面并增加跳转说明。

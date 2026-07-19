@@ -1,6 +1,6 @@
 # Anime 项目完整详细设计文档
 
-> 文档版本：V1.1（可施工设计基线）<br>
+> 文档版本：V1.2（前端开发基线）<br>
 > 编制日期：2026-07-19<br>
 > 项目代号：Anime<br>
 > 文档用途：作为个人开发者与 AI Agent 协作时的产品、架构、接口、数据和验收基线<br>
@@ -52,6 +52,7 @@
 | B-17 | MVP 不建设 Anime 自有评分机制，直接展示 Bangumi API 提供的评分、投票数和分布 | 已确认 |
 | B-18 | MVP 不提供推送提醒 | 已确认 |
 | B-19 | 项目正式名称为 Anime | 已确认 |
+| B-20 | 先交付由 Fixture Repository 驱动、无需真实后端即可把玩的 CMP Android 前端，再并行接入后端 | 已确认 |
 
 ### 0.4 本版核心架构决定
 
@@ -69,14 +70,16 @@
 | D-10 | 客户端采用共享 UI + 共享业务逻辑，Android/iOS 宿主保持极薄，平台能力通过接口和 `expect/actual` 隔离 | 最大化 CMP 价值，同时保留平台差异能力 |
 | D-11 | MVP 的评分为 Bangumi 来源只读数据，不建设本地评分写入、聚合、加权榜单或评分同步 | 避免重复建设评分体系，并确保评分口径和来源清晰 |
 | D-12 | 主仓库 `docs/` 是设计文档唯一事实源，Gitea Wiki 只接受自动单向发布 | 让设计、代码和版本处于同一审查链路，避免两套文档漂移 |
+| D-13 | Android 前端采用 Fixture/Remote 可替换 Repository；首个可玩版本不依赖 Anime 后端 | 先验证产品、交互与视觉，同时保证后续接入后端不重写页面 |
+| D-14 | `docs/frontend/` 是 CMP 产品、UI、状态、数据契约与验收的规范性分册 | 将总体架构细化为页面和组件可直接实施的开发约束 |
 
 ### 0.5 文档维护规则
 
-- 可执行设计先修改主仓库 `docs/anime项目完整详细设计文档.md`；
+- 跨端总体架构和产品边界修改本文件；CMP 页面、组件、状态和前端契约修改 `docs/frontend/` 对应分册；
 - 相关设计和代码应在同一个提交或 Pull Request 中评审；
 - `scripts/sync_wiki.py` 按稳定页面映射生成 Gitea Wiki；
 - Wiki 页面不得直接人工修改；发现问题时回到主仓库修订并重新发布；
-- 每个 Wiki 页面记录源文件 SHA-256，用于核验同步结果；
+- 每个 Wiki 页面记录对应源文件 SHA-256，用于核验同步结果；
 - 历史探讨文件只作为研究资料，不自动进入 Wiki，也不覆盖正式基线。
 
 ---
@@ -2111,6 +2114,8 @@ iOS 测试在获得 macOS Runner 后才进入门禁；此前不得以“预留�
 
 ## 20. 开发阶段与交付物
 
+客户端当前以 `docs/frontend/09-development-roadmap.md` 的 F0–F10 作为细化执行顺序：先完成 Fixture 驱动的 Android 可玩前端，再以相同 Repository 契约接入后端。下列 Phase 仍表示全项目交付阶段，两者冲突时，产品与架构边界以本文为准，前端施工顺序以前端路线图为准。
+
 ### Phase 0：技术验证
 
 目标：先消除高风险不确定性。
@@ -2281,6 +2286,24 @@ ADR 至少包含：背景、决定、候选方案、取舍、后果、验证方�
 
 ## 26. 文档完成定义
 
-本文档已经满足需求与详细设计基线条件：9 项原待确认事项已全部确认，客户端、服务端、双端平台、同步、数据、接口、安全和部署边界均已定义。
+本文档与 `docs/frontend/` 分册已经满足需求、总体设计和 CMP 前端开发基线条件：原待确认事项已全部确认，客户端、服务端、双端平台、同步、数据、接口、安全和部署边界均已定义；前端信息架构、设计 Token、组件、页面、异常状态、Fixture 契约、测试和并行开发路线已细化。
 
-进入编码前仍必须执行 Phase 0，对 OAuth、Backdrop、Ktor、SQLDelight、Bangumi 和 Cloudflare 链路进行最小原型验证。原型验证用于锁定依赖版本和暴露平台问题，不改变本文档 **V1.1（可施工设计基线）** 的状态；如验证导致架构改变，必须通过 ADR 和文档修订升级版本。
+进入编码时仍必须执行 Phase 0/F0，对 OAuth、Backdrop、Ktor、SQLDelight、Bangumi 和 Cloudflare 链路进行最小原型验证。Fixture 前端不需要等待全部服务端验证完成，但依赖版本和 Glass 降级必须先经客户端 Spike。验证不会自动改变本文档 **V1.2（前端开发基线）** 的状态；如验证导致架构改变，必须通过 ADR 和文档修订升级版本。
+
+---
+
+## 27. CMP 前端规范索引
+
+以下文件与本文共同构成规范性事实源。总体产品/架构与分册冲突时以本文为准；CMP 页面、组件、交互状态和前端执行细节以对应分册为准。
+
+| 分册 | 主要回答的问题 |
+|---|---|
+| [`frontend/01-product-and-navigation.md`](frontend/01-product-and-navigation.md) | 前端先做什么、四根导航和路由如何工作 |
+| [`frontend/02-design-system.md`](frontend/02-design-system.md) | 精确颜色、排版、间距、形状、图像与响应式 Token |
+| [`frontend/03-glass-motion-and-accessibility.md`](frontend/03-glass-motion-and-accessibility.md) | 玻璃等级、动效、性能降级和无障碍标准 |
+| [`frontend/04-component-specifications.md`](frontend/04-component-specifications.md) | 公共组件 API、结构、状态和验收 |
+| [`frontend/05-screen-specifications.md`](frontend/05-screen-specifications.md) | 发现、搜索、详情、收藏、短评、我的和设置页面 |
+| [`frontend/06-ui-state-matrix.md`](frontend/06-ui-state-matrix.md) | Loading、Empty、Offline、Stale、错误、同步与冲突转换 |
+| [`frontend/07-demo-fixtures-and-contracts.md`](frontend/07-demo-fixtures-and-contracts.md) | Fixture、领域模型、Repository 和 Remote 替换边界 |
+| [`frontend/08-testing-and-acceptance.md`](frontend/08-testing-and-acceptance.md) | 截图、UI、无障碍、性能预算和 Definition of Done |
+| [`frontend/09-development-roadmap.md`](frontend/09-development-roadmap.md) | F0–F10、依赖关系、多 Agent 所有权与合并顺序 |

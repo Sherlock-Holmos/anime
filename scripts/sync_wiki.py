@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate and publish the Anime Gitea Wiki from the canonical design document."""
+"""Generate and publish the Anime Gitea Wiki from canonical repository docs."""
 
 from __future__ import annotations
 
@@ -17,6 +17,17 @@ from typing import Iterable
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_RELATIVE = Path("docs") / "anime项目完整详细设计文档.md"
 SOURCE_PATH = REPO_ROOT / SOURCE_RELATIVE
+FRONTEND_PAGE_SOURCES = {
+    "15-Frontend-Product-and-Navigation.md": Path("docs/frontend/01-product-and-navigation.md"),
+    "16-UI-Design-System.md": Path("docs/frontend/02-design-system.md"),
+    "17-Glass-Motion-and-Accessibility.md": Path("docs/frontend/03-glass-motion-and-accessibility.md"),
+    "18-Component-Specifications.md": Path("docs/frontend/04-component-specifications.md"),
+    "19-Screen-Specifications.md": Path("docs/frontend/05-screen-specifications.md"),
+    "20-UI-State-Matrix.md": Path("docs/frontend/06-ui-state-matrix.md"),
+    "21-Demo-Fixtures-and-Contracts.md": Path("docs/frontend/07-demo-fixtures-and-contracts.md"),
+    "22-Frontend-Testing-and-Acceptance.md": Path("docs/frontend/08-testing-and-acceptance.md"),
+    "23-Frontend-Development-Roadmap.md": Path("docs/frontend/09-development-roadmap.md"),
+}
 
 MANAGED_PAGE_NAMES = (
     "Home.md",
@@ -34,6 +45,7 @@ MANAGED_PAGE_NAMES = (
     "12-Deployment-and-Operations.md",
     "13-Testing-and-Roadmap.md",
     "14-Decisions-and-Risks.md",
+    *FRONTEND_PAGE_SOURCES.keys(),
     "99-References.md",
     "99-Complete-Design-Baseline.md",
 )
@@ -102,27 +114,57 @@ def promote_headings(lines: list[str]) -> list[str]:
     return promoted
 
 
-def page_banner(source_hash: str) -> str:
+def sha256_text(text: str) -> str:
+    return hashlib.sha256(normalize(text).encode("utf-8")).hexdigest()
+
+
+def source_set_hash(main_source_text: str) -> str:
+    digest = hashlib.sha256()
+    sources = {SOURCE_RELATIVE: normalize(main_source_text)}
+    for relative in FRONTEND_PAGE_SOURCES.values():
+        sources[relative] = normalize((REPO_ROOT / relative).read_text(encoding="utf-8"))
+    for relative, content in sorted(sources.items(), key=lambda item: item[0].as_posix()):
+        digest.update(relative.as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(content.encode("utf-8"))
+    return digest.hexdigest()
+
+
+def page_banner(source_relative: Path | str, source_hash: str) -> str:
+    source_label = source_relative.as_posix() if isinstance(source_relative, Path) else source_relative
     return normalize(
         f"""> 本页面由 Anime 主仓库自动生成，请勿直接在 Wiki 修改。<br>
-> 源文件：`{SOURCE_RELATIVE.as_posix()}`<br>
+> 源文件：`{source_label}`<br>
 > 源文件 SHA-256：`{source_hash}`"""
     ).strip()
 
 
-def wrap_page(title: str, body: str, source_hash: str) -> str:
-    return normalize(f"# {title}\n\n{page_banner(source_hash)}\n\n{body.strip()}")
+def wrap_page(title: str, body: str, source_relative: Path, source_hash: str) -> str:
+    return normalize(
+        f"# {title}\n\n{page_banner(source_relative, source_hash)}\n\n{body.strip()}"
+    )
 
 
-def build_home(source_hash: str) -> str:
+def inject_document_banner(document: str, source_relative: Path) -> str:
+    document = normalize(document)
+    source_hash = sha256_text(document)
+    first_line, separator, rest = document.partition("\n")
+    if not separator or not first_line.startswith("# "):
+        raise ValueError(f"frontend document must start with H1: {source_relative}")
+    return normalize(
+        f"{first_line}\n\n{page_banner(source_relative, source_hash)}\n\n{rest.lstrip()}"
+    )
+
+
+def build_home(documentation_hash: str) -> str:
     return normalize(
         f"""# Anime 项目 Wiki
 
-{page_banner(source_hash)}
+{page_banner("docs/（总体设计与前端规范受管集合）", documentation_hash)}
 
-> 文档版本：V1.1（可施工设计基线）<br>
+> 文档版本：V1.2（前端开发基线）<br>
 > 编制日期：2026-07-19<br>
-> 当前开发阶段：Phase 0 技术验证
+> 当前开发阶段：F0 工程与技术验证
 
 ## 项目简介
 
@@ -136,6 +178,7 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 - Bangumi OAuth 是唯一登录方式；
 - 收藏状态与观看进度和 Bangumi 双向同步；
 - Android 使用液态玻璃视觉语言，并按系统与性能能力降级；
+- 首个可玩 Android 版本由确定性 Fixture 驱动，无需等待 Anime 后端；
 - 生产业务入口仅通过 Cloudflare Tunnel 域名提供。
 
 ## 技术栈
@@ -166,8 +209,17 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 | [12-Deployment-and-Operations](12-Deployment-and-Operations) | 部署、运维、备份与恢复 |
 | [13-Testing-and-Roadmap](13-Testing-and-Roadmap) | 测试与开发阶段 |
 | [14-Decisions-and-Risks](14-Decisions-and-Risks) | 决策、ADR、风险与 Agent 约束 |
+| [15-Frontend-Product-and-Navigation](15-Frontend-Product-and-Navigation) | 前端产品边界、信息架构和路由 |
+| [16-UI-Design-System](16-UI-Design-System) | 颜色、排版、间距、形状和响应式 Token |
+| [17-Glass-Motion-and-Accessibility](17-Glass-Motion-and-Accessibility) | 玻璃、动效、性能降级与无障碍 |
+| [18-Component-Specifications](18-Component-Specifications) | CMP 公共组件详细规范 |
+| [19-Screen-Specifications](19-Screen-Specifications) | 发现、搜索、详情、收藏等页面规范 |
+| [20-UI-State-Matrix](20-UI-State-Matrix) | 加载、离线、错误、同步与冲突状态 |
+| [21-Demo-Fixtures-and-Contracts](21-Demo-Fixtures-and-Contracts) | Fixture、领域模型与 Repository 契约 |
+| [22-Frontend-Testing-and-Acceptance](22-Frontend-Testing-and-Acceptance) | 前端测试、性能预算和验收门禁 |
+| [23-Frontend-Development-Roadmap](23-Frontend-Development-Roadmap) | F0–F10 与多 Agent 协作边界 |
 | [99-References](99-References) | 官方资料与完成定义 |
-| [99-Complete-Design-Baseline](99-Complete-Design-Baseline) | 完整 V1.1 文档快照 |
+| [99-Complete-Design-Baseline](99-Complete-Design-Baseline) | 完整 V1.2 总体设计快照 |
 
 ## 维护原则
 
@@ -182,7 +234,8 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 
 def build_pages(source_text: str) -> dict[str, str]:
     source_text = normalize(source_text)
-    source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+    source_hash = sha256_text(source_text)
+    documentation_hash = source_set_hash(source_text)
     lines = source_text.rstrip("\n").split("\n")
 
     client = h2_section(lines, 8)
@@ -206,18 +259,22 @@ def build_pages(source_text: str) -> dict[str, str]:
         "12-Deployment-and-Operations.md": ("部署与运维", join_blocks(h2_section(lines, n) for n in (16, 17, 18))),
         "13-Testing-and-Roadmap.md": ("测试与开发路线图", join_blocks(h2_section(lines, n) for n in (19, 20))),
         "14-Decisions-and-Risks.md": ("决策、ADR 与风险", join_blocks(h2_section(lines, n) for n in (21, 22, 23, 24))),
-        "99-References.md": ("官方资料与完成定义", join_blocks(h2_section(lines, n) for n in (25, 26))),
+        "99-References.md": ("官方资料、完成定义与前端规范", join_blocks(h2_section(lines, n) for n in (25, 26, 27))),
     }
 
-    pages = {"Home.md": build_home(source_hash)}
+    pages = {"Home.md": build_home(documentation_hash)}
     for filename, (title, body) in page_bodies.items():
-        pages[filename] = wrap_page(title, body, source_hash)
+        pages[filename] = wrap_page(title, body, SOURCE_RELATIVE, source_hash)
+
+    for filename, source_relative in FRONTEND_PAGE_SOURCES.items():
+        document = (REPO_ROOT / source_relative).read_text(encoding="utf-8")
+        pages[filename] = inject_document_banner(document, source_relative)
 
     complete = source_text.split("\n", 1)
     if len(complete) == 2:
-        complete_text = f"{complete[0]}\n\n{page_banner(source_hash)}\n\n{complete[1]}"
+        complete_text = f"{complete[0]}\n\n{page_banner(SOURCE_RELATIVE, source_hash)}\n\n{complete[1]}"
     else:
-        complete_text = f"{page_banner(source_hash)}\n\n{source_text}"
+        complete_text = f"{page_banner(SOURCE_RELATIVE, source_hash)}\n\n{source_text}"
     pages["99-Complete-Design-Baseline.md"] = normalize(complete_text)
 
     if set(pages) != set(MANAGED_PAGE_NAMES):
@@ -263,11 +320,11 @@ def sync_remote(remote: str, pages: dict[str, str], publish: bool) -> int:
         if not publish:
             return 1
 
-        source_hash = hashlib.sha256(normalize(SOURCE_PATH.read_text(encoding="utf-8")).encode("utf-8")).hexdigest()
+        documentation_hash = source_set_hash(SOURCE_PATH.read_text(encoding="utf-8"))
         run_git("config", "user.name", "Anime Wiki Sync", cwd=checkout)
         run_git("config", "user.email", "wiki-sync@jokersh.site", cwd=checkout)
         run_git("add", "--", *MANAGED_PAGE_NAMES, cwd=checkout)
-        run_git("commit", "-m", f"docs: sync V1.1 design baseline ({source_hash[:12]})", cwd=checkout)
+        run_git("commit", "-m", f"docs: sync V1.2 frontend baseline ({documentation_hash[:12]})", cwd=checkout)
         run_git("push", "origin", "HEAD", cwd=checkout)
         print("Wiki synchronization published.")
         return 0
@@ -292,6 +349,9 @@ def main() -> int:
     args = parse_args()
     if not SOURCE_PATH.is_file():
         raise FileNotFoundError(f"canonical source not found: {SOURCE_PATH}")
+    for relative in FRONTEND_PAGE_SOURCES.values():
+        if not (REPO_ROOT / relative).is_file():
+            raise FileNotFoundError(f"canonical source not found: {REPO_ROOT / relative}")
     pages = build_pages(SOURCE_PATH.read_text(encoding="utf-8"))
 
     if args.check or args.publish:
