@@ -248,7 +248,10 @@ def changed_managed_pages(repo: Path) -> list[str]:
 def sync_remote(remote: str, pages: dict[str, str], publish: bool) -> int:
     with tempfile.TemporaryDirectory(prefix="anime-wiki-sync-") as temp_dir:
         checkout = Path(temp_dir) / "wiki"
-        run_git("clone", "--quiet", remote, str(checkout))
+        # Wiki files are generated with LF on every platform. Disable the user's
+        # global autocrlf setting so Windows checks do not report false changes.
+        run_git("-c", "core.autocrlf=false", "clone", "--quiet", remote, str(checkout))
+        run_git("config", "core.autocrlf", "false", cwd=checkout)
         write_pages(checkout, pages)
         changed = changed_managed_pages(checkout)
         if not changed:
