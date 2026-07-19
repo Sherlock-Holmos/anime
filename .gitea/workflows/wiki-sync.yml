@@ -1,0 +1,40 @@
+name: Sync project Wiki
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+    paths:
+      - docs/anime项目完整详细设计文档.md
+      - docs/README.md
+      - scripts/sync_wiki.py
+      - .gitea/workflows/wiki-sync.yml
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate Wiki token
+        shell: bash
+        env:
+          WIKI_SYNC_TOKEN: ${{ secrets.WIKI_SYNC_TOKEN }}
+        run: test -n "$WIKI_SYNC_TOKEN"
+
+      - name: Publish generated Wiki
+        shell: bash
+        env:
+          WIKI_SYNC_TOKEN: ${{ secrets.WIKI_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          basic_auth="$(printf 'Holmes:%s' "$WIKI_SYNC_TOKEN" | base64 | tr -d '\n')"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://git.jokersh.site/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: Basic $basic_auth"
+          python3 scripts/sync_wiki.py --publish \
+            --wiki-remote https://git.jokersh.site/Holmes/anime.wiki.git

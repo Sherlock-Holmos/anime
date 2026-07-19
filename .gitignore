@@ -1,0 +1,12 @@
+# Generated Wiki preview
+/build/
+
+# Local AI discussion archives; conclusions belong in the canonical baseline
+/docs/*探讨.md
+
+# Local tooling
+.idea/
+.vscode/
+*.log
+__pycache__/
+*.py[cod]
