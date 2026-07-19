@@ -57,7 +57,7 @@ python scripts/sync_wiki.py --publish `
 
 ## Gitea Actions 自动发布
 
-`.gitea/workflows/wiki-sync.yml` 会在 `dev` 分支的设计基线或同步脚本发生变化时发布 Wiki，也支持手动触发。
+`.gitea/workflows/wiki-sync.yml` 会在 `dev` 分支的设计基线或同步脚本发生变化时发布 Wiki，也支持手动触发。未配置 Token 时流水线会安全跳过发布，不会让其他检查失败。
 
 流水线需要在 Anime 仓库中配置 Secret：
 
