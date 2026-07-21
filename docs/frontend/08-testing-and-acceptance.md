@@ -39,8 +39,8 @@
 
 | 指标 | 目标 | 门禁 |
 |---|---:|---:|
-| Android 温启动到可交互 | ≤ 1.2s | P95 ≤ 1.5s |
-| Android 冷启动到可交互 | ≤ 2.5s | P95 ≤ 3.0s |
+| Android 温启动到可交互 | P50 ≤ 0.8s | P95 ≤ 1.2s |
+| Android 冷启动到可交互 | P50 ≤ 1.2s | P95 ≤ 2.0s |
 | 常规页面切换 | ≤ 240ms 主动效 | 不等待网络结束 |
 | 60Hz 列表慢帧率 | < 5% | P95 frame < 24ms |
 | 详情首屏缓存渲染 | ≤ 500ms | 无全尺寸图片阻塞 |
@@ -70,15 +70,18 @@
 
 一个页面只有同时满足以下条件才算完成：契约与 UI State 已实现；所有规范状态有 Preview；Reducer/Mapper/关键交互有测试；截图基线评审通过；无障碍与 200% 字体通过；无真实网络也能演示；性能无新增回退；分析/日志不包含隐私；文档和路由表同步更新。
 
-## 8. 建项后固化的命令
+## 8. 固定验证命令
 
-工程骨架建立后需把实际任务名写入 README 和 CI，目标命令如下（以最终 Gradle 模块名为准）：
+根目录必须提供以下稳定任务名，文档、CI 与 Agent 只调用这些入口；它们是 F0 的交付条件，不允许另起同义任务：
 
 ```powershell
-./gradlew.bat :shared:allTests :androidApp:testDemoDebugUnitTest
-./gradlew.bat :androidApp:connectedDemoDebugAndroidTest
-./gradlew.bat :androidApp:assembleDemoDebug
-./gradlew.bat :androidApp:lintDemoDebug
+./gradlew.bat animeFormat
+./gradlew.bat animeCheck
+./gradlew.bat animeScreenshot
+./gradlew.bat animeUiTest
+./gradlew.bat animeBenchmark
+./gradlew.bat :app:android:assembleDemoDebug
+./gradlew.bat :app:android:assembleProdRelease
 ```
 
 合并请求至少运行静态检查、公共单元测试、Demo 构建和确定性截图；Release 分支另运行连接设备和性能门禁。

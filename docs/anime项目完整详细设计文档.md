@@ -1,7 +1,7 @@
 # Anime 项目完整详细设计文档
 
-> 文档版本：V1.2（前端开发基线）<br>
-> 编制日期：2026-07-19<br>
+> 文档版本：V1.3（CMP Android 无歧义实施基线）<br>
+> 编制日期：2026-07-21<br>
 > 项目代号：Anime<br>
 > 文档用途：作为个人开发者与 AI Agent 协作时的产品、架构、接口、数据和验收基线<br>
 > 当前交付平台：Android<br>
@@ -53,6 +53,7 @@
 | B-18 | MVP 不提供推送提醒 | 已确认 |
 | B-19 | 项目正式名称为 Anime | 已确认 |
 | B-20 | 先交付由 Fixture Repository 驱动、无需真实后端即可把玩的 CMP Android 前端，再并行接入后端 | 已确认 |
+| B-21 | 初期维护完整详细文档；公共合同、交互和验收变更先更新主仓库规范，再实现并单向同步 Wiki | 已确认 |
 
 ### 0.4 本版核心架构决定
 
@@ -72,6 +73,8 @@
 | D-12 | 主仓库 `docs/` 是设计文档唯一事实源，Gitea Wiki 只接受自动单向发布 | 让设计、代码和版本处于同一审查链路，避免两套文档漂移 |
 | D-13 | Android 前端采用 Fixture/Remote 可替换 Repository；首个可玩版本不依赖 Anime 后端 | 先验证产品、交互与视觉，同时保证后续接入后端不重写页面 |
 | D-14 | `docs/frontend/` 是 CMP 产品、UI、状态、数据契约与验收的规范性分册 | 将总体架构细化为页面和组件可直接实施的开发约束 |
+| D-15 | CMP Android 使用固定工程版本、类型化 Feature Contract、确定性 Fixture 和需求追踪矩阵 | 降低个人与多 Agent 并行实现时的歧义和不可验证偏差 |
+| D-16 | 客户端依赖由显式 `AppContainer` 构造注入，不引入 DI 框架；Feature 采用 UDF + Reducer | 保持依赖图透明、跨端可测试，并避免多个 Agent 自选架构 |
 
 ### 0.5 文档维护规则
 
@@ -313,7 +316,7 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。用户�
 | NFR-P02 | 缓存命中接口 | P95 ≤ 200 ms |
 | NFR-P03 | 搜索响应 | 10 万条以内，P95 ≤ 800 ms |
 | NFR-P04 | Android 列表体验 | 目标 60 Hz 设备滚动卡顿帧比例 < 5% |
-| NFR-P05 | Android 冷启动 | 中端设备上首个可交互页面 ≤ 2.5 s，缓存可用时优先回显 |
+| NFR-P05 | Android 冷启动 | 基准设备 P50 ≤ 1.2 s、P95 ≤ 2.0 s，缓存可用时优先回显 |
 | NFR-P06 | Rust 服务常态内存 | 稳态目标 < 256 MB，容器硬上限 512 MB |
 
 ### 6.2 可用性与降级
@@ -402,73 +405,57 @@ flowchart LR
 - 不宣称 iOS 当前可编译；所有平台抽象必须避免把 Android 类型泄漏到 `commonMain`。
 - 获得 Mac 后，通过补齐 `iosMain` 实现和 iOS 宿主进行真实验证。
 
-### 8.2 推荐工程结构
+### 8.2 固定工程结构
 
 ```text
-client/
-├─ settings.gradle.kts
-├─ gradle/libs.versions.toml
-├─ build-logic/                          # 统一 KMP/Compose/Android Gradle 约定
+anime/
 ├─ app/
-│  ├─ androidApp/                        # Android Application、Activity、Manifest
-│  └─ iosApp/                            # Xcode 工程、Swift 入口、entitlements
+│  └─ android/                           # Android Application、Activity、Manifest
 ├─ shared/
-│  ├─ app/                               # AnimeApp、导航栈、根依赖装配
-│  ├─ core/
-│  │  ├─ common/                         # Result、Dispatcher、时间、日志接口
-│  │  ├─ model/                          # 纯 Kotlin 领域模型和值对象
-│  │  ├─ network/                        # Ktor、DTO、认证刷新、错误映射
-│  │  ├─ database/                       # SQLDelight schema、DAO、本地缓存
-│  │  ├─ datastore/                      # 设置、会话安全存储抽象
-│  │  ├─ designsystem/                   # Theme、Glass、通用 UI 组件
-│  │  ├─ navigation/                     # 类型安全目的地和导航状态
-│  │  └─ platform/                       # 平台服务接口及 actual 实现
-│  ├─ domain/                            # Repository 接口、Use Case、同步规则
-│  ├─ data/                              # Repository 实现、远端/本地协调
-│  └─ feature/
-│     ├─ home/
-│     ├─ search/
-│     ├─ subject/
-│     ├─ auth/
-│     ├─ collection/
-│     ├─ comments/
-│     └─ profile/
-└─ testing/
-   ├─ fixtures/                          # 固定 DTO/领域样本
-   └─ fakes/                             # Fake Repository、Clock、PlatformService
+│  └─ app/                               # AnimeApp、AppContainer、AppShell
+├─ core/
+│  ├─ common/                            # Result、Dispatcher、Clock、Logger、ID
+│  ├─ model/                             # 纯领域模型
+│  ├─ designsystem/                      # Token、Theme、Glass、公共组件
+│  ├─ navigation/                        # 路由、BackStack、Deep Link、AuthGate
+│  ├─ database/                          # SQLDelight
+│  ├─ network/                           # Ktor、DTO、认证、错误映射
+│  └─ testing/                           # Fake、FixtureLoader、测试 DSL
+├─ data/catalog|collection|comment|session|settings/
+├─ feature/discover|search|subject|collection|comment|profile|settings|diagnostics/
+├─ benchmark/                            # Macrobenchmark、Baseline Profile
+├─ fixtures/v1/                          # 确定性 Demo 数据
+├─ gradle/libs.versions.toml
+└─ build-logic/                          # Convention Plugins
 ```
 
-物理模块采用“核心能力分离、Feature 成组”的折中方案：`core`、`domain`、`data` 和 `app` 使用独立 Gradle 模块；MVP 的 Feature 可以先位于一个 `shared:feature` 模块内按 package 隔离。只有某个 Feature 的构建、依赖或多人并行需求成为实际问题时，才拆成独立 Gradle 模块。这样既给 Agent 明确边界，也避免一开始产生十几个空模块。
+上述每个叶子目录均为独立 Gradle 模块，Project Path 与目录一致。完整 Source Set、Namespace、变体和依赖规则以 `frontend/10-engineering-baseline.md` 为唯一实施合同。
 
 ### 8.2.1 Gradle 模块依赖方向
 
 ```mermaid
 flowchart TD
-    Android[androidApp] --> App[shared:app]
-    iOS[iosApp] --> App
-    App --> Feature[shared:feature]
-    App --> Data[shared:data]
-    Feature --> Domain[shared:domain]
+    Android[app:android] --> App[shared:app]
+    App --> Feature[feature:*]
+    App --> Data[data:*]
+    Feature --> Model[core:model]
     Feature --> DS[core:designsystem]
     Feature --> Nav[core:navigation]
-    Data --> Domain
+    Data --> Model
     Data --> Net[core:network]
     Data --> DB[core:database]
-    Data --> Store[core:datastore]
-    Domain --> Model[core:model]
     Net --> Common[core:common]
     DB --> Common
-    Store --> Common
-    DS --> Model
+    DS --> Common[core:common]
+    Nav --> Model
 ```
 
 强制规则：
 
-- `domain` 只能依赖 `core:model` 和 `core:common`；
-- `feature` 依赖 `domain`，不得直接依赖 Ktor、SQLDelight 或平台 SDK；
-- `data` 实现 `domain` 中的 Repository 接口；
+- `feature` 只依赖 Repository API、Model、Design System 和 Navigation，不得直接依赖 Ktor、SQLDelight 或平台 SDK；
+- `data:*` 实现本模块 API 中的 Repository 接口；
 - `app` 是 Composition Root，负责把真实实现注入 Feature；
-- `androidApp` 和 `iosApp` 不包含业务 Use Case；
+- `app:android` 不包含业务 Use Case；
 - Feature 之间不得直接调用，通过导航参数或共享 Use Case 协作；
 - CI 增加依赖边界检查，防止 Agent 通过“临时 import”破坏分层。
 
@@ -501,18 +488,18 @@ src/
 
 ### 8.2.3 命名空间
 
-正式根包在建项时使用 `com.<owner>.anime` 形式。逻辑命名固定为：
+正式根包固定为 `site.jokersh.anime`。逻辑命名固定为：
 
 ```text
-<root>.core.*
-<root>.domain.*
-<root>.data.*
-<root>.feature.home.*
-<root>.feature.subject.*
-<root>.app.*
+site.jokersh.anime.core.*
+site.jokersh.anime.domain.*
+site.jokersh.anime.data.*
+site.jokersh.anime.feature.discover.*
+site.jokersh.anime.feature.subject.*
+site.jokersh.anime.app.*
 ```
 
-项目名已经确认为 Anime；包名中的所有者标识和正式域名属于部署配置，不再作为产品需求待确认项。
+Demo 和 Dev 的 applicationId 分别追加 `.demo`、`.dev`，Prod 使用根 ID。模块、变体和完整版本基线见 `frontend/10-engineering-baseline.md`。
 
 ### 8.3 状态管理
 
@@ -649,17 +636,17 @@ DTO 不直接进入 Composable；UI Model 不写回数据库；映射函数必�
 
 ### 8.4.1 导航架构
 
-导航状态放在 `commonMain`，采用 Compose Multiplatform 支持的 Navigation 3/稳定等价方案；实际依赖版本在建项时锁定。目的地必须是可序列化的类型，不使用散落字符串：
+导航状态放在 `commonMain`，固定采用 Navigation 3 `1.1.1`。目的地必须是可序列化的类型，不使用散落字符串；完整路由和四根栈语义以 `frontend/11-runtime-architecture.md` 为准：
 
 ```kotlin
-sealed interface Destination {
-    data object Home : Destination
-    data object Search : Destination
-    data class SubjectDetail(val subjectId: Long) : Destination
-    data class Comments(val subjectId: Long) : Destination
-    data object Collections : Destination
-    data object Profile : Destination
-    data class OAuthResult(val ticket: String) : Destination
+sealed interface AppRoute {
+    data object Discover : AppRoute
+    data class Search(val query: String? = null) : AppRoute
+    data class Subject(val subjectId: Long) : AppRoute
+    data class Comments(val subjectId: Long) : AppRoute
+    data class Collection(val filter: CollectionStatus? = null) : AppRoute
+    data object Profile : AppRoute
+    data class OAuthResult(val ticket: String) : AppRoute
 }
 ```
 
@@ -756,13 +743,13 @@ sequenceDiagram
 
 | 数据 | 存储方式 | 策略 |
 |---|---|---|
-| 用户设置、主题、上次同步时间 | DataStore/跨平台设置抽象 | 小型键值数据 |
-| 动漫列表与详情缓存 | SQLDelight 2.x（版本在建项时锁定） | 带 `fetched_at` 和过期时间 |
-| 搜索历史 | 本地 SQLite | 最多 50 条，可清除 |
+| 用户设置、主题、上次同步时间 | SQLDelight `app_setting` 表 | 事务化小型键值数据，SettingsRepository 隔离存储细节 |
+| 动漫列表与详情缓存 | SQLDelight 2.3.2 | 带 `fetched_at` 和过期时间 |
+| 搜索历史 | 本地 SQLite | 最多 10 条，可逐项或全部清除 |
 | 访问/刷新令牌 | Android Keystore 支持的安全存储 | 不进入普通数据库和日志 |
 | 图片 | Coil 3 磁盘与内存缓存 | 设置总大小上限和清理入口 |
 
-SQLDelight 官方支持 Android 与 Native/iOS，并在编译期校验 schema、查询与迁移，因此本版选定 SQLDelight。Phase 0 仍需验证它与当前 Kotlin、Compose 和 iOS 目标的版本矩阵。DataStore 只承担偏好设置，不承担动漫离线数据库职责。
+SQLDelight 官方支持 Android 与 Native/iOS，并在编译期校验 schema、查询与迁移，因此本版选定 SQLDelight 2.3.2。缓存、偏好和 Outbox 可共享事务边界，但通过不同 Repository/API 隔离；不额外引入 DataStore。
 
 ### 8.6.1 客户端本地表
 
@@ -776,7 +763,7 @@ SQLDelight 官方支持 Android 与 Native/iOS，并在编译期校验 schema、
 | `cached_comment_page` | 最近访问短评页，可按容量淘汰 |
 | `my_collection` | 当前用户收藏的本地镜像 |
 | `pending_mutation` | App 到 Anime API 尚未确认的幂等写请求 |
-| `search_history` | 最多 50 条本地搜索历史 |
+| `search_history` | 最多 10 条本地搜索历史，可逐项或全部清除 |
 
 用户切换 Bangumi 账号时必须按 `anime_user_id` 隔离或清理用户表，避免两个账号看到彼此的收藏缓存。
 
@@ -901,7 +888,7 @@ sealed interface AppError {
 | 项目 | 设计 |
 |---|---|
 | minSdk | 26（Android 8.0，已确认） |
-| targetSdk / compileSdk | 建项时使用当前 Play 要求且经依赖验证的稳定 SDK |
+| targetSdk / compileSdk | 37 / 37；变更必须走依赖升级决策 |
 | UI | 单 Activity + Compose Multiplatform |
 | 语言 | Kotlin |
 | 架构入口 | `AnimeApplication` + `MainActivity` |
@@ -962,7 +949,7 @@ sequenceDiagram
 
 定义共享 `CredentialStore` 接口，Android actual 使用 Keystore 保护主密钥，再加密存储 token pair：
 
-- 禁止写入 DataStore 明文、SharedPreferences 明文或日志；
+- 禁止写入普通 SQL 表、SharedPreferences 明文或日志；
 - token 更新使用临时文件/事务式替换，避免进程崩溃留下半组凭据；
 - 设备锁屏策略变化、密钥失效或备份恢复导致解密失败时，清除会话并重新登录；
 - release 禁止 Android backup 导出认证凭据。
@@ -2286,15 +2273,15 @@ ADR 至少包含：背景、决定、候选方案、取舍、后果、验证方�
 
 ## 26. 文档完成定义
 
-本文档与 `docs/frontend/` 分册已经满足需求、总体设计和 CMP 前端开发基线条件：原待确认事项已全部确认，客户端、服务端、双端平台、同步、数据、接口、安全和部署边界均已定义；前端信息架构、设计 Token、组件、页面、异常状态、Fixture 契约、测试和并行开发路线已细化。
+本文档与 `docs/frontend/` 分册已经满足需求、总体设计和 CMP Android 实施基线条件：原待确认事项已全部确认；工程版本、模块边界、运行时架构、领域接口、逐 Feature 状态机、视觉 Token、确定性 Fixture、异常状态、测试标签、需求追踪和决策流程均已定义。
 
-进入编码时仍必须执行 Phase 0/F0，对 OAuth、Backdrop、Ktor、SQLDelight、Bangumi 和 Cloudflare 链路进行最小原型验证。Fixture 前端不需要等待全部服务端验证完成，但依赖版本和 Glass 降级必须先经客户端 Spike。验证不会自动改变本文档 **V1.2（前端开发基线）** 的状态；如验证导致架构改变，必须通过 ADR 和文档修订升级版本。
+进入编码时仍必须执行 Phase 0/F0，对 OAuth、Backdrop、Ktor、SQLDelight、Bangumi 和 Cloudflare 链路进行最小原型验证。Fixture 前端不需要等待全部服务端验证完成；验证的目的是确认已冻结基线，而不是由实现者自行选型。若结果要求改变架构，必须通过 ADR、需求追踪和文档修订升级 **V1.3**。
 
 ---
 
 ## 27. CMP 前端规范索引
 
-以下文件与本文共同构成规范性事实源。总体产品/架构与分册冲突时以本文为准；CMP 页面、组件、交互状态和前端执行细节以对应分册为准。
+以下文件与本文共同构成规范性事实源。冲突处理严格遵循 `frontend/00-specification-index.md` 的优先级：产品范围不得被实现细节暗改，已批准的前端实施合同也不得被本文件中的旧示例覆盖。
 
 | 分册 | 主要回答的问题 |
 |---|---|
@@ -2307,3 +2294,12 @@ ADR 至少包含：背景、决定、候选方案、取舍、后果、验证方�
 | [`frontend/07-demo-fixtures-and-contracts.md`](frontend/07-demo-fixtures-and-contracts.md) | Fixture、领域模型、Repository 和 Remote 替换边界 |
 | [`frontend/08-testing-and-acceptance.md`](frontend/08-testing-and-acceptance.md) | 截图、UI、无障碍、性能预算和 Definition of Done |
 | [`frontend/09-development-roadmap.md`](frontend/09-development-roadmap.md) | F0–F10、依赖关系、多 Agent 所有权与合并顺序 |
+| [`frontend/00-specification-index.md`](frontend/00-specification-index.md) | 文档优先级、术语、完成定义和无歧义实施规则 |
+| [`frontend/10-engineering-baseline.md`](frontend/10-engineering-baseline.md) | 固定工具链、依赖版本、模块、变体和构建门禁 |
+| [`frontend/11-runtime-architecture.md`](frontend/11-runtime-architecture.md) | AppContainer、UDF、导航、登录门禁、错误和同步运行时 |
+| [`frontend/12-domain-repository-contracts.md`](frontend/12-domain-repository-contracts.md) | 完整领域模型、Repository、缓存和写入语义 |
+| [`frontend/13-fixture-specification.md`](frontend/13-fixture-specification.md) | 固定数据目录、12 个条目、12 个故障场景和校验规则 |
+| [`frontend/14-compose-implementation-spec.md`](frontend/14-compose-implementation-spec.md) | Compose API、精确 Token、响应式、Glass、无障碍和性能 |
+| [`frontend/15-requirements-traceability.md`](frontend/15-requirements-traceability.md) | `FE-*` 需求到 Fixture、测试与合并门禁的追踪矩阵 |
+| [`frontend/16-decision-register.md`](frontend/16-decision-register.md) | 已批准、延后和否决的前端决策 |
+| [`frontend/features/`](frontend/features/) | Shell、发现、搜索、详情、收藏、评论、个人/设置/诊断逐 Feature 契约 |

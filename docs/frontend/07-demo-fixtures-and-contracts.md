@@ -1,169 +1,77 @@
-# Demo Fixture、领域模型与 Repository 契约
+# Demo Fixture 与数据契约总览
 
-## 1. 数据模式
+> 状态：V1.3 规范性导航页<br>
+> 注意：本页不重复定义模型或接口，避免与实施合同形成第二套签名。
 
-首个 Android 成果使用同一套 UI 和领域层，通过注入切换数据实现：
+## 1. 唯一实施来源
 
-```kotlin
-enum class DataMode { Fixture, Remote }
+| 内容 | 唯一规范 |
+|---|---|
+| 依赖、模块、BuildProfile、DataMode | `10-engineering-baseline.md` |
+| 状态流、AppContainer、错误、缓存与同步运行时 | `11-runtime-architecture.md` |
+| 领域模型、枚举、Repository 函数签名 | `12-domain-repository-contracts.md` |
+| Fixture 文件、条目、搜索结果和 12 个场景 | `13-fixture-specification.md` |
+| Feature 使用哪些状态和事件 | `features/` 对应契约 |
+| 合同测试和需求编号 | `15-requirements-traceability.md` |
 
-enum class DemoScenario {
-    Normal,
-    SlowNetwork,
-    Empty,
-    OfflineWithCache,
-    OfflineWithoutCache,
-    PartialFailure,
-    StaleData,
-    LoggedOut,
-    AuthExpired,
-    SyncPending,
-    SyncFailure,
-    SyncConflict,
-}
+任何代码示例、旧探讨文档或 Wiki 历史版本与上述文件不一致时，均以上述文件为准。
+
+## 2. 数据模式
+
+数据模式固定为 Fixture 和 Remote：
+
+- `demoDebug`：只允许 Fixture，任何真实网络请求使测试失败；
+- `devDebug`：默认 Remote，诊断面板可切换 Fixture；切换会重建 AppContainer，不在运行中的 Repository 偷换数据源；
+- `prodRelease`：只允许 Remote，编译产物不得包含 FixtureLoader、场景文件或诊断路由。
+
+UI、Reducer、UI Model 和路由不得读取 DataMode。差异只存在于 AppContainer 的实现装配和 BuildProfile 的非业务参数中。
+
+## 3. 数据边界
+
+```text
+Fixture JSON / Anime API / Bangumi Adapter
+                ↓
+        DTO + Source-specific validation
+                ↓
+        Local Entity / Transaction / TTL
+                ↓
+       Repository domain contract
+                ↓
+         UI Mapper → UiState → Screen
 ```
 
-建议构建配置为 `demoDebug`、`devDebug`、`prodRelease`。若 CMP 工程建立时不使用 Android Flavor，也必须提供等价的编译期 `BuildProfile`，确保诊断入口不会进入生产包。
+- Feature 不导入 DTO、SQLDelight 生成类型、Ktor、JSON 或平台 Context。
+- Domain 不含 Android/Compose/数据库/网络注解。
+- `SubjectId/EpisodeId/CharacterId/PersonId` 使用正 `Long`；服务端自有 ID 使用非空 String 值对象。
+- Bangumi 评分只读，`score=null,votes=0` 表示无评分；不得转换为本站评分。
+- 收藏使用 Wish、Watching、Completed、OnHold、Dropped，未收藏用 `null`。
+- 评论正文 1–300 Unicode code points，只允许一层回复。
 
-## 2. 领域模型最小集
+## 4. Fixture 原则
 
-```kotlin
-@JvmInline value class SubjectId(val value: Long)
-@JvmInline value class UserId(val value: String)
+Fixture Schema 固定为 `anime.fixture/v1`，时钟为 `2026-07-19T08:00:00Z`，种子为 `20260719`。数据必须可再分发、确定、可离线，不引用真实用户资料或受限制海报。12 个条目和 12 个场景的内容与顺序完全由 `13-fixture-specification.md` 定义。
 
-data class SubjectSummary(
-    val id: SubjectId,
-    val title: String,
-    val originalTitle: String?,
-    val poster: ImageRef?,
-    val year: Int?,
-    val type: SubjectType,
-    val rating: BangumiRating?,
-    val collection: CollectionSnapshot?,
-)
+Fixture 的错误不是临时 Mock：慢加载、陈旧缓存、离线、429、401、写入重试和冲突都必须走与 Remote 相同的领域错误和状态转换。
 
-data class BangumiRating(
-    val score: Double?,
-    val votes: Int,
-    val distribution: Map<Int, Int>,
-    val updatedAt: Instant?,
-)
+## 5. 本地写入
 
-data class SubjectDetail(
-    val summary: SubjectSummary,
-    val summaryText: String?,
-    val airDate: LocalDate?,
-    val totalEpisodes: Int?,
-    val tags: List<String>,
-    val episodes: List<Episode>,
-    val characters: List<CharacterCredit>,
-    val persons: List<PersonCredit>,
-    val relations: List<SubjectRelation>,
-)
+- 收藏与进度采用 optimistic local write + Outbox；
+- 同一条目的连续写入按领域合同折叠，不允许旧响应覆盖新意图；
+- 评论首发不做离线乐观发布，失败保留草稿；
+- 设置和 Demo 数据使用 SQLDelight，Token 只进入 SecureStorage；
+- 重置 Demo 需要确认，只清除 Demo 用户数据并恢复 happy 场景。
 
-enum class CollectionStatus { Wish, Watching, Completed, OnHold, Dropped }
-data class CollectionSnapshot(
-    val status: CollectionStatus,
-    val watchedEpisodes: Int,
-    val sync: SyncState,
-    val updatedAt: Instant,
-)
-```
+## 6. Remote 替换门禁
 
-还需定义 `Episode`、`CharacterCredit`、`PersonCredit`、`SubjectRelation`、`Comment`、`UserProfile`、`Page<T>`、`UiError`。DTO、数据库实体和领域模型分离，Feature 不直接依赖 Bangumi DTO。
+Remote 接入时不得更改 Composable、UiState 或公开 Repository API。Fake 和 Remote 必须运行同一组 `CT-*` 合同测试；只有当缓存、新鲜度、错误、取消、分页、写入和冲突语义全部一致时才能切换 Dev 默认数据源。
 
-## 3. Repository 接口
+允许 Remote 增加内部 DTO 字段或 API 适配；禁止将 HTTP 状态码、Bangumi 原始枚举、offset/cursor 字符串解释权或 token 生命周期泄漏到 Feature。
 
-```kotlin
-interface CatalogRepository {
-    fun observeDiscovery(): Flow<LoadState<DiscoveryFeed>>
-    fun observeSubject(id: SubjectId): Flow<LoadState<SubjectDetail>>
-    suspend fun refreshDiscovery(force: Boolean = false)
-    suspend fun refreshSubject(id: SubjectId, force: Boolean = false)
-}
+## 7. 完成条件
 
-interface SearchRepository {
-    fun observeHistory(): Flow<List<SearchHistoryItem>>
-    fun search(request: SearchRequest): Flow<Page<SubjectSummary>>
-    suspend fun clearHistory()
-}
-
-interface CollectionRepository {
-    fun observeCollections(status: CollectionStatus?): Flow<List<SubjectSummary>>
-    suspend fun setStatus(id: SubjectId, status: CollectionStatus?): MutationResult
-    suspend fun setProgress(id: SubjectId, watched: Int): MutationResult
-    fun observeSyncState(): Flow<SyncSummary>
-    suspend fun resolveConflict(id: SubjectId, choice: ConflictChoice)
-}
-
-interface CommentRepository {
-    fun comments(subjectId: SubjectId, cursor: String?): Flow<Page<Comment>>
-    suspend fun create(subjectId: SubjectId, text: String, spoiler: Boolean): Comment
-    suspend fun delete(commentId: String)
-}
-
-interface SessionRepository {
-    fun observeSession(): Flow<SessionState>
-    suspend fun beginLogin(returnTo: AppRoute)
-    suspend fun logout()
-}
-
-interface SettingsRepository {
-    fun observeSettings(): Flow<AppSettings>
-    suspend fun update(transform: (AppSettings) -> AppSettings)
-}
-```
-
-接口表达产品能力，不照抄 HTTP Endpoint。写操作返回本地接受结果与同步状态，禁止让页面等待远端成功后才更新。
-
-## 4. Fixture 数据规范
-
-Fixture 文件建议位于 `shared/src/commonMain/composeResources/files/fixtures/v1/`，版本化且只包含可再分发的测试素材或明确许可的远程 URL。每个数据文件带 `schemaVersion`，时间固定为相对 Demo 时钟，禁止调用系统当前时间导致截图漂移。
-
-```json
-{
-  "schemaVersion": 1,
-  "generatedAt": "2026-07-19T08:00:00Z",
-  "subjects": [
-    {
-      "id": 1001,
-      "title": "极长标题示例：用于验证两行截断与大字体布局",
-      "originalTitle": "レイアウト検証用の長い原題",
-      "year": 2026,
-      "type": "TV",
-      "rating": {
-        "score": 8.2,
-        "votes": 12345,
-        "distribution": { "10": 1200, "9": 2800, "8": 4300 }
-      }
-    }
-  ]
-}
-```
-
-Fixture 集必须覆盖：正常完整数据、无海报、无评分、零票、超长中/日/英文标题、未知章节总数、已完结、未开播、空简介、人物缺图、300 字短评、剧透、缓存过期和非法远程图片。
-
-## 5. 确定性场景控制器
-
-`DemoScenarioController` 通过 `StateFlow<DemoScenario>` 驱动 Fake Repository。每个场景有固定延迟与结果：Normal 120ms、SlowNetwork 2500ms；错误类型和失败 Section 固定。测试不得依赖随机数、真实网络或墙上时钟。
-
-切换场景时：取消旧请求 → 保留/清除缓存按场景定义 → 发出新状态。`OfflineWithCache` 保留固定旧数据，`PartialFailure` 固定让评分或人物 Section 失败，`SyncConflict` 生成明确的本地/远程两个版本。
-
-## 6. Demo 本地写入
-
-- 收藏、进度、短评和设置写入独立 Demo SQLDelight 数据库，应用重启后保留。
-- “重置 Demo”仅清除 Demo 数据库并重新导入 Fixture，需确认且不影响真实账户数据。
-- Fake 写操作采用与未来 Remote 相同的乐观更新和 Outbox 语义。
-- 可用 Ktor `MockEngine` 验证 DTO/HTTP 层，但页面测试优先直接注入 Fake Repository，避免把演示和传输协议耦合。
-
-## 7. Remote 接入约束
-
-后端开发开始后，Remote Repository 必须通过现有契约和同一套契约测试。允许新增字段，不允许为了 HTTP 结构把分页、错误码或 DTO 暴露给 UI。Bangumi 密钥和 OAuth 只存在受控适配层；客户端展示 `source = Bangumi`，但不直接假定第三方响应永远稳定。
-
-## 8. 契约验收
-
-- Fake 与 Remote 对 `Normal/Empty/Offline/Stale/Unauthorized/Conflict` 运行同一套行为测试。
-- 同一 Fixture 输入产生稳定排序、稳定 ID 和稳定截图。
-- Repository 流在取消订阅后停止无用工作；新搜索取消旧查询。
-- 领域层不存在 Android 类型、Compose 类型、JSON 注解或数据库注解。
-- 页面只依赖接口和 UI Model 映射器，切换 `DataMode` 无需修改 Composable。
+- `fixtureCheck` 验证 Schema、引用、枚举、摘要和 UTF-8；
+- Demo 断网可完成发现、搜索、详情、收藏、进度、评论和设置路径；
+- 12 个场景都能由诊断面板显式激活并由测试无动画复现；
+- Fake/Remote 合同测试使用同一测试工厂；
+- Prod Release 的依赖图和 APK 扫描证明不含 Fixture/Diagnostics；
+- Wiki 同步检查为零差异。

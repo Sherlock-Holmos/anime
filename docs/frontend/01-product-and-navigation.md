@@ -1,6 +1,6 @@
 # CMP 前端产品范围与导航规范
 
-> 状态：V1.2 规范性文档<br>
+> 状态：V1.3 规范性文档<br>
 > 适用范围：Android 优先的 Compose Multiplatform 客户端；iOS 后续复用<br>
 > 目标：先交付可安装、可浏览、可交互的 Fixture Demo，再接入真实后端
 
@@ -73,7 +73,7 @@ flowchart TD
 
 - 四个根页各自保留独立返回栈与滚动位置；切换 Tab 不重建页面状态。
 - Android 系统返回键先关闭弹层/键盘，再弹出子路由，最后在根页退出应用。
-- Deep Link `anime://subject/{id}` 和正式 HTTPS Link 解析为同一类型安全路由；非法或缺失 ID 进入可恢复错误页。
+- Deep Link 只接受已验证的 HTTPS `/subjects/{id}`；非法、非正数或缺失 ID 进入可恢复错误页，Prod 不注册自定义 `anime://` Scheme。
 - 页面进程恢复只保存轻量参数、筛选和草稿，不序列化大对象；内容从 Repository 恢复。
 - 底部导航在详情等沉浸式子页隐藏；返回根页后恢复。大屏可替换为 Navigation Rail，但路由不变。
 - 受保护操作通过 `AuthGate` 包装，不在各页面复制登录判断。

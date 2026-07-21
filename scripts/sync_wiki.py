@@ -27,6 +27,21 @@ FRONTEND_PAGE_SOURCES = {
     "21-Demo-Fixtures-and-Contracts.md": Path("docs/frontend/07-demo-fixtures-and-contracts.md"),
     "22-Frontend-Testing-and-Acceptance.md": Path("docs/frontend/08-testing-and-acceptance.md"),
     "23-Frontend-Development-Roadmap.md": Path("docs/frontend/09-development-roadmap.md"),
+    "24-Frontend-Specification-Index.md": Path("docs/frontend/00-specification-index.md"),
+    "25-Engineering-Baseline.md": Path("docs/frontend/10-engineering-baseline.md"),
+    "26-Runtime-Architecture.md": Path("docs/frontend/11-runtime-architecture.md"),
+    "27-Domain-and-Repository-Contracts.md": Path("docs/frontend/12-domain-repository-contracts.md"),
+    "28-Fixture-Specification.md": Path("docs/frontend/13-fixture-specification.md"),
+    "29-Compose-Implementation-Specification.md": Path("docs/frontend/14-compose-implementation-spec.md"),
+    "30-Requirements-Traceability.md": Path("docs/frontend/15-requirements-traceability.md"),
+    "31-Decision-Register.md": Path("docs/frontend/16-decision-register.md"),
+    "32-App-Shell-and-Auth-Contract.md": Path("docs/frontend/features/01-app-shell-and-auth.md"),
+    "33-Discover-Feature-Contract.md": Path("docs/frontend/features/02-discover.md"),
+    "34-Search-Feature-Contract.md": Path("docs/frontend/features/03-search.md"),
+    "35-Subject-Feature-Contract.md": Path("docs/frontend/features/04-subject.md"),
+    "36-Collection-Feature-Contract.md": Path("docs/frontend/features/05-collection.md"),
+    "37-Comment-Feature-Contract.md": Path("docs/frontend/features/06-comment.md"),
+    "38-Profile-Settings-Diagnostics-Contract.md": Path("docs/frontend/features/07-profile-settings-diagnostics.md"),
 }
 
 MANAGED_PAGE_NAMES = (
@@ -162,8 +177,8 @@ def build_home(documentation_hash: str) -> str:
 
 {page_banner("docs/（总体设计与前端规范受管集合）", documentation_hash)}
 
-> 文档版本：V1.2（前端开发基线）<br>
-> 编制日期：2026-07-19<br>
+> 文档版本：V1.3（CMP Android 无歧义实施基线）<br>
+> 编制日期：2026-07-21<br>
 > 当前开发阶段：F0 工程与技术验证
 
 ## 项目简介
@@ -219,7 +234,22 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 | [22-Frontend-Testing-and-Acceptance](22-Frontend-Testing-and-Acceptance) | 前端测试、性能预算和验收门禁 |
 | [23-Frontend-Development-Roadmap](23-Frontend-Development-Roadmap) | F0–F10 与多 Agent 协作边界 |
 | [99-References](99-References) | 官方资料与完成定义 |
-| [99-Complete-Design-Baseline](99-Complete-Design-Baseline) | 完整 V1.2 总体设计快照 |
+| [24-Frontend-Specification-Index](24-Frontend-Specification-Index) | 文档优先级、术语、完成定义与变更流程 |
+| [25-Engineering-Baseline](25-Engineering-Baseline) | 固定工具链、依赖、模块、变体与构建门禁 |
+| [26-Runtime-Architecture](26-Runtime-Architecture) | UDF、AppContainer、导航、登录门禁与同步运行时 |
+| [27-Domain-and-Repository-Contracts](27-Domain-and-Repository-Contracts) | 完整领域模型和 Repository 合同 |
+| [28-Fixture-Specification](28-Fixture-Specification) | 确定性数据、12 个条目与 12 个异常场景 |
+| [29-Compose-Implementation-Specification](29-Compose-Implementation-Specification) | Compose API、尺寸、Glass、无障碍与性能 |
+| [30-Requirements-Traceability](30-Requirements-Traceability) | 需求、场景、测试和合并门禁追踪 |
+| [31-Decision-Register](31-Decision-Register) | 已批准、延后和否决的前端决策 |
+| [32-App-Shell-and-Auth-Contract](32-App-Shell-and-Auth-Contract) | App Shell、四根栈与登录门禁 |
+| [33-Discover-Feature-Contract](33-Discover-Feature-Contract) | 发现 Feature 完整合同 |
+| [34-Search-Feature-Contract](34-Search-Feature-Contract) | 搜索 Feature 完整合同 |
+| [35-Subject-Feature-Contract](35-Subject-Feature-Contract) | 条目详情 Feature 完整合同 |
+| [36-Collection-Feature-Contract](36-Collection-Feature-Contract) | 收藏与同步 Feature 完整合同 |
+| [37-Comment-Feature-Contract](37-Comment-Feature-Contract) | 评论 Feature 完整合同 |
+| [38-Profile-Settings-Diagnostics-Contract](38-Profile-Settings-Diagnostics-Contract) | 个人、设置与诊断完整合同 |
+| [99-Complete-Design-Baseline](99-Complete-Design-Baseline) | 完整 V1.3 总体设计快照 |
 
 ## 维护原则
 
@@ -324,7 +354,7 @@ def sync_remote(remote: str, pages: dict[str, str], publish: bool) -> int:
         run_git("config", "user.name", "Anime Wiki Sync", cwd=checkout)
         run_git("config", "user.email", "wiki-sync@jokersh.site", cwd=checkout)
         run_git("add", "--", *MANAGED_PAGE_NAMES, cwd=checkout)
-        run_git("commit", "-m", f"docs: sync V1.2 frontend baseline ({documentation_hash[:12]})", cwd=checkout)
+        run_git("commit", "-m", f"docs: sync V1.3 CMP Android implementation baseline ({documentation_hash[:12]})", cwd=checkout)
         run_git("push", "origin", "HEAD", cwd=checkout)
         print("Wiki synchronization published.")
         return 0

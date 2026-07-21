@@ -25,15 +25,15 @@ flowchart LR
 
 | 阶段 | 主要交付 | 退出条件 |
 |---|---|---|
-| F0 工程与 Spike | CMP 模块、版本目录、CI；Backdrop/Ktor/SQLDelight 最小验证 | API 26+ 可运行，ADR 记录依赖和 Glass 降级 |
+| F0 工程与 Spike | 按 `10-engineering-baseline.md` 创建 CMP 模块、版本目录和 CI；验证 Backdrop/Ktor/SQLDelight | `demoDebug` 在 API 26+ 可运行，固定版本验证通过，Glass 自动降级可测 |
 | F1 Design System | Token、主题、基础组件、Glass Adapter、Preview Catalog | 深浅色/200% 字体/四级 Glass 可演示 |
-| F2 契约与 Fixture | 领域模型、Repository、Fixture DB、12 个 Demo 场景 | Fake 契约测试稳定，无真实网络 |
+| F2 契约与 Fixture | 按 `12`/`13` 实现领域模型、Repository、Fixture DB、12 个 Demo 场景 | `fixtureCheck` 和 Fake 合同测试稳定，无真实网络 |
 | F3 Shell 与导航 | 根导航、类型安全路由、状态恢复、AuthGate | 四根页切换与 Deep Link/返回测试通过 |
 | F4 发现 | Hero、分区、刷新、区块错误 | 正常/空/离线/局部错误可切换 |
-| F5 搜索 | 历史、建议、筛选、分页 | 取消旧请求、无结果和分页失败通过 |
+| F5 搜索 | 10 条历史、建议、类型/年份/状态筛选、游标分页 | generation 取消旧结果、无结果和分页失败通过 |
 | F6 详情 | Hero、评分、简介、章节、人物、关联 | Bangumi 评分只读，Section 独立降级 |
 | F7 收藏与进度 | 五状态、本地写、Pending/失败/冲突 | 重启保留、冲突处理闭环 |
-| F8 短评 | 列表、剧透、草稿、发布/删除 | 300 字、登录回跳、失败恢复通过 |
+| F8 短评 | 列表、一层回复、剧透、草稿、发布/删除 | 1–300 字、登录回跳、失败恢复通过 |
 | F9 我的/设置/诊断 | 会话概览、主题/Glass/动效、场景面板 | Release 不含诊断入口，系统偏好优先 |
 | F10 稳定化 | 全路径、截图、无障碍、性能、Demo APK | DoD 全绿，低端机自动降级达标 |
 
@@ -42,17 +42,18 @@ flowchart LR
 ## 3. 推荐模块边界
 
 ```text
-androidApp/                  Android 壳、构建变体
+app/android/                 Android 壳、构建变体
 shared/
   core/model                 纯领域模型
   core/common                Result、时钟、调度器
   core/designsystem          Token、主题、公共组件
   core/navigation            类型安全路由
-  core/database              SQLDelight、Fixture 导入
-  core/network               Ktor、DTO（F0 仅 Spike）
+  core/database              SQLDelight、迁移
+  core/network               Ktor、DTO
   data/catalog|collection|comment|session
-  feature/discover|search|subject|collection|comment|profile|settings
+  feature/discover|search|subject|collection|comment|profile|settings|diagnostics
   app                        AppContainer、Shell、组合根
+fixtures/v1/                 确定性 Demo 数据（实现 F2 时创建）
 ```
 
 依赖方向固定为 `app/feature → domain/repository interface → data implementation → platform adapter`。Feature 之间不直接依赖；共享展示模型若不足以进入 Design System，则置于独立 UI model 模块而非复制。
@@ -90,8 +91,9 @@ shared/
 
 ## 7. 开工清单
 
-- 先执行 F0 Spike 并新增 ADR：Kotlin/Compose、Navigation、Ktor、SQLDelight、DI、Backdrop 的实际版本。
+- 先按 `10-engineering-baseline.md` 执行 F0 验证；版本和 DI 已由 `FED-002`、`FED-005` 固定，不重新选型。
 - 创建模块与依赖守卫，建立 `demoDebug` 安装包。
 - 导入本规范 Token 和 Preview Catalog，再做业务页面。
-- 完成固定 Fixture 与 Demo 场景，确保开发和截图不依赖外网。
+- 按 `13-fixture-specification.md` 完成固定 Fixture 与 12 个 Demo 场景，确保开发和截图不依赖外网。
 - 以发现 → 搜索 → 详情为第一条纵向闭环，验收后再增加写操作。
+- 每个任务必须携带 `15-requirements-traceability.md` 中的需求 ID、场景和测试 ID。

@@ -5,7 +5,7 @@
 ## 文档
 
 - [完整设计基线](docs/anime项目完整详细设计文档.md)
-- [CMP 前端开发基线](docs/frontend/01-product-and-navigation.md)
+- [CMP Android 无歧义实施基线](docs/frontend/00-specification-index.md)
 - [文档维护与 Wiki 同步](docs/README.md)
 - [在线 Wiki](https://git.jokersh.site/Holmes/anime/wiki)
 

@@ -2,7 +2,7 @@
 
 ## 规范性事实源
 
-项目设计以 [`anime项目完整详细设计文档.md`](anime项目完整详细设计文档.md) 为总体基线，以 [`frontend/`](frontend/) 九份分册为 CMP 页面、组件、状态、Fixture 契约和验收基线。它们共同位于主仓库 `docs/`，接受同一套版本审查。根目录和 `docs/` 中名称包含“探讨”的文档是历史研究材料，不作为开发约束，除非结论已经合并到规范性文档。
+项目设计以 [`anime项目完整详细设计文档.md`](anime项目完整详细设计文档.md) 为总体基线，以 [`frontend/00-specification-index.md`](frontend/00-specification-index.md) 为 CMP Android 实施入口。`frontend/` 的产品、视觉、工程、运行时、领域、Fixture、追踪和逐 Feature 契约共同构成 V1.3 无歧义开发基线。它们位于主仓库 `docs/`，接受同一套版本审查。根目录和 `docs/` 中名称包含“探讨”的文档是历史研究材料，不作为开发约束，除非结论已经合并到规范性文档。
 
 Gitea Wiki 是面向阅读和导航的发布结果，不是第二个可编辑源。Wiki 页面顶部会包含源文件路径和 SHA-256，用于确认内容来自哪一版基线。
 
@@ -23,7 +23,7 @@ Gitea Wiki 是面向阅读和导航的发布结果，不是第二个可编辑源
 python scripts/sync_wiki.py
 ```
 
-生成结果位于 `build/wiki/`。脚本生成 26 个受管页面，只读取总体设计和 `docs/frontend/`，不读取历史探讨文档。
+生成结果位于 `build/wiki/`。脚本生成 41 个受管页面，只读取总体设计和 `docs/frontend/`，不读取历史探讨文档。
 
 ## 检查在线 Wiki 是否同步
 
@@ -94,6 +94,21 @@ WIKI_SYNC_TOKEN
 | 21 Demo Fixtures and Contracts | `frontend/07-demo-fixtures-and-contracts.md` |
 | 22 Frontend Testing and Acceptance | `frontend/08-testing-and-acceptance.md` |
 | 23 Frontend Development Roadmap | `frontend/09-development-roadmap.md` |
+| 24 Frontend Specification Index | `frontend/00-specification-index.md` |
+| 25 Engineering Baseline | `frontend/10-engineering-baseline.md` |
+| 26 Runtime Architecture | `frontend/11-runtime-architecture.md` |
+| 27 Domain and Repository Contracts | `frontend/12-domain-repository-contracts.md` |
+| 28 Fixture Specification | `frontend/13-fixture-specification.md` |
+| 29 Compose Implementation Specification | `frontend/14-compose-implementation-spec.md` |
+| 30 Requirements Traceability | `frontend/15-requirements-traceability.md` |
+| 31 Decision Register | `frontend/16-decision-register.md` |
+| 32 App Shell and Auth Contract | `frontend/features/01-app-shell-and-auth.md` |
+| 33 Discover Feature Contract | `frontend/features/02-discover.md` |
+| 34 Search Feature Contract | `frontend/features/03-search.md` |
+| 35 Subject Feature Contract | `frontend/features/04-subject.md` |
+| 36 Collection Feature Contract | `frontend/features/05-collection.md` |
+| 37 Comment Feature Contract | `frontend/features/06-comment.md` |
+| 38 Profile Settings Diagnostics Contract | `frontend/features/07-profile-settings-diagnostics.md` |
 | 99 References | 25–27 |
 | 99 Complete Design Baseline | 完整快照 |
 
