@@ -44,9 +44,9 @@ flowchart LR
 | 阶段 | 状态 | 已落地 | 退出前仍需完成 |
 |---|---|---|---|
 | F0 | 已完成 | 模块边界、固定版本、AppContainer、Demo/Dev/Prod 变体、资源打包守卫、真机冷启动 | 无 |
-| F1 | 进行中 | 语义 Token、基础按钮/标题/作品卡/评分/状态面板、四级 Glass 决策与组件目录、Kyant Backdrop 2.0.0 Android Adapter（API 26–30 Translucent、31–32 Blur、33+ Liquid）、固定上游提交的官方 `LiquidBottomTabs` Vendor、自有圆端导航图标 | 官方底栏真机手势回归、省电/低内存/减少透明度等动态能力注入、200% 字体和四级截图基线、完整组件目录 |
+| F1 | 进行中 | 语义 Token、基础按钮/标题/作品卡/评分/状态面板、四级 Glass 决策与组件目录、Kyant Backdrop 2.0.0 Android Adapter（API 26–30 Translucent、31–32 Blur、33+ Liquid）、固定上游提交的官方 `LiquidBottomTabs` Vendor、自有圆端导航图标；API 36 真机点击与拖动回归通过 | 省电/低内存/减少透明度等动态能力注入、200% 字体和四级截图基线、完整组件目录 |
 | F2 | 进行中 | 领域模型、六组 Repository 接口、`anime.fixture/v1` 数据、固定时钟/种子、12 场景、哈希与引用校验、FixtureLoader 场景状态、六组可复用 CT 测试基类；发现目录已增加确定性 `FixtureCatalogRepository` 并接入 Demo | 将当前发现目录记录改为直接解析 Fixture DTO，完成 SQLDelight 持久化；补齐场景激活、离线/SingleFlight/重启恢复等完整 CT 语义 |
-| F3 | 进行中 | 四根页 Shell、iOS-inspired 大标题与自有图标、官方 `LiquidBottomTabs` 拖动/形变/吸附、选中索引状态保存 | 真机手势回归、类型安全页面栈、Deep Link、系统返回、AuthGate 与导航自动化测试 |
+| F3 | 进行中 | 四根页 Shell、iOS-inspired 大标题与自有图标、官方 `LiquidBottomTabs` 拖动/形变/吸附、选中索引状态保存；适配层使用稳定状态 Provider，API 36 真机点击和“搜索→收藏”拖动切换通过 | 类型安全页面栈、Deep Link、系统返回、AuthGate 与导航自动化测试 |
 | F4 | 进行中 | `DiscoverRoute`、ViewModel、Reducer、UI Mapper 与 `CatalogRepository` 已形成单向数据流；Hero、4 个 Fixture 分区、继续观看横卡、Bangumi 只读评分、首次骨架、保留内容刷新、空/离线/阻断错误状态及稳定测试标签已落地 | 诊断面板驱动 12 场景、真实 Snackbar Host、Navigation 3 详情/分区路由、cold-slow/refresh-slow 截图与 Compose UI 测试 |
 
 状态表只记录实现事实，不改变各阶段原有退出条件。阶段只有在“退出前仍需完成”清空且对应门禁全绿后才能标记完成。
