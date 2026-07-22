@@ -2,7 +2,7 @@
 
 ## 1. 规范出口
 
-所有 Feature 只能使用 `core:designsystem` 暴露的 Token 和公共组件。Feature 中出现未命名的颜色、字号、圆角、阴影、动画时长或重复组件即为审查失败。Material 组件允许作为底层实现，但默认值必须被 Anime Theme 覆盖。
+所有 Feature 只能使用 `core:designsystem` 暴露的 Token 和公共组件。Feature 中出现未命名的颜色、字号、圆角、阴影、动画时长或重复组件即为审查失败。Material 组件允许作为底层实现与语义工具，但成品不得直接呈现 Material 默认导航栏、顶部栏、选中指示器、Ripple、Elevation 或形状。
 
 ## 2. Token 的 Kotlin 命名
 
@@ -47,6 +47,7 @@ object AnimeMotion {
 ```kotlin
 @Composable fun AnimeApp(...)
 @Composable fun AnimeScaffold(title: String?, navigationIcon: ..., actions: ..., content: ...)
+@Composable fun AnimeLiquidTabBar(labels: List<String>, selectedIndex: Int, onSelected: (Int) -> Unit, icon: ...)
 @Composable fun AnimePosterCard(model: SubjectCardUi, size: PosterCardSize, onClick: () -> Unit)
 @Composable fun AnimeCompactSubjectCard(model: SubjectCardUi, onClick: () -> Unit)
 @Composable fun AnimeRatingBadge(rating: BangumiRatingUi)
@@ -62,7 +63,7 @@ object AnimeMotion {
 
 ## 5. 图标和文案
 
-只使用 Material Symbols Rounded 或项目自有矢量资产。固定映射：Discover=`Explore`、Search=`Search`、Collection=`Bookmarks`、Profile=`Person`、Back=`ArrowBack`、More=`MoreVert`、Retry=`Refresh`、Offline=`CloudOff`、Pending=`Schedule`、Conflict=`SyncProblem`、Spoiler=`VisibilityOff`。
+只使用项目自有且许可允许 Android 发布的 iOS-inspired 矢量资产，保持 22dp 视觉盒、圆端线条和统一线宽；不得直接复制 SF Symbols，也不得以 Material Symbols 作为成品图标来源。语义映射固定为 Discover、Search、Collection、Profile、Back、More、Retry、Offline、Pending、Conflict、Spoiler，具体资产名由 Design System 统一维护。
 
 图标按钮必须同时有可本地化 contentDescription；纯装饰图标传 null。生产文案全部放在 `commonMain` 资源中，key 格式 `feature_element_state`，不允许在 Composable 中写用户可见裸字符串。首发资源必须包含 `zh-CN`，缺少其他语言时回退 `zh-CN`。
 
@@ -86,7 +87,7 @@ Coil 配置统一在 AppContainer：内存缓存 25% 可用内存上限，磁盘
 `AnimeGlassPanel` 是 Backdrop 的唯一入口，Feature 不直接依赖第三方 API。
 
 - AUTO 偏好由能力适配器解析为 `Liquid`、`Blur`、`Translucent` 或 `None`；Feature 不判断设备等级。
-- `Liquid`：模糊、受限折射和高光；每屏最多 1 处，仅 StaticHero/关键浮层。
+- `Liquid`：模糊、受限折射和高光；Compact 根 Tab Bar 是每屏主要 Liquid 区域，存在时 StaticHero 降为 Blur，避免玻璃嵌套与争抢层级。
 - `Blur`：实时背景模糊；每屏最多 2 处，不进入 Lazy item。
 - `Translucent`：半透明 surface + 1dp outline，无实时模糊。
 - `None`：不透明 surface；对比度必须独立达标。
@@ -96,7 +97,7 @@ Coil 配置统一在 AppContainer：内存缓存 25% 可用内存上限，磁盘
 
 ## 9. Insets、系统栏和键盘
 
-根 Scaffold 消费系统栏 Insets；子页面不得重复加 status/navigation bar padding。系统栏颜色透明，图标明暗随主题。IME Insets 由包含输入框的页面处理；底部 Sheet 必须保持主要按钮可见。横屏和手势导航下触控区域不得进入不可点击安全区。
+根布局消费系统栏 Insets；手机内容层延伸到悬浮 Tab Bar 下方，并额外保留可滚动到底的内容尾部空间。Tab Bar 自身消费 navigation bar safe inset，页面不得重复消费。系统栏颜色透明，图标明暗随主题。IME Insets 由包含输入框的页面处理；底部 Sheet 必须保持主要按钮可见。横屏和手势导航下触控区域不得进入不可点击安全区。
 
 ## 10. 可访问性
 

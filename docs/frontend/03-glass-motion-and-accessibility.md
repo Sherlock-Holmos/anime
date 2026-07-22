@@ -9,7 +9,7 @@
 | `None` | 不透明语义表面 | 省电、低端机、减少透明度 | 无 |
 | `Translucent` | 半透明色 + 高光边，无实时模糊 | 列表浮条、低成本容器 | `None` |
 | `Blur` | 背景模糊 + 色调 + 边框 | TopBar、BottomBar、Sheet | `Translucent` |
-| `Liquid` | Blur + 受限形变/折射/光泽 | Hero 聚焦或关键浮层 | `Blur` |
+| `Liquid` | Blur + 受限形变/折射/光泽 | 根 Tab Bar、Hero 聚焦或关键浮层 | `Blur` |
 
 业务代码只能使用角色：`TopBar`、`BottomBar`、`FloatingPanel`、`Dialog`、`StaticHero`，不能直接操纵第三方 Backdrop 参数。
 
@@ -19,8 +19,8 @@
 
 | Role | 首选 Tier | 模糊半径目标 | 容器不透明度 | 边框/高光 | 限制 |
 |---|---|---:|---:|---|---|
-| `TopBar` | Blur | 20dp | Light 72% / Dark 68% | 1dp, 28% | 滚动中禁止动态折射 |
-| `BottomBar` | Blur | 24dp | 76% / 72% | 顶边 1dp | 常驻仅一处 |
+| `TopBar` | Blur | 20dp | Light 72% / Dark 68% | 1dp, 28% | 默认透明，仅独立按钮组或滚动边缘使用玻璃 |
+| `BottomBar` | Liquid | 24dp | 64% / 58% | 环形高光 + 悬浮柔影 | 手机端圆角悬浮、内容从下方经过；每屏仅一处 |
 | `FloatingPanel` | Translucent/Blur | 16dp | 82% / 78% | 1dp | 不覆盖大段正文 |
 | `Dialog` | Blur | 28dp | 88% / 84% | 1dp + scrim | 可读性优先，可直接不透明 |
 | `StaticHero` | Liquid | 28dp | 58% / 54% | 柔和高光 | 每屏最多一处，不随列表复用 |
@@ -30,7 +30,7 @@ Tint 来自语义表面与海报主色的低饱和混合，海报色占比不得
 ## 3. 性能护栏
 
 - `LazyColumn`/`LazyGrid` 的每一项禁止使用实时 Blur、Lens 或持续 Shader 动画。
-- 一屏最多两个持续 Blur 区域、一个 Liquid 区域；Liquid 与长列表高速滚动不得同时运行复杂形变。
+- 一屏最多两个持续 Blur 区域、一个主要 Liquid 区域；根 Tab Bar 存在时，内容层不得再创建持续 Liquid，静态 Hero 自动降为 Blur。
 - 滚动速度超过阈值时冻结玻璃采样或降级为 `Translucent`；滚动停止 120ms 后恢复。
 - 低内存、系统省电、减少透明度、窗口后台或检测到连续慢帧时自动逐级降级。
 - Android API 26–30 最高 `Translucent`；API 31–32 最高 `Blur`；API 33+ 在未触发其他降级条件时最高 `Liquid`。该映射由 `androidMain` 的 Backdrop 适配器和版本边界测试固定。

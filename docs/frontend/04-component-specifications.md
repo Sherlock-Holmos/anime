@@ -21,8 +21,8 @@ data class ComponentUiState<T>(
 | 组件 | 结构与变体 | 必须覆盖状态 |
 |---|---|---|
 | `AnimeGlassSurface` | `role`, `preferredTier`, shape, content | Tier 四级、降级、深浅色 |
-| `AnimeTopBar` | 返回/标题/最多 2 个动作 | 默认、滚动折叠、离线标记 |
-| `AnimeBottomBar` | 4 个带文字目的地 | 选中、未选中、Badge、200% 字体 |
+| `AnimeTopBar` | 内容层大标题 + 最多 2 个独立悬浮玻璃动作；禁止全宽 Material 矩形栏 | 默认、滚动折叠、离线标记 |
+| `AnimeLiquidTabBar` | 4 个带文字目的地、圆角悬浮 Liquid Glass 容器；内容延伸到其下方 | 选中、未选中、Badge、200% 字体、四级 Glass 降级 |
 | `PrimaryButton` | 文字、可选 leading icon | normal/pressed/disabled/loading |
 | `SecondaryButton` | outline/tonal | normal/pressed/disabled |
 | `AnimeIconButton` | 48dp 点击区、24dp 图标 | normal/selected/disabled/loading |
@@ -32,6 +32,14 @@ data class ComponentUiState<T>(
 | `SectionHeader` | 标题、说明、可选“查看全部” | 无动作/有动作 |
 
 Loading 按钮保持原宽度，文字替换为 18dp 进度指示；不得因状态变化造成布局跳动。
+
+### 2.1 `AnimeLiquidTabBar`
+
+- Compact 宽度下距左右安全边 12–16dp，距底部安全区 8dp；主体高度 64dp，圆角为 full，不与屏幕左右/底边粘连。
+- 四个目的地等宽，图标 22dp、标签 11–12sp、点击区至少 48dp；选中态使用小范围 accent tint、图标字重和文字共同表达，不采用 Material 3 宽胶囊指示器。
+- Tab Bar 固定在功能层，页面内容必须绘制和滚动到其下方；Backdrop 采样实际内容层，不能只采样静态页面底色。
+- API 33+ 首选 `Liquid`，API 31–32 降为 `Blur`，API 26–30 降为 `Translucent`；降级不改变尺寸、位置和点击语义。
+- 不在 Liquid 容器内部嵌套第二层实时玻璃。选中反馈使用 tint/亮度和 100–160ms 轻微缩放；普通根导航不触发系统 Ripple。
 
 ## 3. 条目展示组件
 

@@ -38,9 +38,9 @@ public fun resolveGlassTier(
 
 public fun GlassRole.preferredTier(): GlassTier =
     when (this) {
-        GlassRole.TopBar, GlassRole.BottomBar, GlassRole.Dialog -> GlassTier.Blur
+        GlassRole.TopBar, GlassRole.Dialog -> GlassTier.Blur
         GlassRole.FloatingPanel -> GlassTier.Translucent
-        GlassRole.StaticHero -> GlassTier.Liquid
+        GlassRole.BottomBar, GlassRole.StaticHero -> GlassTier.Liquid
     }
 
 @Composable

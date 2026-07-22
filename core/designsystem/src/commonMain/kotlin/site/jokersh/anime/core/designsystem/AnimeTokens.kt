@@ -68,14 +68,14 @@ public val AnimeTypography: Typography =
     Typography(
         displayLarge =
             TextStyle(
-                fontSize = 32.sp,
-                lineHeight = 40.sp,
+                fontSize = 34.sp,
+                lineHeight = 41.sp,
                 fontWeight = FontWeight.Bold,
             ),
         headlineLarge =
             TextStyle(
-                fontSize = 24.sp,
-                lineHeight = 32.sp,
+                fontSize = 28.sp,
+                lineHeight = 34.sp,
                 fontWeight = FontWeight.Bold,
             ),
         titleLarge =

@@ -5,28 +5,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,8 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.DrawableResource
@@ -67,12 +59,11 @@ import site.jokersh.anime.app.generated.resources.root_profile
 import site.jokersh.anime.app.generated.resources.root_search
 import site.jokersh.anime.app.generated.resources.shell_environment
 import site.jokersh.anime.core.designsystem.AnimeBackdropHost
-import site.jokersh.anime.core.designsystem.AnimeGlassPanel
+import site.jokersh.anime.core.designsystem.AnimeLiquidTabBar
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.AnimeTheme
-import site.jokersh.anime.core.designsystem.GlassRole
 
 private enum class RootDestination(
     val label: StringResource,
@@ -86,96 +77,67 @@ private enum class RootDestination(
 
 @Composable
 fun AnimeApp(appContainer: AppContainer) {
+    var selectedIndex by rememberSaveable { mutableStateOf(0) }
+    val selectedRoot = RootDestination.entries[selectedIndex]
+
     AnimeTheme {
         AnimeBackdropHost(
             modifier = Modifier.fillMaxSize(),
             background = {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                    MaterialTheme.colorScheme.background,
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
-                                ),
-                            ),
-                        ),
+                AppContentLayer(
+                    destination = selectedRoot,
+                    profile = appContainer.profile,
                 )
             },
         ) {
-            AppShell(appContainer)
+            Box(modifier = Modifier.fillMaxSize()) {
+                val labels = RootDestination.entries.map { stringResource(it.label) }
+                AnimeLiquidTabBar(
+                    labels = labels,
+                    selectedIndex = selectedIndex,
+                    onSelected = { selectedIndex = it },
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(horizontal = AnimeSpacing.md)
+                            .padding(bottom = AnimeSpacing.sm)
+                            .fillMaxWidth(),
+                    icon = { index, _, tint ->
+                        Icon(
+                            painter = painterResource(RootDestination.entries[index].icon),
+                            contentDescription = null,
+                            tint = tint,
+                        )
+                    },
+                )
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppShell(appContainer: AppContainer) {
-    var selectedRoot by rememberSaveable { mutableStateOf(RootDestination.Discover) }
-
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            AnimeGlassPanel(
-                role = GlassRole.TopBar,
-                shape = RectangleShape,
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text(
-                                text = stringResource(Res.string.app_name),
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text =
-                                    stringResource(
-                                        Res.string.shell_environment,
-                                        appContainer.profile.environment.name,
-                                    ),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
+private fun AppContentLayer(
+    destination: RootDestination,
+    profile: BuildProfile,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.09f),
                         ),
-                )
-            }
-        },
-        bottomBar = {
-            AnimeGlassPanel(
-                role = GlassRole.BottomBar,
-                shape = RectangleShape,
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                NavigationBar(containerColor = Color.Transparent) {
-                    RootDestination.entries.forEach { destination ->
-                        NavigationBarItem(
-                            selected = selectedRoot == destination,
-                            onClick = { selectedRoot = destination },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(destination.icon),
-                                    contentDescription = null,
-                                )
-                            },
-                            label = { Text(stringResource(destination.label)) },
-                        )
-                    }
-                }
-            }
-        },
-    ) { contentPadding ->
+                    ),
+                ),
+    ) {
         F0Content(
-            destination = selectedRoot,
-            profile = appContainer.profile,
-            contentPadding = contentPadding,
+            destination = destination,
+            profile = profile,
         )
     }
 }
@@ -184,89 +146,114 @@ private fun AppShell(appContainer: AppContainer) {
 private fun F0Content(
     destination: RootDestination,
     profile: BuildProfile,
-    contentPadding: PaddingValues,
 ) {
-    Box(
+    Column(
         modifier =
             Modifier
                 .fillMaxSize()
-                .padding(contentPadding)
-                .padding(horizontal = AnimeSpacing.lg, vertical = AnimeSpacing.xxl),
-        contentAlignment = Alignment.TopCenter,
+                .verticalScroll(rememberScrollState())
+                .statusBarsPadding()
+                .padding(horizontal = AnimeSpacing.lg)
+                .padding(top = AnimeSpacing.lg, bottom = 132.dp),
+        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
+        Text(
+            text = stringResource(Res.string.app_name),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = stringResource(destination.label),
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.displayLarge,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = stringResource(Res.string.f0_description),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Card(
-                shape = RoundedCornerShape(AnimeRadius.card),
-                colors =
-                    CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
+            Surface(
+                shape = RoundedCornerShape(AnimeRadius.round),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
                 border =
                     BorderStroke(
-                        width = AnimeSize.border,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        AnimeSize.border,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
                     ),
             ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(AnimeSpacing.xl),
-                    verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.f0_status_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    ProfileRow(
-                        label = stringResource(Res.string.profile_data_mode),
-                        value = stringResource(profile.dataModePolicy.resource),
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ProfileRow(
-                        label = stringResource(Res.string.profile_page_size),
-                        value =
-                            stringResource(
-                                Res.string.profile_page_size_value,
-                                profile.searchPageSize,
-                            ),
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ProfileRow(
-                        label = stringResource(Res.string.profile_diagnostics),
-                        value =
-                            stringResource(
-                                if (profile.diagnosticsEnabled) {
-                                    Res.string.profile_diagnostics_enabled
-                                } else {
-                                    Res.string.profile_diagnostics_disabled
-                                },
-                            ),
-                    )
-                }
+                Text(
+                    text =
+                        stringResource(
+                            Res.string.shell_environment,
+                            profile.environment.name,
+                        ),
+                    modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.sm),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Spacer(Modifier.height(AnimeSpacing.sm))
-            Text(
-                text = stringResource(Res.string.f0_footer),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            DesignSystemCatalog()
         }
+        Text(
+            text = stringResource(Res.string.f0_description),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Surface(
+            shape = RoundedCornerShape(AnimeRadius.card),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+            border =
+                BorderStroke(
+                    width = AnimeSize.border,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
+                ),
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(AnimeSpacing.xl),
+                verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+            ) {
+                Text(
+                    text = stringResource(Res.string.f0_status_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                ProfileRow(
+                    label = stringResource(Res.string.profile_data_mode),
+                    value = stringResource(profile.dataModePolicy.resource),
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+                ProfileRow(
+                    label = stringResource(Res.string.profile_page_size),
+                    value =
+                        stringResource(
+                            Res.string.profile_page_size_value,
+                            profile.searchPageSize,
+                        ),
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+                ProfileRow(
+                    label = stringResource(Res.string.profile_diagnostics),
+                    value =
+                        stringResource(
+                            if (profile.diagnosticsEnabled) {
+                                Res.string.profile_diagnostics_enabled
+                            } else {
+                                Res.string.profile_diagnostics_disabled
+                            },
+                        ),
+                )
+            }
+        }
+        Spacer(Modifier.height(AnimeSpacing.sm))
+        Text(
+            text = stringResource(Res.string.f0_footer),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        DesignSystemCatalog()
     }
 }
 
