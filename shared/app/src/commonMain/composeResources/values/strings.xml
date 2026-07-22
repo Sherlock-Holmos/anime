@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Anime</string>
+    <string name="root_discover">发现</string>
+    <string name="root_search">搜索</string>
+    <string name="root_collection">收藏</string>
+    <string name="root_profile">我的</string>
+    <string name="shell_environment">CMP Android · %1$s</string>
+    <string name="f0_description">F0 工程骨架已就绪。业务状态与 Fixture 将按照对应 Feature 契约逐步接入。</string>
+    <string name="f0_status_title">实施基线</string>
+    <string name="profile_data_mode">数据策略</string>
+    <string name="profile_page_size">搜索分页</string>
+    <string name="profile_page_size_value">%1$d 条/页</string>
+    <string name="profile_diagnostics">诊断入口</string>
+    <string name="profile_diagnostics_enabled">启用</string>
+    <string name="profile_diagnostics_disabled">关闭</string>
+    <string name="data_mode_fixture">仅 Fixture</string>
+    <string name="data_mode_remote_fixture">远程数据，可切换 Fixture</string>
+    <string name="data_mode_remote">仅远程数据</string>
+    <string name="f0_footer">Bangumi 评分只读 · Android API 26+ · JVM 17</string>
+</resources>

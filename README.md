@@ -10,3 +10,28 @@
 - [在线 Wiki](https://git.jokersh.site/Holmes/anime/wiki)
 
 主仓库 `docs/` 中的总体设计与前端规范分册共同构成项目设计事实源。在线 Wiki 由同步脚本自动生成，不直接人工维护。
+
+## CMP Android 工程
+
+当前工程处于 F0：Android Application 位于 `app/android`，共享 Compose UI 位于 `shared/app`，其余 `core`、`data`、`feature` 模块按实施基线建立。现阶段只有可启动的 App Shell 和工程状态页，业务页面将在对应 Feature 契约下逐步实现。
+
+App Shell 已接入 Wiki 固定的语义色、排版、间距和圆角 Token，支持系统深浅色；所有用户可见文案和根导航图标均来自 `commonMain` 资源。`AppContainer` 在 Android 壳层创建后注入共享 UI，Feature 模块之间由构建任务阻止直接依赖。
+
+要求：JDK 17、Android SDK 37、Gradle Wrapper 9.5.0。首次使用前在未提交的 `local.properties` 中配置 Android SDK 路径。
+
+```powershell
+.\gradlew.bat :app:android:assembleDemoDebug
+.\gradlew.bat animeCheck
+```
+
+Demo APK 输出到 `app/android/build/outputs/apk/demo/debug/android-demo-debug.apk`。`animeCheck` 当前覆盖 ktlint、KMP host tests、Android unit tests、Lint、SQLDelight 迁移任务和模块依赖边界；Fixture、截图、设备和性能测试会在对应 F2/F1/F3/F10 阶段填充既有稳定任务。
+
+允许的应用变体：
+
+| Variant | applicationId | 数据策略 | 诊断 |
+|---|---|---|---:|
+| `demoDebug` | `site.jokersh.anime.demo` | Fixture only | 开启 |
+| `devDebug` | `site.jokersh.anime.dev` | Remote，可切 Fixture | 开启 |
+| `prodRelease` | `site.jokersh.anime` | Remote only | 关闭 |
+
+Dev/Prod 的 API 地址通过本机或 CI Gradle 属性 `ANIME_API_BASE_URL` 注入，不写入仓库。
