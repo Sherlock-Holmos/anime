@@ -7,4 +7,7 @@ kotlin {
         implementation(projects.core.common)
         implementation(projects.core.database)
     }
+    sourceSets.commonTest.dependencies {
+        implementation(projects.core.testing)
+    }
 }

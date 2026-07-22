@@ -10,8 +10,8 @@
 | 公共作品卡、评分、按钮和状态面板 | `core/designsystem/.../AnimeComponents.kt` | Android 编译、Demo Catalog | F1 进行中 |
 | Glass 能力与确定性降级 | `core/designsystem/.../AnimeGlass.kt` | `GlassTierTest` | F1 进行中；平台 Blur/Liquid Adapter 未完成 |
 | 领域模型与错误/资源状态 | `core/model/...` | `DomainValidationTest`、Android 编译 | 已落地 |
-| 六组 Repository 合同 | `data/catalog`、`data/collection`、`data/comment`、`data/session`、`data/settings` | Android 编译 | 接口已落地；CT 实现未完成 |
-| Fixture v1 | `fixtures/v1` | `fixtureCheck` | 数据、固定时钟/种子、12 场景和哈希已落地；运行时装载未完成 |
+| 六组 Repository 合同 | `data/catalog`、`data/collection`、`data/comment`、`data/session`、`data/settings` | Android 编译、各模块 `allTests` | 接口与可复用 CT 测试基类已落地；Remote 复用和完整异常/并发语义未完成 |
+| Fixture v1 | `fixtures/v1`、`core/testing/.../FixtureLoader.kt` | `fixtureCheck`、`FixtureLoaderTest` | 数据、固定时钟/种子、12 场景、哈希及原子场景切换已落地；完整数据映射和 SQLDelight 装载未完成 |
 | F1 可视目录 | `shared/app/.../DesignSystemCatalog.kt` | `assembleDemoDebug` | 已接入 Demo Shell |
 
 本表中的“进行中/未完成”是强制交付边界，不能因接口或静态数据已经存在而宣称对应阶段完成。

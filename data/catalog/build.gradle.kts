@@ -8,4 +8,7 @@ kotlin {
         implementation(projects.core.database)
         implementation(projects.core.network)
     }
+    sourceSets.commonTest.dependencies {
+        implementation(projects.core.testing)
+    }
 }
