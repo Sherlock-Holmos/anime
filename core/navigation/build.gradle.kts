@@ -11,4 +11,7 @@ kotlin {
         implementation(libs.savedstate)
         implementation(libs.kotlinx.serialization.json)
     }
+    sourceSets.commonTest.dependencies {
+        implementation(kotlin("test"))
+    }
 }

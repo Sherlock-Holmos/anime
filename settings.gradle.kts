@@ -2,6 +2,13 @@ pluginManagement {
     includeBuild("build-logic")
     repositories {
         google()
+        maven("https://maven.aliyun.com/repository/central") {
+            name = "AliyunCentralMirror"
+            content {
+                includeGroupByRegex("org\\.jetbrains\\.kotlin.*")
+                includeGroupByRegex("org\\.jetbrains\\.androidx.*")
+            }
+        }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -11,6 +18,13 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
+        maven("https://maven.aliyun.com/repository/central") {
+            name = "AliyunCentralMirror"
+            content {
+                includeGroupByRegex("org\\.jetbrains\\.kotlin.*")
+                includeGroupByRegex("org\\.jetbrains\\.androidx.*")
+            }
+        }
         mavenCentral()
     }
 }

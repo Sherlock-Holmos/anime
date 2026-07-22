@@ -28,6 +28,7 @@ import site.jokersh.anime.core.model.SubjectSummary
 import site.jokersh.anime.core.model.SubjectType
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -82,6 +83,18 @@ abstract class CatalogRepositoryContract {
             val after = repository.observeDiscovery().first().value
             assertEquals(catalogNow + 60.seconds, after?.generatedAt)
             assertEquals(before?.sections, after?.sections)
+        }
+
+    @Test
+    fun `CT-CAT-003 discovery subjects open as detail resources`() =
+        runTest {
+            val repository = createRepository()
+            val state = repository.observeSubject(SubjectId(1001)).first()
+
+            val detail = assertNotNull(state.value)
+            assertEquals(SubjectId(1001), detail.summary.id)
+            assertEquals("https://bangumi.tv/subject/1001", detail.sourceUrl)
+            assertEquals(null, state.error)
         }
 }
 

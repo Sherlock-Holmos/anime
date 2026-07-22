@@ -1,0 +1,105 @@
+package site.jokersh.anime.feature.subject
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import site.jokersh.anime.core.model.AiringStatus
+import site.jokersh.anime.core.model.AppError
+import site.jokersh.anime.core.model.RefreshPolicy
+import site.jokersh.anime.core.model.ResourceState
+import site.jokersh.anime.core.model.SubjectDetail
+import site.jokersh.anime.core.model.SubjectId
+import site.jokersh.anime.core.model.SubjectType
+import site.jokersh.anime.data.catalog.CatalogRepository
+
+public class SubjectViewModel(
+    private val subjectId: SubjectId,
+    private val repository: CatalogRepository,
+) : ViewModel() {
+    private val mutableState = MutableStateFlow(SubjectUiState())
+    private var refreshJob: Job? = null
+
+    public val state: StateFlow<SubjectUiState> = mutableState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            repository
+                .observeSubject(subjectId)
+                .catch { error ->
+                    if (error is CancellationException) throw error
+                    emit(ResourceState(null, null, false, AppError.Unknown("subject-observe")))
+                }.collect { resource ->
+                    mutableState.value =
+                        SubjectUiState(
+                            loading = resource.value == null && resource.error == null,
+                            refreshing = resource.refreshing,
+                            content = resource.value?.toUi(),
+                            error = resource.error,
+                        )
+                }
+        }
+        refresh(RefreshPolicy.IfMissing)
+    }
+
+    public fun retry() {
+        refresh(RefreshPolicy.Force)
+    }
+
+    private fun refresh(policy: RefreshPolicy) {
+        if (refreshJob?.isActive == true) return
+        refreshJob =
+            viewModelScope.launch {
+                val result = repository.refreshSubject(subjectId, policy)
+                if (result.isFailure && mutableState.value.content == null) {
+                    mutableState.update {
+                        it.copy(loading = false, error = AppError.Unknown("subject-refresh"))
+                    }
+                }
+            }
+    }
+}
+
+private fun SubjectDetail.toUi(): SubjectContentUi =
+    SubjectContentUi(
+        id = summary.id.value,
+        title = summary.title,
+        originalTitle = summary.originalTitle,
+        metadata =
+            listOfNotNull(
+                summary.year?.toString(),
+                summary.type.label,
+                summary.airingStatus.label,
+            ).joinToString(" · "),
+        status = summary.airingStatus.label,
+        score = summary.rating?.score?.toString(),
+        votes = summary.rating?.votes ?: 0,
+        episodeCount = totalEpisodes,
+        summary = summaryText.orEmpty(),
+        tags = tags.sortedBy { it.order }.map { it.name },
+    )
+
+private val SubjectType.label: String
+    get() =
+        when (this) {
+            SubjectType.Tv -> "TV"
+            SubjectType.Web -> "Web"
+            SubjectType.Ova -> "OVA"
+            SubjectType.Movie -> "剧场版"
+            SubjectType.Other -> "其他"
+        }
+
+private val AiringStatus.label: String
+    get() =
+        when (this) {
+            AiringStatus.Announced -> "未开播"
+            AiringStatus.Airing -> "连载中"
+            AiringStatus.Finished -> "已完结"
+            AiringStatus.Unknown -> "状态未知"
+        }

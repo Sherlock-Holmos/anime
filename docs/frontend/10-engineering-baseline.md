@@ -178,7 +178,7 @@ API URL、OAuth Client ID 和 Deep Link Host 通过未入库的本机属性/CI S
 
 ## 9. 版本目录与依赖验证
 
-所有版本集中在 `gradle/libs.versions.toml`；Build Logic 通过 Alias 使用。开启 Gradle Dependency Verification，校验和文件提交到 `gradle/verification-metadata.xml`。仓库只允许 `google()`、`mavenCentral()`、`gradlePluginPortal()`；新增 Maven 源必须 ADR，并使用 Content Filter。
+所有版本集中在 `gradle/libs.versions.toml`；Build Logic 通过 Alias 使用。开启 Gradle Dependency Verification，校验和文件提交到 `gradle/verification-metadata.xml`。规范源为 `google()`、`mavenCentral()`、`gradlePluginPortal()`；因当前网络访问 Maven Central 会收到 Cloudflare 403，按 `FED-020` 允许在它们之前使用阿里云 Maven Central 镜像，但 Content Filter 只能匹配 `org.jetbrains.kotlin*` 与 `org.jetbrains.androidx*`。增加其他源或扩大过滤范围必须新增 ADR。
 
 依赖升级流程：建立 `FED` → 修改单个依赖族 → `dependencies`/`dependencyInsight` 检查 → 全部单元/截图/设备测试 → 性能对比 → 更新基线与锁文件 → 独立合并。
 

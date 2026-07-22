@@ -73,4 +73,4 @@ TalkBack 卡片描述顺序：标题、播出状态、进度（若有）、Bangu
 - Demo 使用 `FixtureCatalogRepository`，首次加载延迟、强制刷新时间前进 60 秒以及固定分区顺序由 Repository 合同测试约束。
 - Screen 已覆盖 Loading、Content、Empty、Offline Banner 和 Blocking Error；Content 刷新期间不会清空列表，重复 Entered 和刷新连点由 ViewModel 单飞保护。
 - `continue` 分区会过滤非 Watching 条目并排在第一位，使用 264×112dp 横卡；无评分条目不显示评分，所有作品保留 Bangumi 来源说明和稳定语义标签。
-- 本阶段尚未把诊断场景面板连接到 Repository，也未接入 Navigation 3 详情路由和应用级 Snackbar Host；因此 FE-DIS-001..004 仍是“部分自动化覆盖”，不能标记为完整验收。
+- 作品点击已接入 Navigation 3 类型安全详情路由。本阶段尚未把诊断场景面板连接到 Repository，也未接入分区“查看全部”路由和应用级 Snackbar Host；因此 FE-DIS-001..004 仍是“部分自动化覆盖”，不能标记为完整验收。

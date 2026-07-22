@@ -31,6 +31,7 @@ kotlin {
         implementation(libs.compose.material3)
         implementation(libs.compose.resources)
         implementation(libs.compose.ui)
+        implementation(libs.lifecycle.viewmodel.navigation3)
     }
 }
 

@@ -18,6 +18,7 @@
     <string name="data_mode_remote_fixture">远程数据，可切换 Fixture</string>
     <string name="data_mode_remote">仅远程数据</string>
     <string name="f0_footer">Bangumi 评分只读 · Android API 26+ · JVM 17</string>
+    <string name="navigation_not_implemented">此页面尚未开放</string>
     <string name="f1_catalog_title">F1 组件目录</string>
     <string name="f1_catalog_description">公共组件已开始使用统一 Token、语义和确定性占位图。</string>
     <string name="f1_subject_primary">星海邮差</string>

@@ -25,6 +25,7 @@
 | FED-017 | 普通设置持久化使用 SQLDelight，不额外引入 DataStore | 保持 CMP 存储统一并允许设置与缓存事务化迁移 | Token 仍只能进入 SecureStorage |
 | FED-018 | 成品采用 iOS 26-inspired Liquid Glass 设计语言，Android 不以 Material 3 为视觉目标 | 用户要求 Android 优先但跨端视觉统一、强调高质量液态玻璃与内容沉浸 | Material 只作底层；导航、顶部层、图标、动效和表面必须由 Anime Design System 定义 |
 | FED-019 | 根底栏固定复用 Kyant 官方 `LiquidBottomTabs` 示例源码 | 官方 Maven 库明确不包含高层组件；隔离 Vendor 可保留 CMP 官方交互并避免 Anime 自行实现 | 固定 `bebb11a9...`；Vendor 文件不做定制，携带 Apache-2.0 License，更新必须整体替换和真机回归 |
+| FED-020 | Maven Central 受 Cloudflare 403 阻断时使用带 Content Filter 的阿里云 Central 镜像 | Kotlin 编译插件和 CMP AndroidX 属于可重复构建必需依赖，当前开发网络无法直接取得；镜像内容与 Central 坐标一致 | 镜像只允许 `org.jetbrains.kotlin*`、`org.jetbrains.androidx*`，仍保留固定版本与依赖校验；不得借此引入额外仓库或扩大依赖面 |
 
 ## 2. 性能降级判定
 

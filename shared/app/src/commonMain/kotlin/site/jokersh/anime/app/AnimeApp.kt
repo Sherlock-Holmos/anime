@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,6 +32,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
@@ -47,6 +56,7 @@ import site.jokersh.anime.app.generated.resources.ic_bookmarks
 import site.jokersh.anime.app.generated.resources.ic_explore
 import site.jokersh.anime.app.generated.resources.ic_person
 import site.jokersh.anime.app.generated.resources.ic_search
+import site.jokersh.anime.app.generated.resources.navigation_not_implemented
 import site.jokersh.anime.app.generated.resources.profile_data_mode
 import site.jokersh.anime.app.generated.resources.profile_diagnostics
 import site.jokersh.anime.app.generated.resources.profile_diagnostics_disabled
@@ -64,62 +74,99 @@ import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.AnimeTheme
+import site.jokersh.anime.core.navigation.AppNavigationSavedStateConfiguration
+import site.jokersh.anime.core.navigation.AppNavigator
+import site.jokersh.anime.core.navigation.AppRoot
+import site.jokersh.anime.core.navigation.AppRoute
+import site.jokersh.anime.core.navigation.RouteOrigin
+import site.jokersh.anime.core.navigation.root
 import site.jokersh.anime.feature.discover.DiscoverRoute
+import site.jokersh.anime.feature.subject.SubjectRoute
 
 private enum class RootDestination(
+    val root: AppRoot,
     val label: StringResource,
     val icon: DrawableResource,
 ) {
-    Discover(Res.string.root_discover, Res.drawable.ic_explore),
-    Search(Res.string.root_search, Res.drawable.ic_search),
-    Collection(Res.string.root_collection, Res.drawable.ic_bookmarks),
-    Profile(Res.string.root_profile, Res.drawable.ic_person),
+    Discover(AppRoot.Discover, Res.string.root_discover, Res.drawable.ic_explore),
+    Search(AppRoot.Search, Res.string.root_search, Res.drawable.ic_search),
+    Collection(AppRoot.Collection, Res.string.root_collection, Res.drawable.ic_bookmarks),
+    Profile(AppRoot.Profile, Res.string.root_profile, Res.drawable.ic_person),
 }
 
 @Composable
 fun AnimeApp(appContainer: AppContainer) {
     var selectedIndex by rememberSaveable { mutableStateOf(0) }
-    val selectedRoot = RootDestination.entries[selectedIndex]
+    val selectedDestination = RootDestination.entries[selectedIndex]
+    val discoverBackStack =
+        rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Discover)
+    val searchBackStack =
+        rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Search())
+    val collectionBackStack =
+        rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Collection())
+    val profileBackStack =
+        rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Profile)
+    val backStacks =
+        remember(discoverBackStack, searchBackStack, collectionBackStack, profileBackStack) {
+            mapOf(
+                AppRoot.Discover to discoverBackStack,
+                AppRoot.Search to searchBackStack,
+                AppRoot.Collection to collectionBackStack,
+                AppRoot.Profile to profileBackStack,
+            )
+        }
+    val navigator =
+        AppNavigator(
+            currentRoot = { RootDestination.entries[selectedIndex].root },
+            updateRoot = { root -> selectedIndex = RootDestination.entries.indexOfFirst { it.root == root } },
+            stackFor = backStacks::getValue,
+        )
+    val activeBackStack = backStacks.getValue(selectedDestination.root)
+    val showBottomBar = (activeBackStack.lastOrNull() as? AppRoute)?.root != null
 
     AnimeTheme {
         AnimeBackdropHost(
             modifier = Modifier.fillMaxSize(),
             background = {
-                AppContentLayer(
-                    destination = selectedRoot,
+                AppNavigationLayer(
+                    backStack = activeBackStack,
+                    navigator = navigator,
                     appContainer = appContainer,
                 )
             },
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                val labels = RootDestination.entries.map { stringResource(it.label) }
-                AnimeLiquidTabBar(
-                    labels = labels,
-                    selectedIndex = selectedIndex,
-                    onSelected = { selectedIndex = it },
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .navigationBarsPadding()
-                            .padding(horizontal = AnimeSpacing.md)
-                            .padding(bottom = AnimeSpacing.sm)
-                            .fillMaxWidth(),
-                    icon = { index, _, tint ->
-                        Icon(
-                            painter = painterResource(RootDestination.entries[index].icon),
-                            contentDescription = null,
-                            tint = tint,
-                        )
-                    },
-                )
+                if (showBottomBar) {
+                    val labels = RootDestination.entries.map { stringResource(it.label) }
+                    AnimeLiquidTabBar(
+                        labels = labels,
+                        selectedIndex = selectedIndex,
+                        onSelected = { index -> navigator.selectRoot(RootDestination.entries[index].root) },
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .navigationBarsPadding()
+                                .padding(horizontal = AnimeSpacing.md)
+                                .padding(bottom = AnimeSpacing.sm)
+                                .fillMaxWidth(),
+                        icon = { index, _, tint ->
+                            Icon(
+                                painter = painterResource(RootDestination.entries[index].icon),
+                                contentDescription = null,
+                                tint = tint,
+                            )
+                        },
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun AppContentLayer(
-    destination: RootDestination,
+private fun AppNavigationLayer(
+    backStack: NavBackStack<NavKey>,
+    navigator: AppNavigator,
     appContainer: AppContainer,
 ) {
     Box(
@@ -136,20 +183,60 @@ private fun AppContentLayer(
                     ),
                 ),
     ) {
-        if (destination == RootDestination.Discover) {
-            DiscoverRoute(
-                repository = appContainer.catalogRepository,
-                onSubjectClick = {},
-                onSeeAll = {},
-                onMessage = {},
-                modifier = Modifier.statusBarsPadding(),
-            )
-        } else {
-            F0Content(
-                destination = destination,
-                profile = appContainer.profile,
-            )
-        }
+        NavDisplay(
+            backStack = backStack,
+            modifier = Modifier.fillMaxSize(),
+            entryDecorators =
+                listOf(
+                    rememberSaveableStateHolderNavEntryDecorator(),
+                    rememberViewModelStoreNavEntryDecorator(),
+                ),
+            onBack = { navigator.pop() },
+            entryProvider =
+                entryProvider(
+                    fallback = { key ->
+                        NavEntry(key) {
+                            Text(
+                                text = stringResource(Res.string.navigation_not_implemented),
+                                modifier = Modifier.statusBarsPadding().padding(AnimeSpacing.xl),
+                            )
+                        }
+                    },
+                ) {
+                    entry<AppRoute.Discover> {
+                        DiscoverRoute(
+                            repository = appContainer.catalogRepository,
+                            onSubjectClick = { subjectId ->
+                                navigator.push(
+                                    AppRoute.Subject(
+                                        subjectId = subjectId.value,
+                                        origin = RouteOrigin.Discover,
+                                    ),
+                                )
+                            },
+                            onSeeAll = {},
+                            onMessage = {},
+                            modifier = Modifier.statusBarsPadding(),
+                        )
+                    }
+                    entry<AppRoute.Search> {
+                        F0Content(RootDestination.Search, appContainer.profile)
+                    }
+                    entry<AppRoute.Collection> {
+                        F0Content(RootDestination.Collection, appContainer.profile)
+                    }
+                    entry<AppRoute.Profile> {
+                        F0Content(RootDestination.Profile, appContainer.profile)
+                    }
+                    entry<AppRoute.Subject> { route ->
+                        SubjectRoute(
+                            subjectId = route.subjectId,
+                            repository = appContainer.catalogRepository,
+                            onBack = { navigator.pop() },
+                        )
+                    }
+                },
+        )
     }
 }
 

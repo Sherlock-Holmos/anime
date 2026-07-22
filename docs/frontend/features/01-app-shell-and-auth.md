@@ -31,7 +31,7 @@ sealed interface AppShellIntent {
 
 - 根目的地固定为 Discover、Search、Collection、Profile，各持有独立 back stack。
 - 再次点击当前根目的地：若不在根页面，pop 到根；已在根时滚动到顶部并按 TTL 决定是否刷新。
-- Android Back：先关闭对话框/Sheet，再 pop 当前栈；当前栈在根且不是 Discover 时切回 Discover；Discover 根再次返回才交给系统退出。
+- Android Back：先关闭对话框/Sheet，再 pop 当前栈；任一根页没有子路由时直接交给系统退出。
 - Deep link 路由先完成 Boot，再入栈；同一路由参数完全一致时只保留最顶一个实例。
 - Collection/Profile 根页允许匿名进入，但显示登录引导，不自动弹登录。
 
@@ -59,3 +59,10 @@ sealed interface AppShellIntent {
 - FE-OFF-001：离线缓存可用时内容不被全屏错误替换。
 
 TalkBack 先读页面标题和离线状态，再读内容；底部入口使用“发现，标签 1/4”一类状态描述，选中状态不可只依靠颜色。
+
+## 7. 当前实现边界（2026-07-22）
+
+- `core:navigation` 已实现 `@Serializable AppRoute`、`RouteOrigin`、四个根路由和唯一可变入口 `AppNavigator`；路由只保存轻量参数。
+- App Shell 使用四个 `rememberNavBackStack`，各自保存并恢复页面栈；Navigation 3 BackStack 是唯一事实源，NavEntry 同时具备 Saveable State 与独立 ViewModelStore。
+- 发现卡片已通过 `AppRoute.Subject(subjectId, Discover)` 打开所属根栈内的详情页；详情页隐藏官方液态底栏，页面返回和 Android 系统返回均 pop 同一栈。
+- 当前自动化覆盖 `push/pop/popToRoot` 与四栈隔离。Deep Link、AuthGate、浮层优先级、重复点击当前根页回顶以及设备级 UI-NAV 测试仍未完成，因此 F3 尚未通过完整退出门禁。

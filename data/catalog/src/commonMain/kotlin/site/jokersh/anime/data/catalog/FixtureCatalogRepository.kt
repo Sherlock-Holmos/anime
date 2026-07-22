@@ -29,6 +29,7 @@ import site.jokersh.anime.core.model.SubjectSummary
 import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.core.model.SyncPhase
 import site.jokersh.anime.core.model.SyncState
+import site.jokersh.anime.core.model.Tag
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
@@ -60,7 +61,11 @@ public class FixtureCatalogRepository(
     override fun observeDiscovery(): Flow<ResourceState<DiscoveryFeed>> = mutableDiscovery.asStateFlow()
 
     override fun observeSubject(id: SubjectId): Flow<ResourceState<SubjectDetail>> =
-        MutableStateFlow(notFound(ResourceKind.Subject))
+        MutableStateFlow(
+            fixtureSubjects[id.value]
+                ?.let(::subjectResource)
+                ?: notFound(ResourceKind.Subject),
+        )
 
     override fun observeEpisodes(id: SubjectId): Flow<ResourceState<List<Episode>>> = MutableStateFlow(emptyResource())
 
@@ -208,6 +213,42 @@ private fun discoveryResource(now: Instant): ResourceState<DiscoveryFeed> =
         freshness = Freshness(FreshnessKind.Fresh, now),
         refreshing = false,
         error = null,
+    )
+
+private fun subjectResource(subject: SubjectSummary): ResourceState<SubjectDetail> {
+    val record = requireNotNull(fixtureRecords.firstOrNull { it.id == subject.id.value })
+    return ResourceState(
+        value =
+            SubjectDetail(
+                summary = subject,
+                summaryText =
+                    fixtureSummaries[subject.id.value]
+                        ?: "一部仍在持续完善资料的动画作品。当前页面使用本地 Fixture 验证详情浏览流程。",
+                airDate = null,
+                endDate = null,
+                totalEpisodes = record.totalEpisodes,
+                tags =
+                    listOf(
+                        Tag(subject.type.name.uppercase(), 0),
+                        Tag(if (subject.airingStatus == AiringStatus.Airing) "连载中" else "动画", 1),
+                        Tag("Bangumi", 2),
+                    ),
+                backdrop = null,
+                sourceUrl = "https://bangumi.tv/subject/${subject.id.value}",
+                dataUpdatedAt = FIXTURE_NOW,
+            ),
+        freshness = fresh(),
+        refreshing = false,
+        error = null,
+    )
+}
+
+private val fixtureSummaries: Map<Long, String> =
+    mapOf(
+        1001L to "星海之间的邮路重新开启，一名见习邮差带着未能寄出的信，踏上跨越群星的旅程。",
+        1002L to "雨季笼罩城市，散落在旧街区里的记忆被一页页重新拼起。",
+        1003L to "被遗忘的玻璃温室里，四季与时间以不同的速度流动。",
+        1006L to "以月光为能源的实验城市即将停摆，一群学生决定完成最后一次发射。",
     )
 
 private fun fresh(): Freshness = Freshness(FreshnessKind.Fresh, FIXTURE_NOW)
