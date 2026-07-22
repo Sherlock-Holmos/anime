@@ -31,7 +31,7 @@ Effect 只有 `NavigateToSubject(id)`、`NavigateToSection(id)` 和 `ShowMessage
 
 | 当前状态 + 事件 | 结果 |
 |---|---|
-| 初次进入 + 无缓存 | Loading，调用 `observeDiscover(false)` |
+| 初次进入 + 无缓存 | 订阅 `observeDiscovery()`，Loading，并调用 `refreshDiscovery(IfMissing)` |
 | 初次进入 + 有缓存 | 立即 Content；陈旧时后台刷新 |
 | Content + Refresh | 保留列表、`isRefreshing=true`，调用 forceRefresh |
 | Loading + 失败 | Blocking Error，可重试 |
@@ -66,3 +66,11 @@ Skeleton 与真实内容共用尺寸：标题 96×20dp、5 张 132×198dp 卡片
 - FE-DIS-004：无海报、无评分、长标题均不破坏卡片对齐。
 
 TalkBack 卡片描述顺序：标题、播出状态、进度（若有）、Bangumi 分数与人数（若有）；海报作为装饰图不重复朗读。
+
+## 7. 当前实现边界（2026-07-22）
+
+- `DiscoverRoute → DiscoverViewModel → DiscoverReducer/DiscoverUiMapper → CatalogRepository` 已接通，Composable 不再构造 Fixture 数据。
+- Demo 使用 `FixtureCatalogRepository`，首次加载延迟、强制刷新时间前进 60 秒以及固定分区顺序由 Repository 合同测试约束。
+- Screen 已覆盖 Loading、Content、Empty、Offline Banner 和 Blocking Error；Content 刷新期间不会清空列表，重复 Entered 和刷新连点由 ViewModel 单飞保护。
+- `continue` 分区会过滤非 Watching 条目并排在第一位，使用 264×112dp 横卡；无评分条目不显示评分，所有作品保留 Bangumi 来源说明和稳定语义标签。
+- 本阶段尚未把诊断场景面板连接到 Repository，也未接入 Navigation 3 详情路由和应用级 Snackbar Host；因此 FE-DIS-001..004 仍是“部分自动化覆盖”，不能标记为完整验收。

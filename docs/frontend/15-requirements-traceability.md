@@ -10,10 +10,10 @@
 | 公共作品卡、评分、按钮和状态面板 | `core/designsystem/.../AnimeComponents.kt` | Android 编译、Demo Catalog | F1 进行中 |
 | Glass 能力与确定性降级 | `core/designsystem/.../AnimeGlass.kt`、`PlatformGlass.kt`、`PlatformGlass.android.kt` | `GlassTierTest`、`PlatformGlassTest`、Android 编译 | Kyant Backdrop 2.0.0 Android Adapter 已落地；动态省电/低内存/用户设置能力注入及四级截图仍属于 F1 |
 | iOS 26-inspired App Shell 与根导航 | `core/vendor/kyant-liquid-tabs`、`core/designsystem/.../AnimeNavigation.kt`、`PlatformGlass.android.kt`、`shared/app/.../AnimeApp.kt`、`composeResources/drawable/ic_*.xml` | Vendor 与上游文本一致性检查、Android 编译、`assembleDemoDebug`、API 36 冷启动 | 根底栏改为固定上游提交的官方 `LiquidBottomTabs`；Anime 仅保留语义和导航适配。设备锁屏导致本轮截图/手势仍需人工回归；200% 字体及四级 Glass 黄金图仍属于 F1 |
-| 发现页首屏纵向切片 | `feature/discover/.../DiscoverScreen.kt`、`shared/app/.../AnimeApp.kt` | Android 编译、`assembleDemoDebug`、API 36 真机截图与冷启动 | Hero、Bangumi 只读评分、热播/高分横向分区已落地；当前使用确定性 UI Fixture，刷新、状态矩阵、Repository 映射与详情导航仍属于 F4 |
+| 发现页 Repository 纵向切片 | `data/catalog/.../FixtureCatalogRepository.kt`、`feature/discover/.../DiscoverRoute.kt`、`DiscoverViewModel.kt`、`DiscoverReducer.kt`、`DiscoverUiMapper.kt`、`DiscoverScreen.kt`、`shared/app/.../AppContainer.kt` | `FixtureCatalogRepositoryContractTest`、`DiscoverReducerTest`、`animeCheck`、`assembleDemoDebug` | Demo 已移除页面内静态 Fixture，改由正式 `CatalogRepository` 状态流驱动；首次骨架、保留内容刷新、空/离线/阻断错误 UI、4 分区与继续观看横卡已落地。Fixture 当前为领域记录映射，JSON DTO 直读/SQLDelight、场景面板、Snackbar、详情导航和 Compose UI/截图测试仍属于 F2/F4 |
 | 领域模型与错误/资源状态 | `core/model/...` | `DomainValidationTest`、Android 编译 | 已落地 |
 | 六组 Repository 合同 | `data/catalog`、`data/collection`、`data/comment`、`data/session`、`data/settings` | Android 编译、各模块 `allTests` | 接口与可复用 CT 测试基类已落地；Remote 复用和完整异常/并发语义未完成 |
-| Fixture v1 | `fixtures/v1`、`core/testing/.../FixtureLoader.kt` | `fixtureCheck`、`FixtureLoaderTest` | 数据、固定时钟/种子、12 场景、哈希及原子场景切换已落地；完整数据映射和 SQLDelight 装载未完成 |
+| Fixture v1 | `fixtures/v1`、`core/testing/.../FixtureLoader.kt`、`data/catalog/.../FixtureCatalogRepository.kt` | `fixtureCheck`、`FixtureLoaderTest`、`FixtureCatalogRepositoryContractTest` | 数据、固定时钟/种子、12 场景、哈希及原子场景切换已落地；发现目录的确定性领域映射已接入 Demo，完整 JSON DTO 映射、场景行为和 SQLDelight 装载未完成 |
 | F1 可视目录 | `shared/app/.../DesignSystemCatalog.kt` | `assembleDemoDebug` | 已接入 Demo Shell |
 
 本表中的“进行中/未完成”是强制交付边界，不能因接口或静态数据已经存在而宣称对应阶段完成。

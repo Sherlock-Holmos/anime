@@ -64,8 +64,7 @@ import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.AnimeTheme
-import site.jokersh.anime.feature.discover.DiscoverScreen
-import site.jokersh.anime.feature.discover.rememberDiscoverFixtureState
+import site.jokersh.anime.feature.discover.DiscoverRoute
 
 private enum class RootDestination(
     val label: StringResource,
@@ -88,7 +87,7 @@ fun AnimeApp(appContainer: AppContainer) {
             background = {
                 AppContentLayer(
                     destination = selectedRoot,
-                    profile = appContainer.profile,
+                    appContainer = appContainer,
                 )
             },
         ) {
@@ -121,7 +120,7 @@ fun AnimeApp(appContainer: AppContainer) {
 @Composable
 private fun AppContentLayer(
     destination: RootDestination,
-    profile: BuildProfile,
+    appContainer: AppContainer,
 ) {
     Box(
         modifier =
@@ -138,16 +137,17 @@ private fun AppContentLayer(
                 ),
     ) {
         if (destination == RootDestination.Discover) {
-            DiscoverScreen(
-                state = rememberDiscoverFixtureState(),
+            DiscoverRoute(
+                repository = appContainer.catalogRepository,
                 onSubjectClick = {},
                 onSeeAll = {},
+                onMessage = {},
                 modifier = Modifier.statusBarsPadding(),
             )
         } else {
             F0Content(
                 destination = destination,
-                profile = profile,
+                profile = appContainer.profile,
             )
         }
     }

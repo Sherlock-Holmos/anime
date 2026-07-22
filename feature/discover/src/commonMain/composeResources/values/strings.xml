@@ -13,4 +13,15 @@
     <string name="discover_top_rated">高分精选</string>
     <string name="discover_top_rated_description">来自 Bangumi 的高口碑作品</string>
     <string name="discover_see_all">查看全部</string>
+    <string name="discover_refresh">刷新</string>
+    <string name="discover_offline">当前离线，正在显示已缓存内容</string>
+    <string name="discover_empty_title">这里暂时还没有内容</string>
+    <string name="discover_empty_body">可以稍后回来看看，或者重新加载一次。</string>
+    <string name="discover_empty_action">重新加载</string>
+    <string name="discover_error_offline">网络似乎没有连接</string>
+    <string name="discover_error_rate_limited">请求有些频繁，请稍后再试</string>
+    <string name="discover_error_service">内容服务暂时不可用</string>
+    <string name="discover_error_data">内容格式出现异常</string>
+    <string name="discover_error_unknown">没有加载成功，已有内容不会受到影响。</string>
+    <string name="discover_error_action">再试一次</string>
 </resources>

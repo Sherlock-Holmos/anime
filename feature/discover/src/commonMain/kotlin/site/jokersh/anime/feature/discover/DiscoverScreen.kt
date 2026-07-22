@@ -7,27 +7,30 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -45,92 +48,104 @@ import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.SubjectCardUi
 import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.feature.discover.generated.resources.Res
-import site.jokersh.anime.feature.discover.generated.resources.discover_airing
-import site.jokersh.anime.feature.discover.generated.resources.discover_airing_description
 import site.jokersh.anime.feature.discover.generated.resources.discover_brand
-import site.jokersh.anime.feature.discover.generated.resources.discover_hero_accessibility
+import site.jokersh.anime.feature.discover.generated.resources.discover_empty_action
+import site.jokersh.anime.feature.discover.generated.resources.discover_empty_body
+import site.jokersh.anime.feature.discover.generated.resources.discover_empty_title
+import site.jokersh.anime.feature.discover.generated.resources.discover_error_action
+import site.jokersh.anime.feature.discover.generated.resources.discover_error_data
+import site.jokersh.anime.feature.discover.generated.resources.discover_error_offline
+import site.jokersh.anime.feature.discover.generated.resources.discover_error_rate_limited
+import site.jokersh.anime.feature.discover.generated.resources.discover_error_service
+import site.jokersh.anime.feature.discover.generated.resources.discover_error_unknown
 import site.jokersh.anime.feature.discover.generated.resources.discover_hero_eyebrow
-import site.jokersh.anime.feature.discover.generated.resources.discover_hero_rating
 import site.jokersh.anime.feature.discover.generated.resources.discover_hero_summary
-import site.jokersh.anime.feature.discover.generated.resources.discover_hero_title
+import site.jokersh.anime.feature.discover.generated.resources.discover_offline
+import site.jokersh.anime.feature.discover.generated.resources.discover_refresh
 import site.jokersh.anime.feature.discover.generated.resources.discover_see_all
 import site.jokersh.anime.feature.discover.generated.resources.discover_title
-import site.jokersh.anime.feature.discover.generated.resources.discover_today
-import site.jokersh.anime.feature.discover.generated.resources.discover_top_rated
-import site.jokersh.anime.feature.discover.generated.resources.discover_top_rated_description
-
-@Immutable
-public data class DiscoverSectionUi(
-    val id: String,
-    val title: String,
-    val description: String,
-    val subjects: List<SubjectCardUi>,
-)
-
-@Immutable
-public data class DiscoverUiState(
-    val sections: List<DiscoverSectionUi>,
-)
 
 @Composable
 public fun DiscoverScreen(
     state: DiscoverUiState,
+    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
     onSubjectClick: (SubjectId) -> Unit,
     onSeeAll: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().testTag("discover.list"),
         contentPadding = PaddingValues(top = AnimeSpacing.lg, bottom = 132.dp),
         verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xxl),
     ) {
-        item(key = "header") { DiscoverHeader() }
-        item(key = "hero") { DiscoverHero(onClick = { onSubjectClick(SubjectId(1001)) }) }
-        items(state.sections, key = { it.id }) { section ->
-            DiscoverSection(
-                section = section,
-                onSubjectClick = onSubjectClick,
-                onSeeAll = { onSeeAll(section.id) },
-            )
+        item(key = "header", contentType = "header") {
+            DiscoverHeader(isRefreshing = state.isRefreshing, onRefresh = onRefresh)
+        }
+        if (state.isOffline) {
+            item(key = "offline", contentType = "status-banner") {
+                OfflineBanner(lastUpdatedLabel = state.lastUpdatedLabel)
+            }
+        }
+        when (val content = state.content) {
+            AsyncContent.Initial,
+            AsyncContent.Loading,
+            -> {
+                item(key = "loading", contentType = "loading") { DiscoverLoading() }
+            }
+
+            AsyncContent.Empty -> {
+                item(key = "empty", contentType = "empty") {
+                    DiscoverStatusPanel(
+                        title = stringResource(Res.string.discover_empty_title),
+                        body = stringResource(Res.string.discover_empty_body),
+                        action = stringResource(Res.string.discover_empty_action),
+                        onAction = onRetry,
+                        tag = "discover.empty",
+                    )
+                }
+            }
+
+            is AsyncContent.Failure -> {
+                item(key = "error", contentType = "error") {
+                    DiscoverStatusPanel(
+                        title = errorTitle(content.error),
+                        body = stringResource(Res.string.discover_error_unknown),
+                        action = stringResource(Res.string.discover_error_action),
+                        onAction = onRetry,
+                        tag = "discover.error",
+                    )
+                }
+            }
+
+            is AsyncContent.Content -> {
+                item(key = "hero", contentType = "hero") {
+                    DiscoverHero(
+                        subject = content.value.hero,
+                        onClick = { onSubjectClick(content.value.hero.id) },
+                    )
+                }
+                items(
+                    items = content.value.sections,
+                    key = { section -> "section:${section.id}" },
+                    contentType = { "section" },
+                ) { section ->
+                    DiscoverSection(
+                        section = section,
+                        onSubjectClick = onSubjectClick,
+                        onSeeAll = { onSeeAll(section.id) },
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-public fun rememberDiscoverFixtureState(): DiscoverUiState {
-    val airingTitle = stringResource(Res.string.discover_airing)
-    val topRatedTitle = stringResource(Res.string.discover_top_rated)
-    return DiscoverUiState(
-        sections =
-            listOf(
-                DiscoverSectionUi(
-                    id = "airing",
-                    title = airingTitle,
-                    description = stringResource(Res.string.discover_airing_description),
-                    subjects =
-                        listOf(
-                            subject(1001, "星海邮差", "2026 · TV · 连载中", "8.6"),
-                            subject(1006, "纸月亮计划", "2026 · TV · 更新至 8 集", "8.2"),
-                            subject(1008, "红茶侦探社", "2026 · TV · 连载中", "8.8"),
-                        ),
-                ),
-                DiscoverSectionUi(
-                    id = "top-rated",
-                    title = topRatedTitle,
-                    description = stringResource(Res.string.discover_top_rated_description),
-                    subjects =
-                        listOf(
-                            subject(1002, "雨城备忘录", "2025 · TV · 全 12 集", "9.1"),
-                            subject(1009, "夏末天文台", "2025 · TV · 全 12 集", "9.0"),
-                            subject(1011, "风经过旧书店", "2026 · Web · 连载中", "8.1"),
-                        ),
-                ),
-            ),
-    )
-}
-
-@Composable
-private fun DiscoverHeader() {
+private fun DiscoverHeader(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+) {
     Column(
         modifier = Modifier.padding(horizontal = AnimeSpacing.lg),
         verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),
@@ -152,23 +167,57 @@ private fun DiscoverHeader() {
                 fontWeight = FontWeight.Bold,
             )
             Surface(
+                modifier =
+                    Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .clip(CircleShape)
+                        .clickable(enabled = !isRefreshing, onClick = onRefresh)
+                        .testTag("discover.refresh"),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
             ) {
-                Text(
-                    text = stringResource(Res.string.discover_today),
-                    modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.sm),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = AnimeSpacing.md)) {
+                    if (isRefreshing) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            text = stringResource(Res.string.discover_refresh),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DiscoverHero(onClick: () -> Unit) {
-    val accessibilityLabel = stringResource(Res.string.discover_hero_accessibility)
+private fun OfflineBanner(lastUpdatedLabel: String?) {
+    AnimeGlassPanel(
+        role = GlassRole.FloatingPanel,
+        modifier = Modifier.padding(horizontal = AnimeSpacing.lg).fillMaxWidth(),
+        shape = RoundedCornerShape(AnimeRadius.round),
+        contentPadding = PaddingValues(horizontal = AnimeSpacing.lg, vertical = AnimeSpacing.md),
+    ) {
+        Text(
+            text =
+                if (lastUpdatedLabel == null) {
+                    stringResource(Res.string.discover_offline)
+                } else {
+                    "${stringResource(Res.string.discover_offline)} · $lastUpdatedLabel"
+                },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun DiscoverHero(
+    subject: SubjectCardUi,
+    onClick: () -> Unit,
+) {
     Box(
         modifier =
             Modifier
@@ -178,15 +227,11 @@ private fun DiscoverHero(onClick: () -> Unit) {
                 .clip(RoundedCornerShape(AnimeRadius.panel))
                 .background(
                     Brush.linearGradient(
-                        listOf(
-                            Color(0xFF7776E8),
-                            Color(0xFFB28FD9),
-                            Color(0xFFF4B8C8),
-                        ),
+                        listOf(Color(0xFF7776E8), Color(0xFFB28FD9), Color(0xFFF4B8C8)),
                     ),
                 ).semantics(mergeDescendants = true) {
                     role = Role.Button
-                    contentDescription = accessibilityLabel
+                    contentDescription = subject.accessibilityLabel
                 }.clickable(onClick = onClick),
     ) {
         Box(
@@ -203,11 +248,7 @@ private fun DiscoverHero(onClick: () -> Unit) {
         )
         AnimeGlassPanel(
             role = GlassRole.FloatingPanel,
-            modifier =
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(AnimeSpacing.md),
+            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(AnimeSpacing.md),
             shape = RoundedCornerShape(AnimeRadius.card),
             contentPadding = PaddingValues(AnimeSpacing.lg),
         ) {
@@ -223,15 +264,20 @@ private fun DiscoverHero(onClick: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = stringResource(Res.string.discover_hero_title),
+                        text = subject.title,
+                        modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        text = stringResource(Res.string.discover_hero_rating),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                    subject.rating?.let { rating ->
+                        Text(
+                            text = rating,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
                 Text(
                     text = stringResource(Res.string.discover_hero_summary),
@@ -251,7 +297,10 @@ private fun DiscoverSection(
     onSubjectClick: (SubjectId) -> Unit,
     onSeeAll: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
+    Column(
+        modifier = Modifier.testTag("discover.section.${section.id}"),
+        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+    ) {
         AnimeSectionHeader(
             title = section.title,
             description = section.description,
@@ -263,29 +312,169 @@ private fun DiscoverSection(
             contentPadding = PaddingValues(horizontal = AnimeSpacing.lg),
             horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
         ) {
-            items(section.subjects, key = { it.id.value }) { subject ->
-                AnimePosterCard(
-                    model = subject,
-                    onClick = { onSubjectClick(subject.id) },
+            items(
+                items = section.subjects,
+                key = { subject -> "subject:${subject.id.value}" },
+                contentType = { if (section.id == "continue") "progress-card" else "poster-card" },
+            ) { subject ->
+                if (section.id == "continue") {
+                    ContinueWatchingCard(
+                        subject = subject,
+                        onClick = { onSubjectClick(subject.id) },
+                        modifier = Modifier.testTag("discover.subject.${subject.id.value}"),
+                    )
+                } else {
+                    AnimePosterCard(
+                        model = subject,
+                        onClick = { onSubjectClick(subject.id) },
+                        modifier = Modifier.testTag("discover.subject.${subject.id.value}"),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContinueWatchingCard(
+    subject: SubjectCardUi,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier =
+            modifier
+                .width(264.dp)
+                .height(112.dp)
+                .semantics(mergeDescendants = true) {
+                    role = Role.Button
+                    contentDescription = subject.accessibilityLabel
+                }.clickable(onClick = onClick),
+        shape = RoundedCornerShape(AnimeRadius.card),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(AnimeSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .width(62.dp)
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(AnimeRadius.control))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.78f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.58f),
+                                ),
+                            ),
+                        ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = subject.title.take(1),
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),
+            ) {
+                Text(
+                    text = subject.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subject.collectionLabel ?: subject.metadata,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
     }
 }
 
-private fun subject(
-    id: Long,
+@Composable
+private fun DiscoverLoading() {
+    Column(
+        modifier = Modifier.testTag("discover.loading"),
+        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xxl),
+    ) {
+        repeat(2) {
+            Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
+                Box(
+                    Modifier
+                        .padding(horizontal = AnimeSpacing.lg)
+                        .width(96.dp)
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(AnimeRadius.round))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)),
+                )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = AnimeSpacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+                ) {
+                    items(count = 5, key = { index -> "skeleton:$index" }, contentType = { "poster-card" }) {
+                        Box(
+                            Modifier
+                                .width(132.dp)
+                                .height(198.dp)
+                                .clip(RoundedCornerShape(AnimeRadius.card))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoverStatusPanel(
     title: String,
-    metadata: String,
-    score: String,
-): SubjectCardUi =
-    SubjectCardUi(
-        id = SubjectId(id),
-        title = title,
-        originalTitle = null,
-        poster = null,
-        metadata = metadata,
-        rating = "$score  Bangumi",
-        collectionLabel = null,
-        accessibilityLabel = "$title，$metadata，Bangumi 评分 $score 分",
+    body: String,
+    action: String,
+    onAction: () -> Unit,
+    tag: String,
+) {
+    AnimeGlassPanel(
+        role = GlassRole.FloatingPanel,
+        modifier = Modifier.padding(horizontal = AnimeSpacing.lg).fillMaxWidth().testTag(tag),
+        shape = RoundedCornerShape(AnimeRadius.panel),
+        contentPadding = PaddingValues(AnimeSpacing.xl),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
+            Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(
+                modifier = Modifier.defaultMinSize(minHeight = 48.dp).clip(CircleShape).clickable(onClick = onAction),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = AnimeSpacing.xl)) {
+                    Text(action, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun errorTitle(error: DiscoverErrorUi): String =
+    stringResource(
+        when (error) {
+            DiscoverErrorUi.Offline -> Res.string.discover_error_offline
+            DiscoverErrorUi.RateLimited -> Res.string.discover_error_rate_limited
+            DiscoverErrorUi.ServiceUnavailable -> Res.string.discover_error_service
+            DiscoverErrorUi.InvalidData -> Res.string.discover_error_data
+            DiscoverErrorUi.Unknown -> Res.string.discover_error_unknown
+        },
     )

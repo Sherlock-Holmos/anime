@@ -55,14 +55,16 @@ abstract class CatalogRepositoryContract {
     @Test
     fun `CT-CAT-001 first observation exposes deterministic fresh data`() =
         runTest {
-            val state = createRepository().observeDiscovery().first()
+            val repository = createRepository()
+            repository.refreshDiscovery(RefreshPolicy.IfMissing).getOrThrow()
+            val state = repository.observeDiscovery().first()
 
             assertEquals(FreshnessKind.Fresh, state.freshness?.kind)
             assertEquals(
-                fixtureSubjects.map { it.id },
+                listOf(1001L, 1006L, 1008L, 1011L, 1012L).map(::SubjectId),
                 state.value
                     ?.sections
-                    ?.single()
+                    ?.first { it.id == "airing" }
                     ?.subjects
                     ?.map { it.id },
             )
@@ -72,13 +74,14 @@ abstract class CatalogRepositoryContract {
     fun `CT-CAT-002 forced refresh advances fixture clock without reordering`() =
         runTest {
             val repository = createRepository()
+            repository.refreshDiscovery(RefreshPolicy.IfMissing).getOrThrow()
             val before = repository.observeDiscovery().first().value
 
             assertTrue(repository.refreshDiscovery(RefreshPolicy.Force).isSuccess)
 
             val after = repository.observeDiscovery().first().value
             assertEquals(catalogNow + 60.seconds, after?.generatedAt)
-            assertEquals(before?.sections?.single()?.subjects, after?.sections?.single()?.subjects)
+            assertEquals(before?.sections, after?.sections)
         }
 }
 
@@ -117,7 +120,7 @@ abstract class SearchRepositoryContract {
 }
 
 class FixtureCatalogRepositoryContractTest : CatalogRepositoryContract() {
-    override fun createRepository(): CatalogRepository = InMemoryCatalogRepository()
+    override fun createRepository(): CatalogRepository = FixtureCatalogRepository(readDelayMs = 0)
 }
 
 class FixtureSearchRepositoryContractTest : SearchRepositoryContract() {
