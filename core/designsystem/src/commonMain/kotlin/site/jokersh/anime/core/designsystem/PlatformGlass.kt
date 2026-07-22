@@ -1,9 +1,12 @@
 package site.jokersh.anime.core.designsystem
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import com.kyant.backdrop.Backdrop
+
+internal val LocalAnimeBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
 @Composable
 internal expect fun PlatformAnimeBackdropHost(
@@ -20,11 +23,4 @@ internal expect fun Modifier.platformGlassEffect(
     role: GlassRole,
     tier: GlassTier,
     shape: Shape,
-): Modifier
-
-@Composable
-internal expect fun Modifier.platformLiquidSelectionEffect(
-    shape: Shape,
-    tint: Color,
-    interactionProgress: Float,
 ): Modifier

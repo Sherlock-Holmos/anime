@@ -13,6 +13,7 @@ ktor = "3.5.0"
 sqldelight = "2.3.2"
 coil = "3.5.0"
 backdrop = "2.0.0"
+kyantShapes = "1.2.0"
 activity = "1.13.0"
 core = "1.19.0"
 benchmark = "1.4.1"
@@ -21,6 +22,7 @@ ktlint = "1.8.0"
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
@@ -52,6 +54,7 @@ sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", ver
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 backdrop = { module = "io.github.kyant0:backdrop", version.ref = "backdrop" }
+kyant-shapes = { module = "io.github.kyant0:shapes", version.ref = "kyantShapes" }
 ktlint-cli = { module = "com.pinterest.ktlint:ktlint-cli", version.ref = "ktlint" }
 
 [plugins]

@@ -36,10 +36,13 @@
 | 本地数据库 | `app.cash.sqldelight:*` | `2.3.2` | `core:database`、data |
 | 图片 | `io.coil-kt.coil3:coil-compose`、`coil-network-ktor3` | `3.5.0` | `core:designsystem` |
 | Glass | `io.github.kyant0:backdrop` | `2.0.0` | `core:designsystem` 的平台适配层 |
+| Liquid Tabs 形状 | `io.github.kyant0:shapes` | `1.2.0` | Kyant 官方 `LiquidBottomTabs` Vendor 模块 |
 | Android Activity | `androidx.activity:activity-compose` | `1.13.0` | `app:android` |
 | Android Core | `androidx.core:core-ktx` | `1.19.0` | `app:android` |
 
 不使用 DI 框架、Paging 3、Room、Retrofit、Moshi、Decompose、Voyager 或 MVI 第三方框架。分页、Store、AppContainer 均按本文档集的项目契约实现；需要增加依赖时先提交 `FED` 决策记录。
+
+`AndroidLiquidGlass` 的 Maven 产物只发布底层 Backdrop，不发布高层组件。根底栏使用上游 `app/commonMain` 中的官方示例源码，固定到 `bebb11a91bd97bf1dabde479f3b332ad9898731f`，以未修改 Vendor 模块形式保存在 `core/vendor/kyant-liquid-tabs`，并携带 Apache-2.0 License 与来源说明。业务与 Design System 适配代码不得复制或派生其交互算法。
 
 ## 3. 测试与质量依赖
 

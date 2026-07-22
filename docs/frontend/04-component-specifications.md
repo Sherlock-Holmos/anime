@@ -39,9 +39,9 @@ Loading 按钮保持原宽度，文字替换为 18dp 进度指示；不得因状
 - 四个目的地等宽，图标 22dp、标签 11–12sp、点击区至少 48dp；选中态使用小范围 accent tint、图标字重和文字共同表达，不采用 Material 3 宽胶囊指示器。
 - Tab Bar 固定在功能层，页面内容必须绘制和滚动到其下方；Backdrop 采样实际内容层，不能只采样静态页面底色。
 - API 33+ 首选 `Liquid`，API 31–32 降为 `Blur`，API 26–30 降为 `Translucent`；降级不改变尺寸、位置和点击语义。
-- 整条 Tab Bar 都是横向拖动命中区：拖动时选中胶囊连续跟手、横向拉伸并使用 Backdrop 对内容层做真实折射；松手按最近目的地吸附并且只提交一次根导航。点击目的地仍可直接跳转，普通根导航不触发系统 Ripple。
-- 选中胶囊是容器内唯一的交互式第二采样层，仅允许作用于当前约一个 Tab 宽的局部区域；静止时使用低强度 tint、高光和折射，拖动时才提高形变与色散，不能退化为 Material 3 静态宽胶囊。
-- 拖动过程中只改变预览选中态，不提前替换页面；松手吸附完成时调用 `onSelected`。外部 `selectedIndex` 改变时胶囊使用弹簧移动到目标。TalkBack/键盘仍按四个独立 `Role.Tab` 操作，不要求执行拖动手势。
+- 根 Tab Bar 直接复用 Kyant `AndroidLiquidGlass` 2.0.0 官方示例中的 `LiquidBottomTabs` 与 `LiquidBottomTab`，同时复用其 `DampedDragAnimation`、`InteractiveHighlight` 和手势检查器；项目不得自行重写其拖动、吸附、形变、折射、高光或阴影算法。
+- 选中胶囊是横向拖动命中区：拖动、速度形变、边界阻尼、最近目的地吸附和实际内容 Backdrop 采样均遵循上游实现；其余 Tab 仍可点击直接跳转，普通根导航不触发系统 Ripple。
+- Anime 适配层只允许提供图标、标签、选中语义、外层位置/阴影和 `selectedIndex`/`onSelected` 桥接。上游源码固定到已审阅提交并隔离在 `core/vendor/kyant-liquid-tabs`，更新时整体替换并重新执行真机回归，禁止在 Vendor 文件内做项目定制。
 
 ## 3. 条目展示组件
 

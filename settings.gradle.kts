@@ -29,6 +29,8 @@ include(":core:navigation")
 include(":core:database")
 include(":core:network")
 include(":core:testing")
+include(":core:vendor:kyantLiquidTabs")
+project(":core:vendor:kyantLiquidTabs").projectDir = file("core/vendor/kyant-liquid-tabs")
 
 include(":data:catalog")
 include(":data:collection")

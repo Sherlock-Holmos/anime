@@ -5,27 +5,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.drawPlainBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.isRenderEffectSupported
 import com.kyant.backdrop.isRuntimeShaderSupported
-import com.kyant.backdrop.shadow.InnerShadow
-import com.kyant.backdrop.shadow.Shadow
-
-private val LocalAnimeBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
 
 @Composable
 internal actual fun PlatformAnimeBackdropHost(
@@ -81,48 +73,6 @@ internal actual fun Modifier.platformGlassEffect(
         backdrop = backdrop,
         shape = { shape },
         effects = { blur(blurRadius) },
-    )
-}
-
-@Composable
-internal actual fun Modifier.platformLiquidSelectionEffect(
-    shape: Shape,
-    tint: Color,
-    interactionProgress: Float,
-): Modifier {
-    val backdrop = LocalAnimeBackdrop.current ?: return this
-    if (!isRuntimeShaderSupported()) return this
-
-    val density = LocalDensity.current
-    val progress = interactionProgress.coerceIn(0f, 1f)
-    val refractionHeight = with(density) { (6.dp + 6.dp * progress).toPx() }
-    val refractionAmount = with(density) { (9.dp + 7.dp * progress).toPx() }
-    return drawBackdrop(
-        backdrop = backdrop,
-        shape = { shape },
-        effects = {
-            lens(
-                refractionHeight = refractionHeight,
-                refractionAmount = refractionAmount,
-                depthEffect = true,
-                chromaticAberration = progress > 0.55f,
-            )
-        },
-        highlight = {
-            Highlight.Default.copy(alpha = 0.25f + 0.55f * progress)
-        },
-        shadow = {
-            Shadow(alpha = 0.16f + 0.34f * progress)
-        },
-        innerShadow = {
-            InnerShadow(
-                radius = 4.dp + 4.dp * progress,
-                alpha = 0.2f + 0.5f * progress,
-            )
-        },
-        onDrawSurface = {
-            drawRect(tint.copy(alpha = 0.12f + 0.05f * progress))
-        },
     )
 }
 

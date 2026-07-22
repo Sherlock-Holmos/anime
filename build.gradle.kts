@@ -31,7 +31,7 @@ tasks.register<JavaExec>("animeKtlintCheck") {
     description = "Checks Kotlin and Kotlin DSL formatting."
     classpath = ktlint
     mainClass.set("com.pinterest.ktlint.Main")
-    args("**/*.kt", "**/*.kts", "!**/build/**", "!**/.gradle/**")
+    args("**/*.kt", "**/*.kts", "!**/build/**", "!**/.gradle/**", "!core/vendor/**")
 }
 
 tasks.register<JavaExec>("animeFormat") {
@@ -39,7 +39,7 @@ tasks.register<JavaExec>("animeFormat") {
     description = "Formats Kotlin and Kotlin DSL sources."
     classpath = ktlint
     mainClass.set("com.pinterest.ktlint.Main")
-    args("--format", "**/*.kt", "**/*.kts", "!**/build/**", "!**/.gradle/**")
+    args("--format", "**/*.kt", "**/*.kts", "!**/build/**", "!**/.gradle/**", "!core/vendor/**")
 }
 
 tasks.register("animeCheck") {

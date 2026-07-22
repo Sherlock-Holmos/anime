@@ -24,6 +24,7 @@
 | FED-016 | 中文简体为首发唯一完整语言 | 控制首发验收变量，同时保留资源化 | 禁止硬编码用户文案 |
 | FED-017 | 普通设置持久化使用 SQLDelight，不额外引入 DataStore | 保持 CMP 存储统一并允许设置与缓存事务化迁移 | Token 仍只能进入 SecureStorage |
 | FED-018 | 成品采用 iOS 26-inspired Liquid Glass 设计语言，Android 不以 Material 3 为视觉目标 | 用户要求 Android 优先但跨端视觉统一、强调高质量液态玻璃与内容沉浸 | Material 只作底层；导航、顶部层、图标、动效和表面必须由 Anime Design System 定义 |
+| FED-019 | 根底栏固定复用 Kyant 官方 `LiquidBottomTabs` 示例源码 | 官方 Maven 库明确不包含高层组件；隔离 Vendor 可保留 CMP 官方交互并避免 Anime 自行实现 | 固定 `bebb11a9...`；Vendor 文件不做定制，携带 Apache-2.0 License，更新必须整体替换和真机回归 |
 
 ## 2. 性能降级判定
 
