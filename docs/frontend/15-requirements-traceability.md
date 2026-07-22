@@ -9,7 +9,8 @@
 | 语义 Token 与主题 | `core/designsystem/.../AnimeTokens.kt`、`AnimeTheme.kt` | `animeKtlintCheck`、Android 编译 | 已落地 |
 | 公共作品卡、评分、按钮和状态面板 | `core/designsystem/.../AnimeComponents.kt` | Android 编译、Demo Catalog | F1 进行中 |
 | Glass 能力与确定性降级 | `core/designsystem/.../AnimeGlass.kt`、`PlatformGlass.kt`、`PlatformGlass.android.kt` | `GlassTierTest`、`PlatformGlassTest`、Android 编译 | Kyant Backdrop 2.0.0 Android Adapter 已落地；动态省电/低内存/用户设置能力注入及四级截图仍属于 F1 |
-| iOS 26-inspired App Shell 与根导航 | `core/designsystem/.../AnimeNavigation.kt`、`shared/app/.../AnimeApp.kt`、`composeResources/drawable/ic_*.xml` | Android 编译、`assembleDemoDebug`、API 36 真机截图与冷启动 | 悬浮 Liquid Glass Tab Bar、内容下穿采样、大标题与自有图标已落地；200% 字体及四级 Glass 黄金图仍属于 F1 |
+| iOS 26-inspired App Shell 与根导航 | `core/designsystem/.../AnimeNavigation.kt`、`PlatformGlass.android.kt`、`shared/app/.../AnimeApp.kt`、`composeResources/drawable/ic_*.xml` | `AnimeNavigationTest`、Android 编译、`assembleDemoDebug`、API 36 真机截图与冷启动 | 悬浮 Liquid Glass Tab Bar、整栏横向拖动、局部折射胶囊、最近目的地吸附、内容下穿采样、大标题与自有图标已落地；手势手感需真机人工回归，200% 字体及四级 Glass 黄金图仍属于 F1 |
+| 发现页首屏纵向切片 | `feature/discover/.../DiscoverScreen.kt`、`shared/app/.../AnimeApp.kt` | Android 编译、`assembleDemoDebug`、API 36 真机截图与冷启动 | Hero、Bangumi 只读评分、热播/高分横向分区已落地；当前使用确定性 UI Fixture，刷新、状态矩阵、Repository 映射与详情导航仍属于 F4 |
 | 领域模型与错误/资源状态 | `core/model/...` | `DomainValidationTest`、Android 编译 | 已落地 |
 | 六组 Repository 合同 | `data/catalog`、`data/collection`、`data/comment`、`data/session`、`data/settings` | Android 编译、各模块 `allTests` | 接口与可复用 CT 测试基类已落地；Remote 复用和完整异常/并发语义未完成 |
 | Fixture v1 | `fixtures/v1`、`core/testing/.../FixtureLoader.kt` | `fixtureCheck`、`FixtureLoaderTest` | 数据、固定时钟/种子、12 场景、哈希及原子场景切换已落地；完整数据映射和 SQLDelight 装载未完成 |

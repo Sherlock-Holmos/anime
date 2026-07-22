@@ -46,6 +46,8 @@ flowchart LR
 | F0 | 已完成 | 模块边界、固定版本、AppContainer、Demo/Dev/Prod 变体、资源打包守卫、真机冷启动 | 无 |
 | F1 | 进行中 | 语义 Token、基础按钮/标题/作品卡/评分/状态面板、四级 Glass 决策与组件目录、Kyant Backdrop 2.0.0 Android Adapter（API 26–30 Translucent、31–32 Blur、33+ Liquid）、iOS 26-inspired 内容层与悬浮 `AnimeLiquidTabBar`、自有圆端导航图标 | 省电/低内存/减少透明度等动态能力注入、200% 字体和四级截图基线、完整组件目录 |
 | F2 | 进行中 | 领域模型、六组 Repository 接口、`anime.fixture/v1` 数据、固定时钟/种子、12 场景、哈希与引用校验、FixtureLoader 场景状态、六组可复用 CT 测试基类 | 完整 Fixture DTO→Domain 映射、SQLDelight 持久化、Demo 数据源接入，以及离线/SingleFlight/重启恢复等完整 CT 语义 |
+| F3 | 进行中 | 四根页 Shell、iOS-inspired 大标题与自有图标、可点击且可横向拖动的 Liquid Glass Tab Bar、最近目的地吸附和选中索引状态保存 | 类型安全页面栈、Deep Link、系统返回、AuthGate 与导航自动化测试 |
+| F4 | 进行中 | 发现页 Hero、Bangumi 只读评分、热播/高分横向作品分区和确定性 UI Fixture | Repository/Fixture 映射、刷新、骨架、空/离线/局部错误状态、详情导航和 UI 测试 |
 
 状态表只记录实现事实，不改变各阶段原有退出条件。阶段只有在“退出前仍需完成”清空且对应门禁全绿后才能标记完成。
 

@@ -12,6 +12,14 @@ kotlin {
         implementation(projects.core.navigation)
         implementation(projects.data.catalog)
         implementation(libs.lifecycle.viewmodel.compose)
+        implementation(libs.compose.foundation)
+        implementation(libs.compose.material3)
         implementation(libs.compose.runtime)
+        implementation(libs.compose.resources)
+        implementation(libs.compose.ui)
     }
+}
+
+compose.resources {
+    packageOfResClass = "site.jokersh.anime.feature.discover.generated.resources"
 }

@@ -64,6 +64,8 @@ import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.AnimeTheme
+import site.jokersh.anime.feature.discover.DiscoverScreen
+import site.jokersh.anime.feature.discover.rememberDiscoverFixtureState
 
 private enum class RootDestination(
     val label: StringResource,
@@ -135,10 +137,19 @@ private fun AppContentLayer(
                     ),
                 ),
     ) {
-        F0Content(
-            destination = destination,
-            profile = profile,
-        )
+        if (destination == RootDestination.Discover) {
+            DiscoverScreen(
+                state = rememberDiscoverFixtureState(),
+                onSubjectClick = {},
+                onSeeAll = {},
+                modifier = Modifier.statusBarsPadding(),
+            )
+        } else {
+            F0Content(
+                destination = destination,
+                profile = profile,
+            )
+        }
     }
 }
 

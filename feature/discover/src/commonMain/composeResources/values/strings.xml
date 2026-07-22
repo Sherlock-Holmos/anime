@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="discover_brand">Anime</string>
+    <string name="discover_title">发现</string>
+    <string name="discover_today">今日精选</string>
+    <string name="discover_hero_eyebrow">本季口碑新作</string>
+    <string name="discover_hero_title">星海邮差</string>
+    <string name="discover_hero_summary">在群星之间递送未寄出的思念，一场安静又辽阔的旅程。</string>
+    <string name="discover_hero_rating">8.6  Bangumi</string>
+    <string name="discover_hero_accessibility">星海邮差，本季口碑新作，Bangumi 评分 8.6 分</string>
+    <string name="discover_airing">正在热播</string>
+    <string name="discover_airing_description">这一刻，大家正在追</string>
+    <string name="discover_top_rated">高分精选</string>
+    <string name="discover_top_rated_description">来自 Bangumi 的高口碑作品</string>
+    <string name="discover_see_all">查看全部</string>
+</resources>
