@@ -1,6 +1,7 @@
 package site.jokersh.anime.app
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -34,7 +34,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
@@ -62,10 +66,13 @@ import site.jokersh.anime.app.generated.resources.root_discover
 import site.jokersh.anime.app.generated.resources.root_profile
 import site.jokersh.anime.app.generated.resources.root_search
 import site.jokersh.anime.app.generated.resources.shell_environment
+import site.jokersh.anime.core.designsystem.AnimeBackdropHost
+import site.jokersh.anime.core.designsystem.AnimeGlassPanel
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.AnimeTheme
+import site.jokersh.anime.core.designsystem.GlassRole
 
 private enum class RootDestination(
     val label: StringResource,
@@ -80,7 +87,24 @@ private enum class RootDestination(
 @Composable
 fun AnimeApp(appContainer: AppContainer) {
     AnimeTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
+        AnimeBackdropHost(
+            modifier = Modifier.fillMaxSize(),
+            background = {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                    MaterialTheme.colorScheme.background,
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
+                                ),
+                            ),
+                        ),
+                )
+            },
+        ) {
             AppShell(appContainer)
         }
     }
@@ -92,45 +116,58 @@ private fun AppShell(appContainer: AppContainer) {
     var selectedRoot by rememberSaveable { mutableStateOf(RootDestination.Discover) }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = stringResource(Res.string.app_name),
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text =
-                                stringResource(
-                                    Res.string.shell_environment,
-                                    appContainer.profile.environment.name,
-                                ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                    ),
-            )
+            AnimeGlassPanel(
+                role = GlassRole.TopBar,
+                shape = RectangleShape,
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                text = stringResource(Res.string.app_name),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text =
+                                    stringResource(
+                                        Res.string.shell_environment,
+                                        appContainer.profile.environment.name,
+                                    ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                        ),
+                )
+            }
         },
         bottomBar = {
-            NavigationBar {
-                RootDestination.entries.forEach { destination ->
-                    NavigationBarItem(
-                        selected = selectedRoot == destination,
-                        onClick = { selectedRoot = destination },
-                        icon = {
-                            Icon(
-                                painter = painterResource(destination.icon),
-                                contentDescription = null,
-                            )
-                        },
-                        label = { Text(stringResource(destination.label)) },
-                    )
+            AnimeGlassPanel(
+                role = GlassRole.BottomBar,
+                shape = RectangleShape,
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                NavigationBar(containerColor = Color.Transparent) {
+                    RootDestination.entries.forEach { destination ->
+                        NavigationBarItem(
+                            selected = selectedRoot == destination,
+                            onClick = { selectedRoot = destination },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(destination.icon),
+                                    contentDescription = null,
+                                )
+                            },
+                            label = { Text(stringResource(destination.label)) },
+                        )
+                    }
                 }
             }
         },

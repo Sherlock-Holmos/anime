@@ -15,7 +15,7 @@
 
 F0 工程基线已经完成并通过真机冷启动验收，当前进入可并行推进的 F1 Design System 与 F2 契约/Fixture 阶段。Android Application 位于 `app/android`，共享 Compose UI 位于 `shared/app`；领域模型与 Repository 接口位于 `core/model` 和 `data/*`，确定性 Demo 数据位于 `fixtures/v1`。业务页面仍需在对应 Feature 契约下逐步实现。
 
-App Shell 已接入 Wiki 固定的语义色、排版、间距和圆角 Token，支持系统深浅色；F1 组件目录已可演示海报卡、紧凑卡片、Bangumi 评分、按钮、状态面板与玻璃降级。所有用户可见文案和根导航图标均来自 `commonMain` 资源。`AppContainer` 在 Android 壳层创建后注入共享 UI，Feature 模块之间由构建任务阻止直接依赖。
+App Shell 已接入 Wiki 固定的语义色、排版、间距和圆角 Token，支持系统深浅色；F1 组件目录已可演示海报卡、紧凑卡片、Bangumi 评分、按钮、状态面板与玻璃降级。Android 已通过统一适配层接入 Kyant Backdrop 2.0.0：API 26–30 使用半透明表面，API 31–32 使用实时模糊，API 33+ 可使用受限液态折射。所有用户可见文案和根导航图标均来自 `commonMain` 资源。`AppContainer` 在 Android 壳层创建后注入共享 UI，Feature 模块之间由构建任务阻止直接依赖。
 
 要求：JDK 17、Android SDK 37、Gradle Wrapper 9.5.0。首次使用前在未提交的 `local.properties` 中配置 Android SDK 路径。
 

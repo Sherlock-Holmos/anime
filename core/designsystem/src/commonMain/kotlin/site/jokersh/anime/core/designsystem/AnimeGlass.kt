@@ -44,16 +44,33 @@ public fun GlassRole.preferredTier(): GlassTier =
     }
 
 @Composable
+public fun AnimeBackdropHost(
+    modifier: Modifier = Modifier,
+    background: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    PlatformAnimeBackdropHost(
+        modifier = modifier,
+        background = background,
+        content = content,
+    )
+}
+
+@Composable
 public fun AnimeGlassPanel(
     role: GlassRole,
     modifier: Modifier = Modifier,
     tierOverride: GlassTier? = null,
-    capabilities: GlassCapabilities = GlassCapabilities(GlassTier.Translucent),
+    capabilities: GlassCapabilities? = null,
     shape: Shape = MaterialTheme.shapes.large,
     contentPadding: PaddingValues = PaddingValues(AnimeSpacing.lg),
     content: @Composable () -> Unit,
 ) {
-    val resolved = resolveGlassTier(tierOverride ?: role.preferredTier(), capabilities)
+    val resolved =
+        resolveGlassTier(
+            preferred = tierOverride ?: role.preferredTier(),
+            capabilities = capabilities ?: platformGlassCapabilities(),
+        )
     val alpha =
         when (resolved) {
             GlassTier.None -> 1f
@@ -64,7 +81,7 @@ public fun AnimeGlassPanel(
     val borderAlpha = if (resolved == GlassTier.None) 0.2f else 0.34f
 
     Surface(
-        modifier = modifier,
+        modifier = modifier.platformGlassEffect(role, resolved, shape),
         shape = shape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = alpha),
         border = BorderStroke(AnimeSize.border, MaterialTheme.colorScheme.outline.copy(alpha = borderAlpha)),

@@ -26,6 +26,7 @@ import site.jokersh.anime.core.designsystem.AnimeRatingBadge
 import site.jokersh.anime.core.designsystem.AnimeSectionHeader
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.BangumiRatingUi
+import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.SubjectCardUi
 import site.jokersh.anime.core.model.SubjectId
 
@@ -76,6 +77,7 @@ internal fun DesignSystemCatalog() {
                     emptyLabel = stringResource(Res.string.f1_bangumi_empty),
                     accessibilityLabel = stringResource(Res.string.f1_bangumi_accessibility),
                 ),
+            role = GlassRole.StaticHero,
         )
     }
 }

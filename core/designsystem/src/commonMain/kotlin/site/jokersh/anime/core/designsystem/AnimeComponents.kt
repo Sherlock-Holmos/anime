@@ -236,9 +236,10 @@ public fun AnimeCompactSubjectCard(
 public fun AnimeRatingBadge(
     rating: BangumiRatingUi,
     modifier: Modifier = Modifier,
+    role: GlassRole = GlassRole.FloatingPanel,
 ) {
     AnimeGlassPanel(
-        role = GlassRole.FloatingPanel,
+        role = role,
         modifier =
             modifier.semantics(mergeDescendants = true) {
                 contentDescription = rating.accessibilityLabel
