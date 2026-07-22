@@ -1,0 +1,17 @@
+{
+  "schema": "anime.fixture/v1",
+  "scenarios": [
+    {"id": "happy", "network": "Online", "cache": "Fresh", "readDelayMs": 120, "writeDelayMs": 180, "failurePlan": []},
+    {"id": "cold-slow", "network": "Online", "cache": "Empty", "readDelayMs": 1600, "writeDelayMs": 180, "failurePlan": []},
+    {"id": "refresh-slow", "network": "Online", "cache": "Stale", "readDelayMs": 1800, "writeDelayMs": 180, "failurePlan": []},
+    {"id": "empty-search", "network": "Online", "cache": "Fresh", "readDelayMs": 120, "writeDelayMs": 180, "failurePlan": ["EmptySearch"]},
+    {"id": "offline-cached", "network": "Offline", "cache": "Stale", "readDelayMs": 0, "writeDelayMs": 0, "failurePlan": ["Offline"]},
+    {"id": "offline-empty", "network": "Offline", "cache": "Empty", "readDelayMs": 0, "writeDelayMs": 0, "failurePlan": ["Offline"]},
+    {"id": "server-error", "network": "Online", "cache": "Empty", "readDelayMs": 120, "writeDelayMs": 180, "failurePlan": ["Server"]},
+    {"id": "rate-limited", "network": "Online", "cache": "Empty", "readDelayMs": 120, "writeDelayMs": 180, "failurePlan": ["RateLimited:30"]},
+    {"id": "unauthorized", "network": "Online", "cache": "Fresh", "readDelayMs": 120, "writeDelayMs": 180, "failurePlan": ["UnauthorizedOnce"]},
+    {"id": "write-retry", "network": "Online", "cache": "Fresh", "readDelayMs": 120, "writeDelayMs": 180, "failurePlan": ["WriteFail", "WriteFail", "WriteSuccess"]},
+    {"id": "collection-conflict", "network": "Online", "cache": "Fresh", "readDelayMs": 120, "writeDelayMs": 180, "failurePlan": ["Conflict:1010"]},
+    {"id": "corrupted-fixture", "network": "Unavailable", "cache": "Invalid", "readDelayMs": 0, "writeDelayMs": 0, "failurePlan": ["MissingReference"]}
+  ]
+}

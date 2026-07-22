@@ -1,0 +1,15 @@
+{
+  "schema": "anime.fixture/v1",
+  "clock": "2026-07-19T08:00:00Z",
+  "seed": 20260719,
+  "defaultScenario": "happy",
+  "files": {
+    "subjects.json": "700842b528614abd8122394916835f76231845b7ae7080968099bfa69881bae5",
+    "discovery.json": "91889694293c6cc4acc5c3a3c36439ce2a0648398ef60a46c99111e02f833218",
+    "search.json": "5cef81302153b2d308a5ab2ee0d038ea401e0758b188ba212ae22bf2fe4693ef",
+    "collections.json": "dd771d50877efe0d899baca3345e9d0d74f0417e74e9f1e998755a27ef3dcfb0",
+    "comments.json": "8ec9a6d5107e4b0210c7ab444529de3fa9f5e1b10fc0fc560b6ca08b0932a74d",
+    "users.json": "a2ce279a6d7882f22186deb177e73df8080868bc602172bdb702a727d4cc84ff",
+    "scenarios.json": "9e939ffe11debb6e4a10fd8b199ccee0858b8b20571f0fba66fddfa75c83ca29"
+  }
+}

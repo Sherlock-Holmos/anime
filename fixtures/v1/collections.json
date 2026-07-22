@@ -1,0 +1,11 @@
+{
+  "schema": "anime.fixture/v1",
+  "userId": "user-demo",
+  "collections": [
+    {"subjectId": 1001, "status": "Watching", "watchedEpisodes": 3, "totalEpisodes": 12, "sync": "Synced"},
+    {"subjectId": 1002, "status": "Wish", "watchedEpisodes": 0, "totalEpisodes": 12, "sync": "Synced"},
+    {"subjectId": 1006, "status": "Watching", "watchedEpisodes": 12, "totalEpisodes": 24, "sync": "Pending"},
+    {"subjectId": 1009, "status": "Completed", "watchedEpisodes": 12, "totalEpisodes": 12, "sync": "Synced"},
+    {"subjectId": 1010, "status": "OnHold", "watchedEpisodes": 4, "totalEpisodes": 12, "sync": "Conflict"}
+  ]
+}

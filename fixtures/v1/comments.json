@@ -1,0 +1,23 @@
+{
+  "schema": "anime.fixture/v1",
+  "comments": [
+    {"id": "comment-demo-own", "subjectId": 1008, "parentId": null, "authorId": "user-demo", "body": "第一条演示短评。", "spoiler": false, "ownership": "Self"},
+    {"id": "comment-demo-locked", "subjectId": 1008, "parentId": null, "authorId": "user-guest", "body": "这条短评不可由当前用户删除。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1008-03", "subjectId": 1008, "parentId": "comment-demo-own", "authorId": "user-guest", "body": "一层回复示例。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1008-04", "subjectId": 1008, "parentId": null, "authorId": "user-guest", "body": "节奏很舒服。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1008-05", "subjectId": 1008, "parentId": null, "authorId": "user-demo", "body": "分页边界样例五。", "spoiler": false, "ownership": "Self"},
+    {"id": "comment-1008-06", "subjectId": 1008, "parentId": null, "authorId": "user-guest", "body": "分页边界样例六。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1008-07", "subjectId": 1008, "parentId": null, "authorId": "user-demo", "body": "分页边界样例七。", "spoiler": false, "ownership": "Self"},
+    {"id": "comment-1008-08", "subjectId": 1008, "parentId": null, "authorId": "user-guest", "body": "分页边界样例八。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1008-09", "subjectId": 1008, "parentId": null, "authorId": "user-demo", "body": "分页边界样例九。", "spoiler": false, "ownership": "Self"},
+    {"id": "comment-1008-10", "subjectId": 1008, "parentId": null, "authorId": "user-guest", "body": "分页边界样例十。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1009-01", "subjectId": 1009, "parentId": null, "authorId": "user-demo", "body": "结局的星空很漂亮。", "spoiler": true, "ownership": "Self"},
+    {"id": "comment-1009-02", "subjectId": 1009, "parentId": null, "authorId": "user-guest", "body": "包含第二条剧透的固定内容。", "spoiler": true, "ownership": "Other"},
+    {"id": "comment-1009-03", "subjectId": 1009, "parentId": "comment-1009-01", "authorId": "user-guest", "body": "同意这个观察。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1009-04", "subjectId": 1009, "parentId": null, "authorId": "user-demo", "body": "音乐值得反复听。", "spoiler": false, "ownership": "Self"},
+    {"id": "comment-1009-05", "subjectId": 1009, "parentId": null, "authorId": "user-guest", "body": "完整看完后的短评。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1001-01", "subjectId": 1001, "parentId": null, "authorId": "user-demo", "body": "开篇世界观很吸引人。", "spoiler": false, "ownership": "Self"},
+    {"id": "comment-1001-02", "subjectId": 1001, "parentId": null, "authorId": "user-guest", "body": "期待下一封信。", "spoiler": false, "ownership": "Other"},
+    {"id": "comment-1001-03", "subjectId": 1001, "parentId": "comment-1001-01", "authorId": "user-guest", "body": "我也喜欢这一点。", "spoiler": false, "ownership": "Other"}
+  ]
+}

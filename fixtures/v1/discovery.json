@@ -1,0 +1,10 @@
+{
+  "schema": "anime.fixture/v1",
+  "generatedAt": "2026-07-19T08:00:00Z",
+  "sections": [
+    {"id": "airing", "title": "正在热播", "subjectIds": [1001, 1006, 1008, 1011, 1012]},
+    {"id": "top-rated", "title": "高分精选", "subjectIds": [1002, 1009, 1001, 1008]},
+    {"id": "upcoming", "title": "即将开播", "subjectIds": [1003, 1004]},
+    {"id": "continue", "title": "继续观看", "subjectIds": [1006, 1001]}
+  ]
+}

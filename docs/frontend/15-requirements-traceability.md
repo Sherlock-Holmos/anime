@@ -2,6 +2,20 @@
 
 > 规则：每项需求必须有一个 Owner Feature、一个 Fixture 场景和至少一个自动化测试 ID。实现合并时将“实现位置”替换为实际文件路径，但不得更改需求 ID。
 
+## 0. 当前实现基线
+
+| 范围 | 实现位置 | 已验证 | 状态 |
+|---|---|---|---|
+| 语义 Token 与主题 | `core/designsystem/.../AnimeTokens.kt`、`AnimeTheme.kt` | `animeKtlintCheck`、Android 编译 | 已落地 |
+| 公共作品卡、评分、按钮和状态面板 | `core/designsystem/.../AnimeComponents.kt` | Android 编译、Demo Catalog | F1 进行中 |
+| Glass 能力与确定性降级 | `core/designsystem/.../AnimeGlass.kt` | `GlassTierTest` | F1 进行中；平台 Blur/Liquid Adapter 未完成 |
+| 领域模型与错误/资源状态 | `core/model/...` | `DomainValidationTest`、Android 编译 | 已落地 |
+| 六组 Repository 合同 | `data/catalog`、`data/collection`、`data/comment`、`data/session`、`data/settings` | Android 编译 | 接口已落地；CT 实现未完成 |
+| Fixture v1 | `fixtures/v1` | `fixtureCheck` | 数据、固定时钟/种子、12 场景和哈希已落地；运行时装载未完成 |
+| F1 可视目录 | `shared/app/.../DesignSystemCatalog.kt` | `assembleDemoDebug` | 已接入 Demo Shell |
+
+本表中的“进行中/未完成”是强制交付边界，不能因接口或静态数据已经存在而宣称对应阶段完成。
+
 ## 1. 产品与导航
 
 | 需求 | 验收结果 | Owner | 场景 | 测试 ID |

@@ -1,0 +1,8 @@
+{
+  "schema": "anime.fixture/v1",
+  "users": [
+    {"id": "guest", "displayName": "游客", "authenticated": false},
+    {"id": "user-demo", "displayName": "演示用户", "authenticated": true, "provider": "Bangumi"},
+    {"id": "user-guest", "displayName": "纸飞机", "authenticated": true, "provider": "Anime"}
+  ]
+}

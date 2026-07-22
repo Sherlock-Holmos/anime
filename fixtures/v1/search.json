@@ -1,0 +1,14 @@
+{
+  "schema": "anime.fixture/v1",
+  "normalization": ["NFC", "trim", "lowercase-ascii"],
+  "defaultHistory": ["星海", "侦探", "garden"],
+  "pageSize": 5,
+  "expected": {
+    "星海": [1001],
+    "侦探": [1008],
+    "garden": [1003, 1010],
+    "月": [1006],
+    "全部": [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012],
+    "不存在": []
+  }
+}

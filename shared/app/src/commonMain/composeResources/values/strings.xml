@@ -18,4 +18,16 @@
     <string name="data_mode_remote_fixture">远程数据，可切换 Fixture</string>
     <string name="data_mode_remote">仅远程数据</string>
     <string name="f0_footer">Bangumi 评分只读 · Android API 26+ · JVM 17</string>
+    <string name="f1_catalog_title">F1 组件目录</string>
+    <string name="f1_catalog_description">公共组件已开始使用统一 Token、语义和确定性占位图。</string>
+    <string name="f1_subject_primary">星海邮差</string>
+    <string name="f1_subject_primary_metadata">2026 · TV · 连载中</string>
+    <string name="f1_subject_secondary">玻璃庭院</string>
+    <string name="f1_subject_secondary_metadata">未开播 · 无海报</string>
+    <string name="f1_bangumi_source">Bangumi</string>
+    <string name="f1_bangumi_votes">1,234 人评分</string>
+    <string name="f1_bangumi_empty">暂无 Bangumi 评分</string>
+    <string name="f1_bangumi_accessibility">Bangumi 评分 8.6 分，1,234 人参与</string>
+    <string name="f1_subject_primary_accessibility">星海邮差，2026 年 TV 动画，连载中，Bangumi 评分 8.6 分</string>
+    <string name="f1_subject_secondary_accessibility">玻璃庭院，未开播，无海报，无评分</string>
 </resources>
