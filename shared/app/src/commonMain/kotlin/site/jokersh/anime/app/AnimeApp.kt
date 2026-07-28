@@ -81,6 +81,7 @@ import site.jokersh.anime.core.navigation.AppRoute
 import site.jokersh.anime.core.navigation.RouteOrigin
 import site.jokersh.anime.core.navigation.root
 import site.jokersh.anime.feature.discover.DiscoverRoute
+import site.jokersh.anime.feature.search.SearchRoute
 import site.jokersh.anime.feature.subject.SubjectRoute
 
 private enum class RootDestination(
@@ -220,7 +221,42 @@ private fun AppNavigationLayer(
                         )
                     }
                     entry<AppRoute.Search> {
-                        F0Content(RootDestination.Search, appContainer.profile)
+                        SearchRoute(
+                            repository = appContainer.searchRepository,
+                            initialQuery = it.query,
+                            pageSize = appContainer.profile.searchPageSize,
+                            onResultsRequested = { query ->
+                                navigator.push(AppRoute.SearchResults(query.toSearchRouteRequest()))
+                            },
+                            onSubjectClick = { subjectId ->
+                                navigator.push(
+                                    AppRoute.Subject(
+                                        subjectId = subjectId.value,
+                                        origin = RouteOrigin.Search,
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.statusBarsPadding(),
+                        )
+                    }
+                    entry<AppRoute.SearchResults> { route ->
+                        SearchRoute(
+                            repository = appContainer.searchRepository,
+                            initialQuery = route.request.query,
+                            pageSize = appContainer.profile.searchPageSize,
+                            onResultsRequested = { query ->
+                                navigator.push(AppRoute.SearchResults(query.toSearchRouteRequest()))
+                            },
+                            onSubjectClick = { subjectId ->
+                                navigator.push(
+                                    AppRoute.Subject(
+                                        subjectId = subjectId.value,
+                                        origin = RouteOrigin.Search,
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.statusBarsPadding(),
+                        )
                     }
                     entry<AppRoute.Collection> {
                         F0Content(RootDestination.Collection, appContainer.profile)
@@ -239,6 +275,10 @@ private fun AppNavigationLayer(
         )
     }
 }
+
+private fun String.toSearchRouteRequest(): site.jokersh.anime.core.navigation.SearchRouteRequest =
+    site.jokersh.anime.core.navigation
+        .SearchRouteRequest(query = trim())
 
 @Composable
 private fun F0Content(

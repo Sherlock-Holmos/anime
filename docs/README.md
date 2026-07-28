@@ -109,6 +109,7 @@ WIKI_SYNC_TOKEN
 | 36 Collection Feature Contract | `frontend/features/05-collection.md` |
 | 37 Comment Feature Contract | `frontend/features/06-comment.md` |
 | 38 Profile Settings Diagnostics Contract | `frontend/features/07-profile-settings-diagnostics.md` |
+| 39 Frontend Implementation Log | `frontend/17-implementation-log.md` |
 | 99 References | 25–27 |
 | 99 Complete Design Baseline | 完整快照 |
 

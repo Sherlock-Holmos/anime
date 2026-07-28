@@ -28,6 +28,7 @@ import site.jokersh.anime.core.model.SubjectSummary
 import site.jokersh.anime.core.model.SubjectType
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -138,6 +139,39 @@ class FixtureCatalogRepositoryContractTest : CatalogRepositoryContract() {
 
 class FixtureSearchRepositoryContractTest : SearchRepositoryContract() {
     override fun createRepository(): SearchRepository = InMemorySearchRepository()
+}
+
+class FixtureSearchRepositoryTest {
+    @Test
+    fun `CT-SEA-006 fixture search supports deterministic pagination`() =
+        runTest {
+            val repository = FixtureSearchRepository(readDelayMs = 0)
+            val first = repository.search(SearchRequest(query = "bangumi", pageSize = 5)).getOrThrow()
+            val second =
+                repository
+                    .search(SearchRequest(query = "bangumi", pageSize = 5, cursor = first.nextCursor))
+                    .getOrThrow()
+            val third =
+                repository
+                    .search(SearchRequest(query = "bangumi", pageSize = 5, cursor = second.nextCursor))
+                    .getOrThrow()
+
+            assertEquals(5, first.items.size)
+            assertEquals(5, second.items.size)
+            assertEquals(2, third.items.size)
+            assertEquals(12, (first.items + second.items + third.items).distinctBy { it.id }.size)
+            assertFalse(third.hasMore)
+        }
+
+    @Test
+    fun `CT-SEA-007 fixture search can open a result by Bangumi subject id`() =
+        runTest {
+            val repository = FixtureSearchRepository(readDelayMs = 0)
+            val page = repository.search(SearchRequest(query = "1001", pageSize = 5)).getOrThrow()
+
+            assertEquals(listOf(SubjectId(1001)), page.items.map { it.id })
+            assertFalse(page.hasMore)
+        }
 }
 
 private class InMemoryCatalogRepository : CatalogRepository {

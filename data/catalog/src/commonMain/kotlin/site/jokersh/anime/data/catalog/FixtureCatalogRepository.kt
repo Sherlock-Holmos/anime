@@ -11,15 +11,20 @@ import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.BangumiRating
 import site.jokersh.anime.core.model.CollectionSnapshot
 import site.jokersh.anime.core.model.CollectionStatus
+import site.jokersh.anime.core.model.Cursor
 import site.jokersh.anime.core.model.DiscoveryFeed
 import site.jokersh.anime.core.model.DiscoverySection
 import site.jokersh.anime.core.model.Episode
 import site.jokersh.anime.core.model.Freshness
 import site.jokersh.anime.core.model.FreshnessKind
 import site.jokersh.anime.core.model.ImageRef
+import site.jokersh.anime.core.model.Page
 import site.jokersh.anime.core.model.RefreshPolicy
 import site.jokersh.anime.core.model.ResourceKind
 import site.jokersh.anime.core.model.ResourceState
+import site.jokersh.anime.core.model.SearchHistoryItem
+import site.jokersh.anime.core.model.SearchRequest
+import site.jokersh.anime.core.model.SearchSuggestion
 import site.jokersh.anime.core.model.SubjectCredits
 import site.jokersh.anime.core.model.SubjectDetail
 import site.jokersh.anime.core.model.SubjectId
@@ -123,6 +128,82 @@ public class FixtureCatalogRepository(
     ): Result<Unit> = Result.success(Unit)
 }
 
+public class FixtureSearchRepository(
+    private val readDelayMs: Long = 120,
+) : SearchRepository {
+    private val history = MutableStateFlow<List<SearchHistoryItem>>(emptyList())
+    private val historyMutex = Mutex()
+
+    init {
+        require(readDelayMs >= 0) { "readDelayMs must be non-negative" }
+    }
+
+    override fun observeHistory(): Flow<List<SearchHistoryItem>> = history.asStateFlow()
+
+    override fun observeSuggestions(query: String): Flow<ResourceState<List<SearchSuggestion>>> {
+        val normalized = query.trim()
+        val suggestions =
+            if (normalized.isBlank()) {
+                emptyList()
+            } else {
+                searchCandidates(normalized)
+                    .take(5)
+                    .map { subject -> SearchSuggestion(subject.title) }
+            }
+        return MutableStateFlow(
+            ResourceState(
+                value = suggestions,
+                freshness = fresh(),
+                refreshing = false,
+                error = null,
+            ),
+        )
+    }
+
+    override suspend fun search(request: SearchRequest): Result<Page<SubjectSummary>> =
+        runCatching {
+            delay(readDelayMs)
+            val offset = request.cursor?.value?.toIntOrNull() ?: 0
+            val years = request.years
+            val filtered =
+                searchCandidates(request.query)
+                    .filter { subject -> request.types.isEmpty() || subject.type in request.types }
+                    .filter { subject -> request.airing.isEmpty() || subject.airingStatus in request.airing }
+                    .filter { subject -> years == null || subject.year?.let(years::contains) == true }
+            val pageItems = filtered.drop(offset).take(request.pageSize)
+            val nextOffset = offset + pageItems.size
+            Page(
+                items = pageItems,
+                nextCursor = if (nextOffset < filtered.size) Cursor(nextOffset.toString()) else null,
+                hasMore = nextOffset < filtered.size,
+            )
+        }
+
+    override suspend fun saveHistory(query: String) {
+        val normalized = query.trim()
+        if (normalized.isBlank()) return
+        historyMutex.withLock {
+            history.value =
+                (
+                    listOf(SearchHistoryItem(id = "history-$normalized", query = normalized, usedAt = FIXTURE_NOW)) +
+                        history.value.filterNot { item -> item.query == normalized }
+                ).take(10)
+        }
+    }
+
+    override suspend fun deleteHistory(id: String) {
+        historyMutex.withLock {
+            history.value = history.value.filterNot { item -> item.id == id }
+        }
+    }
+
+    override suspend fun clearHistory() {
+        historyMutex.withLock {
+            history.value = emptyList()
+        }
+    }
+}
+
 private val FIXTURE_NOW: Instant = Instant.parse("2026-07-19T08:00:00Z")
 
 private data class FixtureSubjectRecord(
@@ -155,6 +236,32 @@ private val fixtureRecords: List<FixtureSubjectRecord> =
 
 private val fixtureSubjects: Map<Long, SubjectSummary> =
     fixtureRecords.associate { record -> record.id to record.toDomain() }
+
+private fun searchCandidates(query: String): List<SubjectSummary> {
+    val normalized = query.trim()
+    if (normalized.isBlank()) return emptyList()
+    val lower = normalized.lowercase()
+    return fixtureSubjects.values
+        .filter { subject ->
+            subject.title.contains(normalized, ignoreCase = true) ||
+                subject.originalTitle?.contains(normalized, ignoreCase = true) == true ||
+                subject.aliases.any { alias -> alias.contains(normalized, ignoreCase = true) } ||
+                subject.type.name
+                    .lowercase()
+                    .contains(lower) ||
+                subject.airingStatus.name
+                    .lowercase()
+                    .contains(lower) ||
+                subject.id.value.toString() == normalized ||
+                genericFixtureKeywords(lower)
+        }.sortedWith(
+            compareByDescending<SubjectSummary> { subject -> subject.rating?.score ?: 0.0 }
+                .thenBy { subject -> subject.id.value },
+        )
+}
+
+private fun genericFixtureKeywords(query: String): Boolean =
+    query in setOf("anime", "bangumi", "demo", "fixture", "tv", "作品", "番剧", "动画")
 
 private val fixtureSections: List<DiscoverySection> =
     listOf(
