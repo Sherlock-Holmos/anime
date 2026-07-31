@@ -1,0 +1,1465 @@
+openapi: 3.1.0
+info:
+  title: Anime API
+  version: 1.0.0
+  description: |
+    Anime 的公开资料、Bangumi OAuth 会话、收藏进度、短评和同步 API。
+    评分字段均为 Bangumi 只读快照，不存在 Anime 自有评分写接口。
+servers:
+  - url: https://api.example.invalid/api/v1
+    description: Placeholder; deployment injects the real HTTPS origin.
+tags:
+  - name: System
+  - name: Catalog
+  - name: Auth
+  - name: Collection
+  - name: Comment
+  - name: Sync
+security: []
+paths:
+  /health:
+    get:
+      tags: [System]
+      operationId: getHealth
+      responses:
+        "200":
+          description: Process is ready to serve public requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /home:
+    get:
+      tags: [Catalog]
+      operationId: getHome
+      parameters:
+        - $ref: "#/components/parameters/IfNoneMatch"
+      responses:
+        "200":
+          description: Discovery feed.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeResponse"
+        "304":
+          description: Cached representation is still current.
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /calendar:
+    get:
+      tags: [Catalog]
+      operationId: getCalendar
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Subjects airing on the requested date.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectPageResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+  /subjects:
+    get:
+      tags: [Catalog]
+      operationId: listSubjects
+      parameters:
+        - $ref: "#/components/parameters/SubjectTypes"
+        - $ref: "#/components/parameters/AiringStatuses"
+        - $ref: "#/components/parameters/YearFrom"
+        - $ref: "#/components/parameters/YearTo"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Stable cursor page of subjects.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectPageResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+  /search/subjects:
+    get:
+      tags: [Catalog]
+      operationId: searchSubjects
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - $ref: "#/components/parameters/SubjectTypes"
+        - $ref: "#/components/parameters/AiringStatuses"
+        - $ref: "#/components/parameters/YearFrom"
+        - $ref: "#/components/parameters/YearTo"
+        - name: sort
+          in: query
+          schema:
+            $ref: "#/components/schemas/SearchSort"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Search results ordered by a stable sort.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectPageResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+  /subjects/{subject_id}:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Catalog]
+      operationId: getSubject
+      parameters:
+        - $ref: "#/components/parameters/IfNoneMatch"
+      responses:
+        "200":
+          description: Subject detail.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectResponse"
+        "304":
+          description: Cached representation is still current.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /subjects/{subject_id}/episodes:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Catalog]
+      operationId: listSubjectEpisodes
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Episode page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodePageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /subjects/{subject_id}/characters:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Catalog]
+      operationId: listSubjectCharacters
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Character credit page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharacterPageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /subjects/{subject_id}/persons:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Catalog]
+      operationId: listSubjectPersons
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Person credit page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonPageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /subjects/{subject_id}/relations:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Catalog]
+      operationId: listSubjectRelations
+      responses:
+        "200":
+          description: Related subjects.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelationListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /subjects/{subject_id}/comments:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Comment]
+      operationId: listSubjectComments
+      parameters:
+        - name: sort
+          in: query
+          schema:
+            $ref: "#/components/schemas/CommentSort"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Visible comment page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentPageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Comment]
+      operationId: createSubjectComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentRequest"
+      responses:
+        "201":
+          description: Comment accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ContentRejected"
+  /auth/bangumi/start:
+    post:
+      tags: [Auth]
+      operationId: startBangumiAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthStartRequest"
+      responses:
+        "201":
+          description: One-time authorization request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthStartResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /auth/bangumi/callback:
+    post:
+      tags: [Auth]
+      operationId: completeBangumiAuth
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCallbackRequest"
+      responses:
+        "200":
+          description: Anime session tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshSession
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Rotated Anime session tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Current session revoked.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags: [Auth]
+      operationId: deleteMe
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Account deletion accepted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me/collections:
+    get:
+      tags: [Collection]
+      operationId: listMyCollections
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/CollectionStatus"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Current user's collection page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionPageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me/collections/{subject_id}:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    put:
+      tags: [Collection]
+      operationId: putMyCollection
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutCollectionRequest"
+      responses:
+        "200":
+          description: Locally committed target state; sync may remain pending.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Collection]
+      operationId: deleteMyCollection
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: expected_version
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "202":
+          description: Local deletion committed; Bangumi sync may remain pending.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /me/sync/status:
+    get:
+      tags: [Sync]
+      operationId: getMySyncStatus
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Synchronization summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me/sync:
+    post:
+      tags: [Sync]
+      operationId: startMySync
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: A bounded synchronization run was queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /me/sync/conflicts:
+    get:
+      tags: [Sync]
+      operationId: listMySyncConflicts
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Unresolved collection conflicts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictPageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me/sync/conflicts/{conflict_id}/resolve:
+    post:
+      tags: [Sync]
+      operationId: resolveMySyncConflict
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conflict_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveConflictRequest"
+      responses:
+        "200":
+          description: Conflict resolution result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /comments/{comment_id}:
+    parameters:
+      - $ref: "#/components/parameters/CommentId"
+    delete:
+      tags: [Comment]
+      operationId: deleteComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          description: Own comment was soft-deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /comments/{comment_id}/reports:
+    parameters:
+      - $ref: "#/components/parameters/CommentId"
+    post:
+      tags: [Comment]
+      operationId: reportComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportCommentRequest"
+      responses:
+        "201":
+          description: Report accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    ETag:
+      description: Strong representation validator.
+      schema:
+        type: string
+  parameters:
+    SubjectId:
+      name: subject_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/PositiveId"
+    CommentId:
+      name: comment_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 1024
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    YearFrom:
+      name: year_from
+      in: query
+      schema:
+        type: integer
+        minimum: 1900
+        maximum: 2200
+    YearTo:
+      name: year_to
+      in: query
+      schema:
+        type: integer
+        minimum: 1900
+        maximum: 2200
+    SubjectTypes:
+      name: type
+      in: query
+      explode: false
+      schema:
+        type: array
+        uniqueItems: true
+        maxItems: 5
+        items:
+          $ref: "#/components/schemas/SubjectType"
+    AiringStatuses:
+      name: airing
+      in: query
+      explode: false
+      schema:
+        type: array
+        uniqueItems: true
+        maxItems: 4
+        items:
+          $ref: "#/components/schemas/AiringStatus"
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: "^[\\x21-\\x7E]+$"
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      schema:
+        type: string
+  responses:
+    ValidationError:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Anime session is missing, expired, or revoked.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Authenticated principal cannot perform the operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource does not exist or is not visible.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Version, idempotency, or synchronization conflict.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ContentRejected:
+      description: Community content policy rejected the body.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: Request rate exceeded.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: A core Anime dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    PositiveId:
+      type: string
+      pattern: "^[1-9][0-9]{0,18}$"
+    Uuid:
+      type: string
+      format: uuid
+    Instant:
+      type: string
+      format: date-time
+    NullableInstant:
+      type: [string, "null"]
+      format: date-time
+    ImageUrl:
+      type: [string, "null"]
+      format: uri
+      pattern: "^https://"
+    SubjectType:
+      type: string
+      enum: [tv, web, ova, movie, other]
+    AiringStatus:
+      type: string
+      enum: [announced, airing, finished, unknown]
+    EpisodeType:
+      type: string
+      enum: [main, special, opening, ending, other]
+    EpisodeAirStatus:
+      type: string
+      enum: [unreleased, aired, delayed, unknown]
+    CollectionStatus:
+      type: string
+      enum: [wish, watching, completed, on_hold, dropped]
+    SyncPhase:
+      type: string
+      enum: [synced, pending, syncing, failed, conflict]
+    SearchSort:
+      type: string
+      enum: [relevance, rating, updated]
+      default: relevance
+    CommentSort:
+      type: string
+      enum: [newest, oldest]
+      default: newest
+    RelationKind:
+      type: string
+      enum: [prequel, sequel, same_world, alternative, character, summary, other]
+    DataFreshness:
+      type: string
+      enum: [fresh, stale]
+    Meta:
+      type: object
+      additionalProperties: false
+      required: [request_id, next_cursor]
+      properties:
+        request_id:
+          type: string
+          minLength: 16
+          maxLength: 64
+        next_cursor:
+          type: [string, "null"]
+          maxLength: 1024
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ApiError"
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id]
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - CURSOR_INVALID
+            - UNAUTHORIZED
+            - TOKEN_EXPIRED
+            - FORBIDDEN
+            - NOT_FOUND
+            - IDEMPOTENCY_CONFLICT
+            - VERSION_CONFLICT
+            - SYNC_CONFLICT
+            - CONTENT_REJECTED
+            - RATE_LIMITED
+            - UPSTREAM_ERROR
+            - SERVICE_UNAVAILABLE
+        message:
+          type: string
+          minLength: 1
+          maxLength: 200
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          maxProperties: 20
+        request_id:
+          type: string
+          minLength: 16
+          maxLength: 64
+    BangumiRating:
+      type: object
+      additionalProperties: false
+      required: [score, votes, distribution, source, source_updated_at]
+      properties:
+        score:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 10
+        votes:
+          type: integer
+          minimum: 0
+        distribution:
+          type: object
+          propertyNames:
+            pattern: "^(10|[1-9])$"
+          additionalProperties:
+            type: integer
+            minimum: 0
+        source:
+          const: bangumi
+        source_updated_at:
+          $ref: "#/components/schemas/NullableInstant"
+    SyncState:
+      type: object
+      additionalProperties: false
+      required: [phase, pending_count, last_attempt_at, next_retry_at, conflict_id]
+      properties:
+        phase:
+          $ref: "#/components/schemas/SyncPhase"
+        pending_count:
+          type: integer
+          minimum: 0
+        last_attempt_at:
+          $ref: "#/components/schemas/NullableInstant"
+        next_retry_at:
+          $ref: "#/components/schemas/NullableInstant"
+        conflict_id:
+          type: [string, "null"]
+          format: uuid
+    CollectionSnapshot:
+      type: object
+      additionalProperties: false
+      required: [subject_id, status, watched_episodes, note, version, updated_at, sync]
+      properties:
+        subject_id:
+          $ref: "#/components/schemas/PositiveId"
+        status:
+          $ref: "#/components/schemas/CollectionStatus"
+        watched_episodes:
+          type: integer
+          minimum: 0
+        note:
+          type: [string, "null"]
+          maxLength: 300
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        updated_at:
+          $ref: "#/components/schemas/Instant"
+        sync:
+          $ref: "#/components/schemas/SyncState"
+    SubjectSummary:
+      type: object
+      required:
+        [id, title, original_title, aliases, poster_url, year, type, airing_status, rating, collection]
+      properties:
+        id:
+          $ref: "#/components/schemas/PositiveId"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        original_title:
+          type: [string, "null"]
+          maxLength: 200
+        aliases:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+        poster_url:
+          $ref: "#/components/schemas/ImageUrl"
+        year:
+          type: [integer, "null"]
+          minimum: 1900
+          maximum: 2200
+        type:
+          $ref: "#/components/schemas/SubjectType"
+        airing_status:
+          $ref: "#/components/schemas/AiringStatus"
+        rating:
+          anyOf:
+            - $ref: "#/components/schemas/BangumiRating"
+            - type: "null"
+        collection:
+          anyOf:
+            - $ref: "#/components/schemas/CollectionSnapshot"
+            - type: "null"
+    SubjectDetail:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: "#/components/schemas/SubjectSummary"
+        - type: object
+          required:
+            [summary, air_date, end_date, total_episodes, tags, backdrop_url, source_url, data_updated_at, data_freshness]
+          properties:
+            summary:
+              type: [string, "null"]
+              maxLength: 10000
+            air_date:
+              type: [string, "null"]
+              format: date
+            end_date:
+              type: [string, "null"]
+              format: date
+            total_episodes:
+              type: [integer, "null"]
+              minimum: 0
+            tags:
+              type: array
+              maxItems: 100
+              items:
+                type: string
+                minLength: 1
+                maxLength: 80
+            backdrop_url:
+              $ref: "#/components/schemas/ImageUrl"
+            source_url:
+              type: string
+              format: uri
+              pattern: "^https://"
+            data_updated_at:
+              $ref: "#/components/schemas/Instant"
+            data_freshness:
+              $ref: "#/components/schemas/DataFreshness"
+    Episode:
+      type: object
+      additionalProperties: false
+      required: [id, subject_id, number, sort, title, original_title, type, air_date, air_status]
+      properties:
+        id:
+          $ref: "#/components/schemas/PositiveId"
+        subject_id:
+          $ref: "#/components/schemas/PositiveId"
+        number:
+          type: [number, "null"]
+        sort:
+          type: integer
+        title:
+          type: [string, "null"]
+          maxLength: 200
+        original_title:
+          type: [string, "null"]
+          maxLength: 200
+        type:
+          $ref: "#/components/schemas/EpisodeType"
+        air_date:
+          type: [string, "null"]
+          format: date
+        air_status:
+          $ref: "#/components/schemas/EpisodeAirStatus"
+    PersonCredit:
+      type: object
+      additionalProperties: false
+      required: [id, name, image_url, role]
+      properties:
+        id:
+          $ref: "#/components/schemas/PositiveId"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        image_url:
+          $ref: "#/components/schemas/ImageUrl"
+        role:
+          type: [string, "null"]
+          maxLength: 100
+    CharacterCredit:
+      type: object
+      additionalProperties: false
+      required: [id, name, image_url, relation, actors]
+      properties:
+        id:
+          $ref: "#/components/schemas/PositiveId"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        image_url:
+          $ref: "#/components/schemas/ImageUrl"
+        relation:
+          type: string
+          minLength: 1
+          maxLength: 100
+        actors:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonCredit"
+    SubjectRelation:
+      type: object
+      additionalProperties: false
+      required: [subject, kind, label]
+      properties:
+        subject:
+          $ref: "#/components/schemas/SubjectSummary"
+        kind:
+          $ref: "#/components/schemas/RelationKind"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+    UserSummary:
+      type: object
+      additionalProperties: false
+      required: [id, display_name, avatar_url]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        avatar_url:
+          $ref: "#/components/schemas/ImageUrl"
+    UserProfile:
+      type: object
+      additionalProperties: false
+      required: [user, collection_counts, connected_provider]
+      properties:
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        collection_counts:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        connected_provider:
+          const: bangumi
+    Comment:
+      type: object
+      additionalProperties: false
+      required:
+        [id, subject_id, parent_id, author, body, spoiler, created_at, edited_at, ownership]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        subject_id:
+          $ref: "#/components/schemas/PositiveId"
+        parent_id:
+          type: [string, "null"]
+          format: uuid
+        author:
+          $ref: "#/components/schemas/UserSummary"
+        body:
+          type: string
+          minLength: 1
+          maxLength: 300
+        spoiler:
+          type: boolean
+        created_at:
+          $ref: "#/components/schemas/Instant"
+        edited_at:
+          $ref: "#/components/schemas/NullableInstant"
+        ownership:
+          type: string
+          enum: [self, other]
+    CollectionItem:
+      type: object
+      additionalProperties: false
+      required: [subject, collection]
+      properties:
+        subject:
+          $ref: "#/components/schemas/SubjectSummary"
+        collection:
+          $ref: "#/components/schemas/CollectionSnapshot"
+    CollectionVersion:
+      type: object
+      additionalProperties: false
+      required: [status, watched_episodes, updated_at, source]
+      properties:
+        status:
+          $ref: "#/components/schemas/CollectionStatus"
+        watched_episodes:
+          type: integer
+          minimum: 0
+        updated_at:
+          $ref: "#/components/schemas/Instant"
+        source:
+          type: string
+          enum: [this_device, anime_server, bangumi]
+    CollectionConflict:
+      type: object
+      additionalProperties: false
+      required: [id, subject_id, local, remote, detected_at]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        subject_id:
+          $ref: "#/components/schemas/PositiveId"
+        local:
+          $ref: "#/components/schemas/CollectionVersion"
+        remote:
+          $ref: "#/components/schemas/CollectionVersion"
+        detected_at:
+          $ref: "#/components/schemas/Instant"
+    DiscoverySection:
+      type: object
+      additionalProperties: false
+      required: [id, title, subjects]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 50
+        title:
+          type: string
+          minLength: 1
+          maxLength: 80
+        subjects:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubjectSummary"
+    AuthStartRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, callback_uri]
+      properties:
+        request_id:
+          type: string
+          minLength: 16
+          maxLength: 64
+        callback_uri:
+          type: string
+          format: uri
+          pattern: "^https://"
+        pending_action_id:
+          type: [string, "null"]
+          maxLength: 128
+    AuthStart:
+      type: object
+      additionalProperties: false
+      required: [request_id, authorize_url, expires_at]
+      properties:
+        request_id:
+          type: string
+        authorize_url:
+          type: string
+          format: uri
+          pattern: "^https://"
+        expires_at:
+          $ref: "#/components/schemas/Instant"
+    AuthCallbackRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, ticket]
+      properties:
+        request_id:
+          type: string
+          minLength: 16
+          maxLength: 64
+        ticket:
+          type: string
+          minLength: 32
+          maxLength: 512
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          minLength: 32
+          maxLength: 2048
+    Session:
+      type: object
+      additionalProperties: false
+      required: [access_token, refresh_token, token_type, expires_in, user]
+      properties:
+        access_token:
+          type: string
+          minLength: 32
+        refresh_token:
+          type: string
+          minLength: 32
+        token_type:
+          const: Bearer
+        expires_in:
+          type: integer
+          minimum: 60
+        user:
+          $ref: "#/components/schemas/UserProfile"
+    PutCollectionRequest:
+      type: object
+      additionalProperties: false
+      required: [status, watched_episodes, expected_version]
+      properties:
+        status:
+          $ref: "#/components/schemas/CollectionStatus"
+        watched_episodes:
+          type: integer
+          minimum: 0
+        note:
+          type: [string, "null"]
+          maxLength: 300
+        expected_version:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+    CreateCommentRequest:
+      type: object
+      additionalProperties: false
+      required: [body, spoiler]
+      properties:
+        parent_id:
+          type: [string, "null"]
+          format: uuid
+        body:
+          type: string
+          minLength: 1
+          maxLength: 300
+        spoiler:
+          type: boolean
+    ReportCommentRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [spam, harassment, spoiler, illegal, other]
+        details:
+          type: [string, "null"]
+          maxLength: 300
+    ResolveConflictRequest:
+      type: object
+      additionalProperties: false
+      required: [choice, expected_version]
+      properties:
+        choice:
+          type: string
+          enum: [keep_local, use_remote, later]
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+    Mutation:
+      type: object
+      additionalProperties: false
+      required: [id, phase]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        phase:
+          $ref: "#/components/schemas/SyncPhase"
+    SyncSummary:
+      type: object
+      additionalProperties: false
+      required: [pending_count, failed_count, conflict_count, last_successful_at]
+      properties:
+        pending_count:
+          type: integer
+          minimum: 0
+        failed_count:
+          type: integer
+          minimum: 0
+        conflict_count:
+          type: integer
+          minimum: 0
+        last_successful_at:
+          $ref: "#/components/schemas/NullableInstant"
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [status]
+          properties:
+            status:
+              const: ok
+        meta:
+          $ref: "#/components/schemas/Meta"
+    HomeResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [sections, generated_at]
+          properties:
+            sections:
+              type: array
+              items:
+                $ref: "#/components/schemas/DiscoverySection"
+            generated_at:
+              $ref: "#/components/schemas/Instant"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    SubjectPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubjectSummary"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    SubjectResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SubjectDetail"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    EpisodePageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Episode"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    CharacterPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CharacterCredit"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    PersonPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonCredit"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    RelationListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubjectRelation"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    CommentPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    CommentResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Comment"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    AuthStartResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AuthStart"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    SessionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Session"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    UserProfileResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/UserProfile"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    CollectionPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CollectionItem"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    CollectionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CollectionSnapshot"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    MutationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Mutation"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    SyncStatusResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SyncSummary"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ConflictPageResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CollectionConflict"
+        meta:
+          $ref: "#/components/schemas/Meta"

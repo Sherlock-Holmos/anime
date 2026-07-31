@@ -45,6 +45,14 @@ FRONTEND_PAGE_SOURCES = {
     "39-Frontend-Implementation-Log.md": Path("docs/frontend/17-implementation-log.md"),
     "40-Windows-Desktop-Baseline.md": Path("docs/frontend/18-windows-desktop-baseline.md"),
 }
+BACKEND_PAGE_SOURCES = {
+    "41-Backend-Specification-Index.md": Path("docs/backend/00-backend-specification-index.md"),
+    "42-Backend-API-Contract.md": Path("docs/backend/01-api-contract.md"),
+    "43-Backend-Database-Contract.md": Path("docs/backend/02-database-contract.md"),
+    "44-Bangumi-Adapter-and-Sync-Contract.md": Path("docs/backend/03-bangumi-and-sync.md"),
+    "45-Backend-Testing-and-Delivery.md": Path("docs/backend/04-testing-and-delivery.md"),
+}
+PAGE_SOURCES = {**FRONTEND_PAGE_SOURCES, **BACKEND_PAGE_SOURCES}
 
 MANAGED_PAGE_NAMES = (
     "Home.md",
@@ -62,7 +70,7 @@ MANAGED_PAGE_NAMES = (
     "12-Deployment-and-Operations.md",
     "13-Testing-and-Roadmap.md",
     "14-Decisions-and-Risks.md",
-    *FRONTEND_PAGE_SOURCES.keys(),
+    *PAGE_SOURCES.keys(),
     "99-References.md",
     "99-Complete-Design-Baseline.md",
 )
@@ -138,7 +146,7 @@ def sha256_text(text: str) -> str:
 def source_set_hash(main_source_text: str) -> str:
     digest = hashlib.sha256()
     sources = {SOURCE_RELATIVE: normalize(main_source_text)}
-    for relative in FRONTEND_PAGE_SOURCES.values():
+    for relative in PAGE_SOURCES.values():
         sources[relative] = normalize((REPO_ROOT / relative).read_text(encoding="utf-8"))
     for relative, content in sorted(sources.items(), key=lambda item: item[0].as_posix()):
         digest.update(relative.as_posix().encode("utf-8"))
@@ -167,7 +175,7 @@ def inject_document_banner(document: str, source_relative: Path) -> str:
     source_hash = sha256_text(document)
     first_line, separator, rest = document.partition("\n")
     if not separator or not first_line.startswith("# "):
-        raise ValueError(f"frontend document must start with H1: {source_relative}")
+        raise ValueError(f"managed document must start with H1: {source_relative}")
     return normalize(
         f"{first_line}\n\n{page_banner(source_relative, source_hash)}\n\n{rest.lstrip()}"
     )
@@ -177,9 +185,9 @@ def build_home(documentation_hash: str) -> str:
     return normalize(
         f"""# Anime 项目 Wiki
 
-{page_banner("docs/（总体设计与前端规范受管集合）", documentation_hash)}
+{page_banner("docs/（总体设计、前端与后端规范受管集合）", documentation_hash)}
 
-> 文档版本：V1.3（CMP Android 无歧义实施基线）<br>
+> 文档版本：V1.4（CMP 与后端可执行契约基线）<br>
 > 编制日期：2026-07-21<br>
 > 当前开发阶段：F0 工程与技术验证
 
@@ -253,6 +261,11 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 | [38-Profile-Settings-Diagnostics-Contract](38-Profile-Settings-Diagnostics-Contract) | 个人、设置与诊断完整合同 |
 | [39-Frontend-Implementation-Log](39-Frontend-Implementation-Log) | 已验证的前端实现增量 |
 | [40-Windows-Desktop-Baseline](40-Windows-Desktop-Baseline) | Windows CMP 工程、发行与验收基线 |
+| [41-Backend-Specification-Index](41-Backend-Specification-Index) | 后端规范优先级、技术边界与变更流程 |
+| [42-Backend-API-Contract](42-Backend-API-Contract) | OpenAPI、认证、分页、幂等和错误语义 |
+| [43-Backend-Database-Contract](43-Backend-Database-Contract) | PostgreSQL Schema、事务和 Migration 规则 |
+| [44-Bangumi-Adapter-and-Sync-Contract](44-Bangumi-Adapter-and-Sync-Contract) | Bangumi 映射、限流、重试与双向同步 |
+| [45-Backend-Testing-and-Delivery](45-Backend-Testing-and-Delivery) | 后端测试矩阵、阶段与完成定义 |
 | [99-Complete-Design-Baseline](99-Complete-Design-Baseline) | 完整 V1.3 总体设计快照 |
 
 ## 维护原则
@@ -300,7 +313,7 @@ def build_pages(source_text: str) -> dict[str, str]:
     for filename, (title, body) in page_bodies.items():
         pages[filename] = wrap_page(title, body, SOURCE_RELATIVE, source_hash)
 
-    for filename, source_relative in FRONTEND_PAGE_SOURCES.items():
+    for filename, source_relative in PAGE_SOURCES.items():
         document = (REPO_ROOT / source_relative).read_text(encoding="utf-8")
         pages[filename] = inject_document_banner(document, source_relative)
 
@@ -358,7 +371,7 @@ def sync_remote(remote: str, pages: dict[str, str], publish: bool) -> int:
         run_git("config", "user.name", "Anime Wiki Sync", cwd=checkout)
         run_git("config", "user.email", "wiki-sync@jokersh.site", cwd=checkout)
         run_git("add", "--", *MANAGED_PAGE_NAMES, cwd=checkout)
-        run_git("commit", "-m", f"docs: sync V1.3 CMP Android implementation baseline ({documentation_hash[:12]})", cwd=checkout)
+        run_git("commit", "-m", f"docs: sync V1.4 implementation contracts ({documentation_hash[:12]})", cwd=checkout)
         run_git("push", "origin", "HEAD", cwd=checkout)
         print("Wiki synchronization published.")
         return 0
@@ -383,7 +396,7 @@ def main() -> int:
     args = parse_args()
     if not SOURCE_PATH.is_file():
         raise FileNotFoundError(f"canonical source not found: {SOURCE_PATH}")
-    for relative in FRONTEND_PAGE_SOURCES.values():
+    for relative in PAGE_SOURCES.values():
         if not (REPO_ROOT / relative).is_file():
             raise FileNotFoundError(f"canonical source not found: {REPO_ROOT / relative}")
     pages = build_pages(SOURCE_PATH.read_text(encoding="utf-8"))

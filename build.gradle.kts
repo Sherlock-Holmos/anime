@@ -47,8 +47,21 @@ tasks.register("animeCheck") {
     group = "verification"
     description = "Runs the stable Anime verification entry point."
     dependsOn("animeKtlintCheck")
+    dependsOn("backendContractCheck")
     dependsOn("checkModuleGraph")
     dependsOn("fixtureCheck")
+}
+
+tasks.register<Exec>("backendContractCheck") {
+    group = "verification"
+    description = "Validates the OpenAPI, PostgreSQL migration, and backend specification baseline."
+    val python = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) "python" else "python3"
+    commandLine(python, "scripts/check_backend_contracts.py")
+    inputs.files(
+        "contracts/openapi/anime-v1.yaml",
+        "contracts/database/migrations/0001_initial.sql",
+    )
+    inputs.dir("docs/backend")
 }
 
 val checkModuleGraph =

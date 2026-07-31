@@ -1,10 +1,10 @@
 # Anime 项目完整详细设计文档
 
-> 文档版本：V1.3（CMP Android 无歧义实施基线）<br>
+> 文档版本：V1.4（CMP 与后端可执行契约基线）<br>
 > 编制日期：2026-07-21<br>
 > 项目代号：Anime<br>
 > 文档用途：作为个人开发者与 AI Agent 协作时的产品、架构、接口、数据和验收基线<br>
-> 当前交付平台：Android<br>
+> 当前交付平台：Android 优先，Windows CMP 基线同步验证<br>
 > 未来目标平台：iOS（当前无 macOS 构建与验证环境）
 
 ---
@@ -1473,6 +1473,8 @@ stateDiagram-v2
 
 ## 11. API 设计
 
+> 后端实现入口为 `docs/backend/00-backend-specification-index.md`。逐字段请求、响应、枚举、安全要求和状态码以 `contracts/openapi/anime-v1.yaml` 为机器可读事实源；本章保留产品级接口边界。
+
 ### 11.1 通用约定
 
 - Base URL：`https://<anime-api-domain>/api/v1`
@@ -1582,6 +1584,8 @@ stateDiagram-v2
 ---
 
 ## 12. 数据库设计
+
+> PostgreSQL 初始结构以 `contracts/database/migrations/0001_initial.sql` 为可执行事实源，以 `docs/backend/02-database-contract.md` 为事务与迁移规则；本章保留逻辑数据模型。
 
 ### 12.1 设计原则
 
@@ -2273,9 +2277,9 @@ ADR 至少包含：背景、决定、候选方案、取舍、后果、验证方�
 
 ## 26. 文档完成定义
 
-本文档与 `docs/frontend/` 分册已经满足需求、总体设计和 CMP Android 实施基线条件：原待确认事项已全部确认；工程版本、模块边界、运行时架构、领域接口、逐 Feature 状态机、视觉 Token、确定性 Fixture、异常状态、测试标签、需求追踪和决策流程均已定义。
+本文档与 `docs/frontend/`、`docs/backend/` 分册已经满足需求、总体设计、CMP 和后端可执行契约基线条件：原待确认事项已全部确认；工程版本、模块边界、运行时架构、领域接口、逐 Feature 状态机、视觉 Token、确定性 Fixture、OpenAPI、PostgreSQL 初始迁移、异常状态、测试标签、需求追踪和决策流程均已定义。
 
-进入编码时仍必须执行 Phase 0/F0，对 OAuth、Backdrop、Ktor、SQLDelight、Bangumi 和 Cloudflare 链路进行最小原型验证。Fixture 前端不需要等待全部服务端验证完成；验证的目的是确认已冻结基线，而不是由实现者自行选型。若结果要求改变架构，必须通过 ADR、需求追踪和文档修订升级 **V1.3**。
+进入编码时仍必须执行 Phase 0/F0，对 OAuth、Backdrop、Ktor、SQLDelight、Bangumi 和 Cloudflare 链路进行最小原型验证。Fixture 前端不需要等待全部服务端验证完成；验证的目的是确认已冻结基线，而不是由实现者自行选型。若结果要求改变架构，必须通过 ADR、需求追踪和文档修订升级 **V1.4**。
 
 ---
 
