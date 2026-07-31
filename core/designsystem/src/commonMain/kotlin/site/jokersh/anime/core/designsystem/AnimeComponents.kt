@@ -22,6 +22,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -197,37 +198,42 @@ public fun AnimeCompactSubjectCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Surface(
         modifier =
             modifier
                 .fillMaxWidth()
                 .heightIn(min = AnimeSize.posterCompactHeight)
-                .clip(RoundedCornerShape(AnimeRadius.card))
-                .background(MaterialTheme.colorScheme.surface)
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
                     contentDescription = model.accessibilityLabel
-                }.clickable(onClick = onClick)
-                .padding(AnimeSpacing.md),
-        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+                },
+        shape = RoundedCornerShape(AnimeRadius.card),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        onClick = onClick,
     ) {
-        Poster(model, AnimeSize.posterCompactWidth, AnimeSize.posterCompactHeight)
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),
+        Row(
+            modifier = Modifier.padding(AnimeSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
         ) {
-            Text(model.title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
-            model.originalTitle?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            Poster(model, AnimeSize.posterCompactWidth, AnimeSize.posterCompactHeight)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),
+            ) {
+                Text(model.title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                model.originalTitle?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(model.metadata, style = MaterialTheme.typography.labelSmall)
+                model.rating?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
             }
-            Text(model.metadata, style = MaterialTheme.typography.labelSmall)
-            model.rating?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         }
     }
 }

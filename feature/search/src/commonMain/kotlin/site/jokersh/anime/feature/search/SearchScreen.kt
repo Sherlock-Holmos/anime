@@ -3,6 +3,7 @@ package site.jokersh.anime.feature.search
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,8 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -51,98 +54,137 @@ public fun SearchScreen(
     onIntent: (SearchIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize().statusBarsPadding().testTag("search.list"),
-        contentPadding = PaddingValues(horizontal = AnimeSpacing.lg, vertical = AnimeSpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
-    ) {
-        item(key = "header", contentType = "header") {
-            SearchHeader(
-                query = state.query,
-                onQueryChanged = { onIntent(SearchIntent.QueryChanged(it)) },
-                onSubmit = { onIntent(SearchIntent.Submit(state.query)) },
-                onClear = { onIntent(SearchIntent.ClearQuery) },
-            )
-        }
-
-        when (state.mode) {
-            SearchMode.Idle -> {
-                item(key = "recent", contentType = "recent") {
-                    RecentSearches(
-                        items = state.recentQueries,
-                        onClick = { query -> onIntent(SearchIntent.RecentClicked(query)) },
-                        onRemove = { id -> onIntent(SearchIntent.RemoveRecent(id)) },
-                        onClearAll = { onIntent(SearchIntent.ClearAllRecent) },
-                    )
-                }
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val columns =
+            when {
+                maxWidth >= 1_200.dp -> 3
+                maxWidth >= 720.dp -> 2
+                else -> 1
+            }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            modifier = Modifier.fillMaxSize().statusBarsPadding().testTag("search.list"),
+            contentPadding = PaddingValues(horizontal = AnimeSpacing.lg, vertical = AnimeSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
+        ) {
+            item(
+                key = "header",
+                contentType = "header",
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
+                SearchHeader(
+                    query = state.query,
+                    onQueryChanged = { onIntent(SearchIntent.QueryChanged(it)) },
+                    onSubmit = { onIntent(SearchIntent.Submit(state.query)) },
+                    onClear = { onIntent(SearchIntent.ClearQuery) },
+                )
             }
 
-            SearchMode.Suggesting -> {
-                items(
-                    items = state.suggestions,
-                    key = { suggestion -> "suggestion:${suggestion.value}" },
-                    contentType = { "suggestion" },
-                ) { suggestion ->
-                    SearchSuggestionRow(
-                        suggestion = suggestion,
-                        onClick = { onIntent(SearchIntent.SuggestionClicked(suggestion.value)) },
-                    )
+            when (state.mode) {
+                SearchMode.Idle -> {
+                    item(
+                        key = "recent",
+                        contentType = "recent",
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        RecentSearches(
+                            items = state.recentQueries,
+                            onClick = { query -> onIntent(SearchIntent.RecentClicked(query)) },
+                            onRemove = { id -> onIntent(SearchIntent.RemoveRecent(id)) },
+                            onClearAll = { onIntent(SearchIntent.ClearAllRecent) },
+                        )
+                    }
                 }
-            }
 
-            SearchMode.Loading -> {
-                item(key = "loading", contentType = "state") {
-                    SearchStatePanel(
-                        kind = StatePaneKind.Loading,
-                        title = "正在搜索",
-                        message = "从本地演示数据中匹配 Bangumi 条目",
-                    )
+                SearchMode.Suggesting -> {
+                    items(
+                        items = state.suggestions,
+                        key = { suggestion -> "suggestion:${suggestion.value}" },
+                        contentType = { "suggestion" },
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) { suggestion ->
+                        SearchSuggestionRow(
+                            suggestion = suggestion,
+                            onClick = { onIntent(SearchIntent.SuggestionClicked(suggestion.value)) },
+                        )
+                    }
                 }
-            }
 
-            SearchMode.Results -> {
-                item(key = "summary", contentType = "summary") {
-                    ResultsSummary(query = state.resultQuery.orEmpty(), count = state.results.size)
+                SearchMode.Loading -> {
+                    item(
+                        key = "loading",
+                        contentType = "state",
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        SearchStatePanel(
+                            kind = StatePaneKind.Loading,
+                            title = "正在搜索",
+                            message = "从本地演示数据中匹配 Bangumi 条目",
+                        )
+                    }
                 }
-                items(
-                    items = state.results,
-                    key = { subject -> "subject:${subject.id.value}" },
-                    contentType = { "subject" },
-                ) { subject ->
-                    AnimeCompactSubjectCard(
-                        model = subject,
-                        onClick = { onIntent(SearchIntent.SubjectClicked(subject.id)) },
-                        modifier = Modifier.testTag("search.subject.${subject.id.value}"),
-                    )
-                }
-                item(key = "more", contentType = "pagination") {
-                    SearchPagination(
-                        hasMore = state.nextCursor != null,
-                        loading = state.isLoadingMore,
-                        error = state.loadMoreError != null,
-                        onLoadMore = { onIntent(SearchIntent.LoadNextPage) },
-                        onRetry = { onIntent(SearchIntent.RetryNextPage) },
-                    )
-                }
-            }
 
-            SearchMode.Empty -> {
-                item(key = "empty", contentType = "state") {
-                    SearchStatePanel(
-                        kind = StatePaneKind.Empty,
-                        title = "没有找到结果",
-                        message = "换一个作品名、别名或 Bangumi ID 试试。",
-                    )
+                SearchMode.Results -> {
+                    item(
+                        key = "summary",
+                        contentType = "summary",
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        ResultsSummary(query = state.resultQuery.orEmpty(), count = state.results.size)
+                    }
+                    items(
+                        items = state.results,
+                        key = { subject -> "subject:${subject.id.value}" },
+                        contentType = { "subject" },
+                    ) { subject ->
+                        AnimeCompactSubjectCard(
+                            model = subject,
+                            onClick = { onIntent(SearchIntent.SubjectClicked(subject.id)) },
+                            modifier = Modifier.testTag("search.subject.${subject.id.value}"),
+                        )
+                    }
+                    item(
+                        key = "more",
+                        contentType = "pagination",
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        SearchPagination(
+                            hasMore = state.nextCursor != null,
+                            loading = state.isLoadingMore,
+                            error = state.loadMoreError != null,
+                            onLoadMore = { onIntent(SearchIntent.LoadNextPage) },
+                            onRetry = { onIntent(SearchIntent.RetryNextPage) },
+                        )
+                    }
                 }
-            }
 
-            SearchMode.BlockingError -> {
-                item(key = "error", contentType = "state") {
-                    SearchStatePanel(
-                        kind = StatePaneKind.Error,
-                        title = "搜索暂时不可用",
-                        message = "稍后重试，或先回到发现页浏览演示条目。",
-                    )
+                SearchMode.Empty -> {
+                    item(
+                        key = "empty",
+                        contentType = "state",
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        SearchStatePanel(
+                            kind = StatePaneKind.Empty,
+                            title = "没有找到结果",
+                            message = "换一个作品名、别名或 Bangumi ID 试试。",
+                        )
+                    }
+                }
+
+                SearchMode.BlockingError -> {
+                    item(
+                        key = "error",
+                        contentType = "state",
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        SearchStatePanel(
+                            kind = StatePaneKind.Error,
+                            title = "搜索暂时不可用",
+                            message = "稍后重试，或先回到发现页浏览演示条目。",
+                        )
+                    }
                 }
             }
         }

@@ -25,6 +25,7 @@ kotlin {
 dependencies {
     implementation(projects.shared.app)
     implementation(compose.desktop.currentOs)
+    implementation(libs.kotlinx.coroutines.swing)
 }
 
 compose.desktop {

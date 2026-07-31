@@ -34,7 +34,19 @@ internal actual fun PlatformAnimeBackdropHost(
 }
 
 @Composable
-internal actual fun platformGlassCapabilities(): GlassCapabilities = GlassCapabilities(maximumTier = GlassTier.Liquid)
+internal actual fun platformGlassCapabilities(): GlassCapabilities =
+    GlassCapabilities(
+        maximumTier =
+            desktopMaximumGlassTier(
+                requestedTier =
+                    System.getProperty("anime.desktop.glassTier")
+                        ?: System.getenv("ANIME_DESKTOP_GLASS_TIER"),
+                remoteSession =
+                    System
+                        .getenv("SESSIONNAME")
+                        ?.startsWith("RDP-", ignoreCase = true) == true,
+            ),
+    )
 
 @Composable
 internal actual fun Modifier.platformGlassEffect(
@@ -78,3 +90,15 @@ private val GlassRole.blurRadius: Dp
             GlassRole.FloatingPanel -> 16.dp
             GlassRole.Dialog, GlassRole.StaticHero -> 28.dp
         }
+
+internal fun desktopMaximumGlassTier(
+    requestedTier: String?,
+    remoteSession: Boolean,
+): GlassTier =
+    when (requestedTier?.trim()?.lowercase()) {
+        "none" -> GlassTier.None
+        "translucent" -> GlassTier.Translucent
+        "blur" -> GlassTier.Blur
+        "liquid" -> GlassTier.Liquid
+        else -> if (remoteSession) GlassTier.Translucent else GlassTier.Liquid
+    }

@@ -2,6 +2,32 @@
 
 本文记录已经进入代码库并通过验证的前端实现增量。它补充规范文档，不替代 `features/*` 中的契约。
 
+## 2026-07-31 Windows Desktop 体验适配
+
+已落地：
+
+- `>= 840 dp` 使用左侧悬浮玻璃导航，窄屏继续使用 Kyant 官方可拖动 `LiquidBottomTabs`。
+- 搜索结果按窗口宽度切换 1/2/3 列，状态、标题和分页行保持全宽。
+- 增加 `Ctrl+1..4`、`Ctrl+K`、`Escape`、`Alt+Left` 窗口级快捷键映射。
+- 增加 `840 x 640 dp` 最小窗口约束以及尺寸、位置、最大化状态持久化。
+- 远程桌面默认将玻璃能力降为 `Translucent`，并提供开发诊断覆盖参数。
+- 增加初始根页面和搜索词启动参数，便于确定性桌面视觉验收。
+- 补充 `kotlinx-coroutines-swing`，修复 Desktop 缺少 Main dispatcher 导致启动后异常对话框的问题。
+- 紧凑条目卡片改为具备明确 `contentColor` 的 Material Surface，保证深浅主题文字对比一致。
+
+已验证：
+
+- `:core:designsystem:desktopTest`：通过。
+- `:shared:app:desktopTest`：通过。
+- `:app:desktop:compileKotlin`：通过。
+- 发现页、搜索页和双列搜索结果已做 Windows 窗口截图检查。
+
+仍未完成：
+
+- 完整键盘焦点遍历与桌面 UI 自动化。
+- 多屏、系统缩放、高对比度和多类 GPU 性能矩阵。
+- Desktop Remote 数据模式、安装签名与升级卸载验收。
+
 ## 2026-07-31 Windows Desktop 工程基线
 
 已落地：
@@ -21,8 +47,7 @@
 
 仍未完成：
 
-- 宽屏侧边导航和多列搜索结果。
-- 完整键鼠、窗口状态与桌面无障碍适配。
+- 完整键鼠焦点与桌面无障碍适配。
 - Desktop Remote 数据模式。
 - 桌面截图、性能和安装升级验收。
 

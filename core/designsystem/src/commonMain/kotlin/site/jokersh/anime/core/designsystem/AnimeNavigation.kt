@@ -1,21 +1,29 @@
 package site.jokersh.anime.core.designsystem
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.selected
@@ -73,6 +81,61 @@ public fun AnimeLiquidTabBar(
                     selected = selected,
                     icon = { tint -> icon(index, selected, tint) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+public fun AnimeGlassNavigationRail(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    icon: @Composable (index: Int, selected: Boolean, tint: Color) -> Unit,
+) {
+    if (labels.isEmpty()) return
+
+    val safeSelectedIndex = selectedIndex.coerceIn(labels.indices)
+    AnimeGlassPanel(
+        role = GlassRole.BottomBar,
+        modifier = modifier.widthIn(min = 88.dp, max = 104.dp),
+        shape = RoundedCornerShape(AnimeRadius.round),
+        contentPadding = PaddingValues(AnimeSpacing.xs),
+    ) {
+        Column {
+            labels.forEachIndexed { index, label ->
+                val selected = index == safeSelectedIndex
+                val containerColor by
+                    animateColorAsState(
+                        targetValue =
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                            } else {
+                                Color.Transparent
+                            },
+                    )
+                val interactionSource = remember { MutableInteractionSource() }
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 68.dp)
+                            .clip(RoundedCornerShape(AnimeRadius.round))
+                            .clickable(
+                                interactionSource = interactionSource,
+                                indication = null,
+                                onClick = { onSelected(index) },
+                            ).semantics { this.selected = selected },
+                    shape = RoundedCornerShape(AnimeRadius.round),
+                    color = containerColor,
+                ) {
+                    TabContent(
+                        label = label,
+                        selected = selected,
+                        icon = { tint -> icon(index, selected, tint) },
+                    )
+                }
             }
         }
     }

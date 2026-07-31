@@ -24,7 +24,7 @@
 app/desktop/src/main/kotlin/site/jokersh/anime/desktop/Main.kt
 ```
 
-默认窗口尺寸为 `1180 x 820 dp`，标题为 `Anime`。当前 BuildProfile：
+默认窗口尺寸为 `1180 x 820 dp`，最小尺寸为 `840 x 640 dp`，标题为 `Anime`。窗口尺寸、位置与最大化状态通过 Java Preferences 持久化。当前 BuildProfile：
 
 | 字段 | 值 |
 |---|---|
@@ -34,6 +34,16 @@ app/desktop/src/main/kotlin/site/jokersh/anime/desktop/Main.kt
 | searchPageSize | `10` |
 
 桌面端接入真实后端前，禁止在入口中硬编码 API Token、Bangumi Token 或生产地址。
+
+桌面入口支持仅用于开发验收的启动参数：
+
+| 环境变量 | JVM System Property | 用途 |
+|---|---|---|
+| `ANIME_DESKTOP_INITIAL_ROOT` | `anime.desktop.initialRoot` | 指定初始根页面：`discover/search/timeline/profile` |
+| `ANIME_DESKTOP_INITIAL_QUERY` | `anime.desktop.initialQuery` | 进入搜索后自动提交查询 |
+| `ANIME_DESKTOP_GLASS_TIER` | `anime.desktop.glassTier` | 强制玻璃等级：`none/translucent/blur/liquid` |
+
+这些参数不得参与正常用户状态持久化或生产业务分支。
 
 ## 3. Desktop KMP 变体
 
@@ -57,6 +67,8 @@ Windows 端直接解析 Kyant Backdrop 2.0.0 和 Shapes 1.2.0 的官方 `desktop
 - `awaitFrame` 在 Desktop 使用 Compose frame clock。
 
 不得为 Windows 重新手写液态玻璃采样、拖拽动画或底栏选中物理。若 Backdrop Desktop 在特定 GPU/驱动异常，只能通过设计系统能力分级降级，不能修改 Vendor 源码掩盖问题。
+
+Windows 本地会话默认启用 `Liquid`；远程桌面会话默认降级到 `Translucent`，也可以通过上述玻璃等级参数做诊断。宽屏侧边栏复用相同的 Backdrop 能力与项目设计系统，但不是对 Kyant `LiquidBottomTabs` 的重写；窄屏根导航仍直接使用上游可拖动液态底栏。
 
 ## 5. 构建与产物
 
@@ -120,16 +132,21 @@ Windows 工程接入完成必须同时满足：
 6. 发现、搜索、详情和四根导航复用共享实现；
 7. 底栏拖拽与液态效果仍来自 Kyant 上游组件。
 
-## 7. 已知未完成项
+## 7. 桌面交互与响应式规则
+
+- `840 dp` 以下使用 Kyant `LiquidBottomTabs`；`840 dp` 及以上使用左侧悬浮玻璃导航栏。
+- 搜索结果在 `< 720 dp`、`720–1199 dp`、`>= 1200 dp` 分别使用 1、2、3 列。
+- `Ctrl+1/2/3/4` 切换发现、搜索、时间线、我的，`Ctrl+K` 聚焦到搜索入口。
+- `Escape` 与 `Alt+Left` 请求返回上一层；无可返回页面时保持当前根页面。
+- Desktop UI 协程必须引入 `kotlinx-coroutines-swing`，确保 `Dispatchers.Main` 由 Swing dispatcher 提供。仅检查进程存活不能替代窗口无异常对话框的视觉验收。
+
+## 8. 已知未完成项
 
 当前完成的是 Windows 工程和发行基线，不代表桌面产品体验已经完成。后续至少需要：
 
-- 宽度 `>= 840 dp` 时切换桌面侧边导航，减少底部栏的鼠标移动距离；
-- 搜索结果支持 2/3 列自适应网格；
-- 键盘 Tab 焦点、Enter/Space 激活、Escape 返回与快捷搜索；
-- 窗口最小尺寸、尺寸/位置持久化；
+- 完整的 Tab 焦点顺序、焦点可见性与 Enter/Space 激活验收；
 - Windows 深浅色、缩放比例、多屏和高对比度验证；
-- Backdrop 在集显、独显和远程桌面环境的性能降级测试；
+- Backdrop 在集显、独显和远程桌面环境的性能与降级矩阵测试；
 - 桌面截图基线与 UI 自动化；
 - 应用图标、签名、版本升级和卸载验收；
 - Remote 数据模式所需的 JVM 网络引擎、SQLDelight Desktop driver 与安全存储。

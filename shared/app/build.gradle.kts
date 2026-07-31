@@ -9,7 +9,7 @@ kotlin {
         api(projects.core.designsystem)
         implementation(projects.core.common)
         implementation(projects.core.model)
-        implementation(projects.core.navigation)
+        api(projects.core.navigation)
 
         implementation(projects.data.catalog)
         implementation(projects.data.collection)

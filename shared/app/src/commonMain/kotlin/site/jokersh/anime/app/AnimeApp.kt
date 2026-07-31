@@ -4,7 +4,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -69,6 +79,7 @@ import site.jokersh.anime.app.generated.resources.root_profile
 import site.jokersh.anime.app.generated.resources.root_search
 import site.jokersh.anime.app.generated.resources.shell_environment
 import site.jokersh.anime.core.designsystem.AnimeBackdropHost
+import site.jokersh.anime.core.designsystem.AnimeGlassNavigationRail
 import site.jokersh.anime.core.designsystem.AnimeLiquidTabBar
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
@@ -95,14 +106,43 @@ private enum class RootDestination(
     Profile(AppRoot.Profile, Res.string.root_profile, Res.drawable.ic_person),
 }
 
+public class AnimeAppShortcutDispatcher {
+    private var handler: (KeyEvent) -> Boolean = { false }
+
+    public fun dispatch(event: KeyEvent): Boolean = handler(event)
+
+    internal fun connect(handler: (KeyEvent) -> Boolean) {
+        this.handler = handler
+    }
+
+    internal fun disconnect() {
+        handler = { false }
+    }
+}
+
 @Composable
-fun AnimeApp(appContainer: AppContainer) {
-    var selectedIndex by rememberSaveable { mutableStateOf(0) }
+fun AnimeApp(
+    appContainer: AppContainer,
+    shortcutDispatcher: AnimeAppShortcutDispatcher? = null,
+    initialRoot: AppRoot = AppRoot.Discover,
+    initialSearchQuery: String? = null,
+) {
+    var selectedIndex by
+        rememberSaveable {
+            mutableStateOf(
+                RootDestination.entries
+                    .indexOfFirst { it.root == initialRoot }
+                    .coerceAtLeast(0),
+            )
+        }
     val selectedDestination = RootDestination.entries[selectedIndex]
     val discoverBackStack =
         rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Discover)
     val searchBackStack =
-        rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Search())
+        rememberNavBackStack(
+            AppNavigationSavedStateConfiguration,
+            AppRoute.Search(query = initialSearchQuery),
+        )
     val collectionBackStack =
         rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Collection())
     val profileBackStack =
@@ -125,39 +165,76 @@ fun AnimeApp(appContainer: AppContainer) {
     val activeBackStack = backStacks.getValue(selectedDestination.root)
     val showBottomBar = (activeBackStack.lastOrNull() as? AppRoute)?.root != null
 
+    DisposableEffect(shortcutDispatcher, navigator) {
+        shortcutDispatcher?.connect { event -> handleAppShortcut(event, navigator) }
+        onDispose {
+            shortcutDispatcher?.disconnect()
+        }
+    }
+
     AnimeTheme {
-        AnimeBackdropHost(
+        BoxWithConstraints(
             modifier = Modifier.fillMaxSize(),
-            background = {
-                AppNavigationLayer(
-                    backStack = activeBackStack,
-                    navigator = navigator,
-                    appContainer = appContainer,
-                )
-            },
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (showBottomBar) {
-                    val labels = RootDestination.entries.map { stringResource(it.label) }
-                    AnimeLiquidTabBar(
-                        labels = labels,
-                        selectedIndex = selectedIndex,
-                        onSelected = { index -> navigator.selectRoot(RootDestination.entries[index].root) },
-                        modifier =
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .navigationBarsPadding()
-                                .padding(horizontal = AnimeSpacing.md)
-                                .padding(bottom = AnimeSpacing.sm)
-                                .fillMaxWidth(),
-                        icon = { index, _, tint ->
-                            Icon(
-                                painter = painterResource(RootDestination.entries[index].icon),
-                                contentDescription = null,
-                                tint = tint,
-                            )
-                        },
+            val useNavigationRail = showBottomBar && maxWidth >= 840.dp
+            val navigationContentPadding =
+                if (useNavigationRail) {
+                    PaddingValues(start = 120.dp)
+                } else {
+                    PaddingValues()
+                }
+            val labels = RootDestination.entries.map { stringResource(it.label) }
+
+            AnimeBackdropHost(
+                modifier = Modifier.fillMaxSize(),
+                background = {
+                    AppNavigationLayer(
+                        backStack = activeBackStack,
+                        navigator = navigator,
+                        appContainer = appContainer,
+                        contentPadding = navigationContentPadding,
                     )
+                },
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (useNavigationRail) {
+                        AnimeGlassNavigationRail(
+                            labels = labels,
+                            selectedIndex = selectedIndex,
+                            onSelected = { index -> navigator.selectRoot(RootDestination.entries[index].root) },
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterStart)
+                                    .padding(start = AnimeSpacing.md),
+                            icon = { index, _, tint ->
+                                Icon(
+                                    painter = painterResource(RootDestination.entries[index].icon),
+                                    contentDescription = null,
+                                    tint = tint,
+                                )
+                            },
+                        )
+                    } else if (showBottomBar) {
+                        AnimeLiquidTabBar(
+                            labels = labels,
+                            selectedIndex = selectedIndex,
+                            onSelected = { index -> navigator.selectRoot(RootDestination.entries[index].root) },
+                            modifier =
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .navigationBarsPadding()
+                                    .padding(horizontal = AnimeSpacing.md)
+                                    .padding(bottom = AnimeSpacing.sm)
+                                    .fillMaxWidth(),
+                            icon = { index, _, tint ->
+                                Icon(
+                                    painter = painterResource(RootDestination.entries[index].icon),
+                                    contentDescription = null,
+                                    tint = tint,
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -169,6 +246,7 @@ private fun AppNavigationLayer(
     backStack: NavBackStack<NavKey>,
     navigator: AppNavigator,
     appContainer: AppContainer,
+    contentPadding: PaddingValues,
 ) {
     Box(
         modifier =
@@ -186,7 +264,7 @@ private fun AppNavigationLayer(
     ) {
         NavDisplay(
             backStack = backStack,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().padding(contentPadding),
             entryDecorators =
                 listOf(
                     rememberSaveableStateHolderNavEntryDecorator(),
@@ -273,6 +351,38 @@ private fun AppNavigationLayer(
                     }
                 },
         )
+    }
+}
+
+private fun handleAppShortcut(
+    event: KeyEvent,
+    navigator: AppNavigator,
+): Boolean {
+    if (event.type != KeyEventType.KeyDown) return false
+
+    val targetRoot = shortcutRoot(event.key, event.isCtrlPressed)
+    if (targetRoot != null) {
+        navigator.selectRoot(targetRoot)
+        return true
+    }
+
+    if (event.key == Key.Escape || (event.isAltPressed && event.key == Key.DirectionLeft)) {
+        return navigator.pop()
+    }
+    return false
+}
+
+internal fun shortcutRoot(
+    key: Key,
+    ctrlPressed: Boolean,
+): AppRoot? {
+    if (!ctrlPressed) return null
+    return when (key) {
+        Key.One -> AppRoot.Discover
+        Key.Two, Key.K -> AppRoot.Search
+        Key.Three -> AppRoot.Collection
+        Key.Four -> AppRoot.Profile
+        else -> null
     }
 }
 

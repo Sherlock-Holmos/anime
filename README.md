@@ -29,7 +29,7 @@ App Shell 已采用 iOS 26-inspired 的内容层与悬浮 Liquid Glass 功能层
 
 Demo APK 输出到 `app/android/build/outputs/apk/demo/debug/android-demo-debug.apk`。`animeCheck` 当前覆盖 ktlint、KMP host tests、Android unit tests、Lint、SQLDelight 迁移任务、模块依赖边界和 Fixture 完整性；截图、设备和性能测试会在对应 F1/F3/F10 阶段填充既有稳定任务。
 
-Windows 便携应用输出到 `app/desktop/build/compose/binaries/main/app/Anime`，EXE 安装包输出到 `app/desktop/build/compose/binaries/main/exe/Anime-0.1.0.exe`。桌面端当前使用 Demo/Fixture 配置；宽屏导航与键鼠交互优化属于下一阶段，不应把“可以构建运行”误认为“已完成桌面体验验收”。
+Windows 便携应用输出到 `app/desktop/build/compose/binaries/main/app/Anime`，EXE 安装包输出到 `app/desktop/build/compose/binaries/main/exe/Anime-0.1.0.exe`。桌面端当前使用 Demo/Fixture 配置，已支持宽屏玻璃侧栏、1/2/3 列搜索结果、常用快捷键和窗口状态持久化；完整焦点遍历、多环境显示与 GPU 性能矩阵仍待验收，不应把“可以构建运行”误认为“已完成桌面产品化”。
 
 允许的应用变体：
 
