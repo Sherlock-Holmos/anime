@@ -11,9 +11,9 @@
 
 主仓库 `docs/` 中的总体设计与前端规范分册共同构成项目设计事实源。在线 Wiki 由同步脚本自动生成，不直接人工维护。
 
-## CMP Android 工程
+## CMP 客户端工程
 
-F0 工程基线已经完成并通过真机冷启动验收，当前进入可并行推进的 F1 Design System 与 F2 契约/Fixture 阶段。Android Application 位于 `app/android`，共享 Compose UI 位于 `shared/app`；领域模型与 Repository 接口位于 `core/model` 和 `data/*`，确定性 Demo 数据位于 `fixtures/v1`。业务页面仍需在对应 Feature 契约下逐步实现。
+Android Application 位于 `app/android`，Windows Desktop Application 位于 `app/desktop`，共享 Compose UI 位于 `shared/app`；领域模型与 Repository 接口位于 `core/model` 和 `data/*`，确定性 Demo 数据位于 `fixtures/v1`。Windows 与 Android 复用相同的导航、页面、设计系统、Fixture 和 Kyant 官方 Liquid Bottom Tabs。
 
 App Shell 已采用 iOS 26-inspired 的内容层与悬浮 Liquid Glass 功能层，不直接呈现 Material 3 默认顶部栏、底部栏、选中指示器或 Ripple；F1 组件目录已可演示海报卡、紧凑卡片、Bangumi 评分、按钮、状态面板与玻璃降级。Android 已通过统一适配层接入 Kyant Backdrop 2.0.0：API 26–30 使用半透明表面，API 31–32 使用实时模糊，API 33+ 使用受限液态折射。所有用户可见文案和根导航图标均来自 `commonMain` 资源。`AppContainer` 在 Android 壳层创建后注入共享 UI，Feature 模块之间由构建任务阻止直接依赖。
 
@@ -21,10 +21,15 @@ App Shell 已采用 iOS 26-inspired 的内容层与悬浮 Liquid Glass 功能层
 
 ```powershell
 .\gradlew.bat :app:android:assembleDemoDebug
+.\gradlew.bat :app:desktop:run
+.\gradlew.bat :app:desktop:createDistributable
+.\gradlew.bat :app:desktop:packageExe
 .\gradlew.bat animeCheck
 ```
 
 Demo APK 输出到 `app/android/build/outputs/apk/demo/debug/android-demo-debug.apk`。`animeCheck` 当前覆盖 ktlint、KMP host tests、Android unit tests、Lint、SQLDelight 迁移任务、模块依赖边界和 Fixture 完整性；截图、设备和性能测试会在对应 F1/F3/F10 阶段填充既有稳定任务。
+
+Windows 便携应用输出到 `app/desktop/build/compose/binaries/main/app/Anime`，EXE 安装包输出到 `app/desktop/build/compose/binaries/main/exe/Anime-0.1.0.exe`。桌面端当前使用 Demo/Fixture 配置；宽屏导航与键鼠交互优化属于下一阶段，不应把“可以构建运行”误认为“已完成桌面体验验收”。
 
 允许的应用变体：
 

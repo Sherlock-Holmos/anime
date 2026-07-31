@@ -2,6 +2,30 @@
 
 本文记录已经进入代码库并通过验证的前端实现增量。它补充规范文档，不替代 `features/*` 中的契约。
 
+## 2026-07-31 Windows Desktop 工程基线
+
+已落地：
+
+- 所有共享 KMP 模块新增 `desktop` JVM 17 变体。
+- 新增 `app/desktop` Compose Desktop 壳，复用 `shared/app`、Navigation 3、Fixture 与 Design System。
+- Kyant Backdrop 和 Shapes 直接使用官方 Desktop 变体；Liquid Bottom Tabs 保持上游源码不变。
+- Desktop Glass actual 支持 Blur 与 Liquid lens，Vendor `awaitFrame` 使用 Compose frame clock。
+- 配置便携目录、Uber JAR、EXE 和 MSI 发行任务。
+
+已验证：
+
+- `:app:desktop:compileKotlin`：通过。
+- `:app:desktop:createDistributable`：通过。
+- `:app:desktop:packageUberJarForCurrentOS`：通过。
+- `:app:desktop:packageExe`：通过。
+
+仍未完成：
+
+- 宽屏侧边导航和多列搜索结果。
+- 完整键鼠、窗口状态与桌面无障碍适配。
+- Desktop Remote 数据模式。
+- 桌面截图、性能和安装升级验收。
+
 ## 2026-07-28 Search 纵向切片
 
 已落地：

@@ -34,6 +34,7 @@ rootProject.name = "anime"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 include(":app:android")
+include(":app:desktop")
 include(":shared:app")
 
 include(":core:common")

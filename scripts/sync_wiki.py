@@ -43,6 +43,7 @@ FRONTEND_PAGE_SOURCES = {
     "37-Comment-Feature-Contract.md": Path("docs/frontend/features/06-comment.md"),
     "38-Profile-Settings-Diagnostics-Contract.md": Path("docs/frontend/features/07-profile-settings-diagnostics.md"),
     "39-Frontend-Implementation-Log.md": Path("docs/frontend/17-implementation-log.md"),
+    "40-Windows-Desktop-Baseline.md": Path("docs/frontend/18-windows-desktop-baseline.md"),
 }
 
 MANAGED_PAGE_NAMES = (
@@ -251,6 +252,7 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 | [37-Comment-Feature-Contract](37-Comment-Feature-Contract) | 评论 Feature 完整合同 |
 | [38-Profile-Settings-Diagnostics-Contract](38-Profile-Settings-Diagnostics-Contract) | 个人、设置与诊断完整合同 |
 | [39-Frontend-Implementation-Log](39-Frontend-Implementation-Log) | 已验证的前端实现增量 |
+| [40-Windows-Desktop-Baseline](40-Windows-Desktop-Baseline) | Windows CMP 工程、发行与验收基线 |
 | [99-Complete-Design-Baseline](99-Complete-Design-Baseline) | 完整 V1.3 总体设计快照 |
 
 ## 维护原则

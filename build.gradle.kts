@@ -6,6 +6,7 @@ import java.security.MessageDigest
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.test) apply false
+    alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.compose.multiplatform) apply false
     alias(libs.plugins.compose.compiler) apply false
@@ -196,6 +197,10 @@ gradle.projectsEvaluated {
         projectEdges.filterNot { (source, target) ->
             when {
                 source == ":app:android" -> {
+                    target == ":shared:app"
+                }
+
+                source == ":app:desktop" -> {
                     target == ":shared:app"
                 }
 

@@ -14,6 +14,15 @@ val moduleNamespace =
         .let { suffix -> "site.jokersh.anime.$suffix" }
 
 kotlin {
+    jvm("desktop") {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+            languageVersion.set(KotlinVersion.KOTLIN_2_4)
+            apiVersion.set(KotlinVersion.KOTLIN_2_4)
+            allWarningsAsErrors.set(true)
+        }
+    }
+
     android {
         namespace = moduleNamespace
         compileSdk = 37

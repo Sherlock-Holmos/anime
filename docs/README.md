@@ -23,7 +23,7 @@ Gitea Wiki 是面向阅读和导航的发布结果，不是第二个可编辑源
 python scripts/sync_wiki.py
 ```
 
-生成结果位于 `build/wiki/`。脚本生成 41 个受管页面，只读取总体设计和 `docs/frontend/`，不读取历史探讨文档。
+生成结果位于 `build/wiki/`。脚本生成 43 个受管页面，只读取总体设计和 `docs/frontend/`，不读取历史探讨文档。
 
 ## 检查在线 Wiki 是否同步
 
@@ -110,6 +110,7 @@ WIKI_SYNC_TOKEN
 | 37 Comment Feature Contract | `frontend/features/06-comment.md` |
 | 38 Profile Settings Diagnostics Contract | `frontend/features/07-profile-settings-diagnostics.md` |
 | 39 Frontend Implementation Log | `frontend/17-implementation-log.md` |
+| 40 Windows Desktop Baseline | `frontend/18-windows-desktop-baseline.md` |
 | 99 References | 25–27 |
 | 99 Complete Design Baseline | 完整快照 |
 
