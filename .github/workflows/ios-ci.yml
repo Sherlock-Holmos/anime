@@ -86,9 +86,12 @@ jobs:
             exit 1
           fi
           xcrun simctl install "$device_id" "$app_path"
-          xcrun simctl launch "$device_id" site.jokersh.anime
+          launch_output=$(xcrun simctl launch "$device_id" site.jokersh.anime)
+          echo "$launch_output"
+          app_pid=${launch_output##*: }
+          test -n "$app_pid"
           sleep 12
-          if ! xcrun simctl spawn "$device_id" ps -ax | grep -q '/iosApp.app/iosApp'; then
+          if ! xcrun simctl spawn "$device_id" kill -0 "$app_pid" >/dev/null 2>&1; then
             xcrun simctl spawn "$device_id" log show \
               --last 2m \
               --style compact \
