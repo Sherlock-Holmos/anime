@@ -47,10 +47,27 @@ private final class IosKeychain {
     }
 
     func write(account: String, value: String) {
-        remove(account: account)
-        var query = baseQuery(account: account)
-        query[kSecValueData as String] = Data(value.utf8)
-        precondition(SecItemAdd(query as CFDictionary, nil) == errSecSuccess)
+        let data = Data(value.utf8)
+        let query = baseQuery(account: account)
+        let updateStatus = SecItemUpdate(
+            query as CFDictionary,
+            [kSecValueData as String: data] as CFDictionary
+        )
+        guard updateStatus == errSecItemNotFound else {
+            if updateStatus != errSecSuccess {
+                NSLog("Anime Keychain update failed: %d", updateStatus)
+            }
+            return
+        }
+
+        var insert = query
+        insert[kSecValueData as String] = data
+        let insertStatus = SecItemAdd(insert as CFDictionary, nil)
+        if insertStatus != errSecSuccess {
+            // A sideloaded build may receive a different keychain access group
+            // after it is re-signed. Persistence failure must never terminate the app.
+            NSLog("Anime Keychain insert failed: %d", insertStatus)
+        }
     }
 
     func remove(account: String) {
