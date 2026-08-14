@@ -185,7 +185,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 0.1.0;
-				OTHER_LDFLAGS = "$(inherited) -framework AnimeShared";
+				OTHER_LDFLAGS = "$(inherited) -framework AnimeShared -framework UIKit";
 				PRODUCT_BUNDLE_IDENTIFIER = site.jokersh.anime;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -210,7 +210,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 0.1.0;
-				OTHER_LDFLAGS = "$(inherited) -framework AnimeShared";
+				OTHER_LDFLAGS = "$(inherited) -framework AnimeShared -framework UIKit";
 				PRODUCT_BUNDLE_IDENTIFIER = site.jokersh.anime;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
