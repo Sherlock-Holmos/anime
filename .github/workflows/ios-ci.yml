@@ -86,7 +86,11 @@ jobs:
             exit 1
           fi
           xcrun simctl install "$device_id" "$app_path"
-          xcrun simctl launch "$device_id" site.jokersh.anime
+          set +e
+          xcrun simctl launch --console "$device_id" site.jokersh.anime \
+            > build/ios-simulator-console.log 2>&1 &
+          console_pid=$!
+          set -e
           sleep 12
           if ! xcrun simctl spawn "$device_id" ps -ax | grep -q '/iosApp.app/iosApp'; then
             xcrun simctl spawn "$device_id" log show \
@@ -94,9 +98,21 @@ jobs:
               --style compact \
               --predicate 'process == "iosApp" OR eventMessage CONTAINS "site.jokersh.anime"' \
               > build/ios-simulator-launch.log || true
+            kill "$console_pid" >/dev/null 2>&1 || true
+            wait "$console_pid" >/dev/null 2>&1 || true
+            mkdir -p build/ios-crash-reports
+            find "$HOME/Library/Logs/DiagnosticReports" \
+              -type f \( -name 'iosApp*.ips' -o -name 'iosApp*.crash' \) \
+              -mmin -10 \
+              -exec cp {} build/ios-crash-reports/ \; || true
+            echo '--- application console ---'
+            cat build/ios-simulator-console.log || true
+            echo '--- unified simulator log ---'
             cat build/ios-simulator-launch.log
             exit 1
           fi
+          kill "$console_pid" >/dev/null 2>&1 || true
+          wait "$console_pid" >/dev/null 2>&1 || true
           xcrun simctl terminate "$device_id" site.jokersh.anime
 
       - name: Upload simulator application and logs
@@ -109,7 +125,9 @@ jobs:
           path: |
             build/ios-derived-data/Build/Products/Debug-iphonesimulator/iosApp.app
             build/ios-xcodebuild.log
+            build/ios-simulator-console.log
             build/ios-simulator-launch.log
+            build/ios-crash-reports
 
   unsigned-ipa:
     name: Unsigned iOS device IPA
