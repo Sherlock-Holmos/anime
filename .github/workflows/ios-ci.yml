@@ -1,0 +1,67 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator-build:
+    name: iOS Simulator build
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Show Apple toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun simctl list runtimes
+
+      - name: Build Kotlin iOS framework
+        run: ./gradlew :shared:app:linkDebugFrameworkIosSimulatorArm64 --stacktrace
+
+      - name: Build SwiftUI host without signing
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project app/iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios-derived-data \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee build/ios-xcodebuild.log
+
+      - name: Upload simulator application and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anime-ios-simulator-${{ github.run_number }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/ios-derived-data/Build/Products/Debug-iphonesimulator/iosApp.app
+            build/ios-xcodebuild.log
