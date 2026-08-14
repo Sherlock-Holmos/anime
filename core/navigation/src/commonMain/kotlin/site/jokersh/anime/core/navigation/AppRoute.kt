@@ -14,8 +14,18 @@ public sealed interface AppRoute : NavKey {
     public data object Discover : AppRoute
 
     @Serializable
-    public data class Search(
+    public data class DiscoverSection(
+        val sectionId: String,
+    ) : AppRoute
+
+    @Serializable
+    public data class Library(
         val query: String? = null,
+    ) : AppRoute
+
+    @Serializable
+    public data class Activity(
+        val feed: ActivityFeedRoute = ActivityFeedRoute.Following,
     ) : AppRoute
 
     @Serializable
@@ -63,6 +73,51 @@ public sealed interface AppRoute : NavKey {
     ) : AppRoute
 
     @Serializable
+    public data class SubjectReviews(
+        val subjectId: Long,
+    ) : AppRoute {
+        init {
+            require(subjectId > 0) { "subjectId must be positive" }
+        }
+    }
+
+    @Serializable
+    public data class Review(
+        val reviewId: String,
+    ) : AppRoute {
+        init {
+            require(reviewId.isNotBlank()) { "reviewId must not be blank" }
+        }
+    }
+
+    @Serializable
+    public data class RatingEditor(
+        val subjectId: Long,
+    ) : AppRoute {
+        init {
+            require(subjectId > 0) { "subjectId must be positive" }
+        }
+    }
+
+    @Serializable
+    public data class CuratedList(
+        val listId: String,
+    ) : AppRoute {
+        init {
+            require(listId.isNotBlank()) { "listId must not be blank" }
+        }
+    }
+
+    @Serializable
+    public data class User(
+        val userId: String,
+    ) : AppRoute {
+        init {
+            require(userId.isNotBlank()) { "userId must not be blank" }
+        }
+    }
+
+    @Serializable
     public data class Login(
         val requestId: String,
     ) : AppRoute
@@ -82,8 +137,9 @@ public sealed interface AppRoute : NavKey {
 @Serializable
 public enum class RouteOrigin {
     Discover,
-    Search,
-    Collection,
+    Library,
+    Activity,
+    Profile,
     Related,
     DeepLink,
     Unknown,
@@ -117,20 +173,23 @@ public enum class SearchRouteAiringStatus { Announced, Airing, Finished, Unknown
 public enum class CommentRouteSort { Newest, Oldest }
 
 @Serializable
+public enum class ActivityFeedRoute { Following, Popular }
+
+@Serializable
 public enum class CollectionRouteFilter { Wish, Watching, Completed, OnHold, Dropped }
 
 public enum class AppRoot {
     Discover,
-    Search,
-    Collection,
+    Library,
+    Activity,
     Profile,
 }
 
 public fun AppRoot.initialRoute(): AppRoute =
     when (this) {
         AppRoot.Discover -> AppRoute.Discover
-        AppRoot.Search -> AppRoute.Search()
-        AppRoot.Collection -> AppRoute.Collection()
+        AppRoot.Library -> AppRoute.Library()
+        AppRoot.Activity -> AppRoute.Activity()
         AppRoot.Profile -> AppRoute.Profile
     }
 
@@ -138,8 +197,8 @@ public val AppRoute.root: AppRoot?
     get() =
         when (this) {
             AppRoute.Discover -> AppRoot.Discover
-            is AppRoute.Search -> AppRoot.Search
-            is AppRoute.Collection -> AppRoot.Collection
+            is AppRoute.Library -> AppRoot.Library
+            is AppRoute.Activity -> AppRoot.Activity
             AppRoute.Profile -> AppRoot.Profile
             else -> null
         }
@@ -151,7 +210,9 @@ public val AppNavigationSavedStateConfiguration: SavedStateConfiguration =
             SerializersModule {
                 polymorphic(NavKey::class) {
                     subclass(AppRoute.Discover.serializer())
-                    subclass(AppRoute.Search.serializer())
+                    subclass(AppRoute.DiscoverSection.serializer())
+                    subclass(AppRoute.Library.serializer())
+                    subclass(AppRoute.Activity.serializer())
                     subclass(AppRoute.Collection.serializer())
                     subclass(AppRoute.Profile.serializer())
                     subclass(AppRoute.SearchResults.serializer())
@@ -160,6 +221,11 @@ public val AppNavigationSavedStateConfiguration: SavedStateConfiguration =
                     subclass(AppRoute.Characters.serializer())
                     subclass(AppRoute.Relations.serializer())
                     subclass(AppRoute.Comments.serializer())
+                    subclass(AppRoute.SubjectReviews.serializer())
+                    subclass(AppRoute.Review.serializer())
+                    subclass(AppRoute.RatingEditor.serializer())
+                    subclass(AppRoute.CuratedList.serializer())
+                    subclass(AppRoute.User.serializer())
                     subclass(AppRoute.Login.serializer())
                     subclass(AppRoute.OAuthResult.serializer())
                     subclass(AppRoute.Settings.serializer())

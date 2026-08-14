@@ -87,61 +87,6 @@ public fun AnimeLiquidTabBar(
 }
 
 @Composable
-public fun AnimeGlassNavigationRail(
-    labels: List<String>,
-    selectedIndex: Int,
-    onSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    icon: @Composable (index: Int, selected: Boolean, tint: Color) -> Unit,
-) {
-    if (labels.isEmpty()) return
-
-    val safeSelectedIndex = selectedIndex.coerceIn(labels.indices)
-    AnimeGlassPanel(
-        role = GlassRole.BottomBar,
-        modifier = modifier.widthIn(min = 88.dp, max = 104.dp),
-        shape = RoundedCornerShape(AnimeRadius.round),
-        contentPadding = PaddingValues(AnimeSpacing.xs),
-    ) {
-        Column {
-            labels.forEachIndexed { index, label ->
-                val selected = index == safeSelectedIndex
-                val containerColor by
-                    animateColorAsState(
-                        targetValue =
-                            if (selected) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                            } else {
-                                Color.Transparent
-                            },
-                    )
-                val interactionSource = remember { MutableInteractionSource() }
-                Surface(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .defaultMinSize(minHeight = 68.dp)
-                            .clip(RoundedCornerShape(AnimeRadius.round))
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = null,
-                                onClick = { onSelected(index) },
-                            ).semantics { this.selected = selected },
-                    shape = RoundedCornerShape(AnimeRadius.round),
-                    color = containerColor,
-                ) {
-                    TabContent(
-                        label = label,
-                        selected = selected,
-                        icon = { tint -> icon(index, selected, tint) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun StaticTabBarFallback(
     labels: List<String>,
     selectedIndex: Int,

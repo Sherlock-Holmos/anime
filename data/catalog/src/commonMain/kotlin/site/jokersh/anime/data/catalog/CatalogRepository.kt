@@ -7,6 +7,7 @@ import site.jokersh.anime.core.model.Episode
 import site.jokersh.anime.core.model.Page
 import site.jokersh.anime.core.model.RefreshPolicy
 import site.jokersh.anime.core.model.ResourceState
+import site.jokersh.anime.core.model.SearchDiscovery
 import site.jokersh.anime.core.model.SearchHistoryItem
 import site.jokersh.anime.core.model.SearchRequest
 import site.jokersh.anime.core.model.SearchSuggestion
@@ -43,6 +44,8 @@ public interface CatalogRepository {
 }
 
 public interface SearchRepository {
+    public suspend fun discovery(): Result<SearchDiscovery>
+
     public fun observeHistory(): Flow<List<SearchHistoryItem>>
 
     public fun observeSuggestions(query: String): Flow<ResourceState<List<SearchSuggestion>>>

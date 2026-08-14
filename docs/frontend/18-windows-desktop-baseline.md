@@ -1,6 +1,6 @@
 # CMP Windows Desktop 工程基线
 
-本文规定 Anime Windows 客户端的当前实现边界、构建入口和验收标准。Android 仍是首发平台；Windows 端用于提前验证共享 UI、桌面发行链路和宽屏适配，不复制一套独立业务实现。
+本文规定 Anime Windows 客户端的当前实现边界、构建入口和验收标准。Desktop 是当前 UI 交付与宽屏体验的主验收平台，业务和领域能力继续与 Android 共用，不复制一套独立实现。
 
 ## 1. 平台与模块边界
 
@@ -14,7 +14,9 @@
 | 数据模式 | 当前固定 `FixtureOnly` |
 | 发行格式 | 便携目录、Windows EXE；MSI 配置已保留 |
 
-`app/desktop` 只能依赖 `shared/app`。Feature 之间仍禁止直接依赖，所有桌面业务行为必须复用现有领域模型、Repository 契约、Navigation 3 路由和 Fixture。
+`app/desktop` 是平台 composition root：可以依赖 `shared/app`，并仅为创建平台存储、网络客户端与
+Repository 实现而依赖 `core:*`、`data:*`；不得直接依赖 `feature:*` 或承载业务规则。Feature 之间仍禁止
+直接依赖，所有桌面业务行为必须复用现有领域模型、Repository 契约、Navigation 3 路由和 Fixture。
 
 ## 2. 应用入口
 
@@ -39,7 +41,7 @@ app/desktop/src/main/kotlin/site/jokersh/anime/desktop/Main.kt
 
 | 环境变量 | JVM System Property | 用途 |
 |---|---|---|
-| `ANIME_DESKTOP_INITIAL_ROOT` | `anime.desktop.initialRoot` | 指定初始根页面：`discover/search/timeline/profile` |
+| `ANIME_DESKTOP_INITIAL_ROOT` | `anime.desktop.initialRoot` | 指定初始根页面：`discover/library/activity/profile`；兼容旧的 `search/timeline` 别名 |
 | `ANIME_DESKTOP_INITIAL_QUERY` | `anime.desktop.initialQuery` | 进入搜索后自动提交查询 |
 | `ANIME_DESKTOP_GLASS_TIER` | `anime.desktop.glassTier` | 强制玻璃等级：`none/translucent/blur/liquid` |
 
@@ -134,9 +136,9 @@ Windows 工程接入完成必须同时满足：
 
 ## 7. 桌面交互与响应式规则
 
-- `840 dp` 以下使用 Kyant `LiquidBottomTabs`；`840 dp` 及以上使用左侧悬浮玻璃导航栏。
+- `700 dp` 以下使用 Kyant `LiquidBottomTabs`；`700 dp` 及以上使用 196dp 桌面侧栏。
 - 搜索结果在 `< 720 dp`、`720–1199 dp`、`>= 1200 dp` 分别使用 1、2、3 列。
-- `Ctrl+1/2/3/4` 切换发现、搜索、时间线、我的，`Ctrl+K` 聚焦到搜索入口。
+- `Ctrl+1/2/3/4` 切换发现、资料库、动态、我的，`Ctrl+K` 进入资料库搜索入口。
 - `Escape` 与 `Alt+Left` 请求返回上一层；无可返回页面时保持当前根页面。
 - Desktop UI 协程必须引入 `kotlinx-coroutines-swing`，确保 `Dispatchers.Main` 由 Swing dispatcher 提供。仅检查进程存活不能替代窗口无异常对话框的视觉验收。
 

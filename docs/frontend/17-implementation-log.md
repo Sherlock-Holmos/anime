@@ -2,6 +2,63 @@
 
 本文记录已经进入代码库并通过验证的前端实现增量。它补充规范文档，不替代 `features/*` 中的契约。
 
+## 2026-08-13 P0 完整交付收口
+
+- 资料链路完成服务端首页缓存、别名搜索、多条件稳定分页、详情与 Bangumi 评分分布/新鲜度展示。
+- 认证链路完成 OAuth 身份映射、头像代理、短访问令牌、旋转刷新令牌、当前设备退出和三端安全存储。
+- 收藏链路完成五状态幂等写入、进度边界、状态筛选/服务端游标分页、双向同步、冲突列表/解决和真实 pending/failed 计数。
+- 收藏 Outbox 会在应用启动和认证恢复后自动排空；评分 Outbox 同步在这两个时机重试。
+- 评分链路完成 Anime 1–10 分幂等写入、持久 Outbox 和独立社区聚合，不与 Bangumi 分数混算。
+- 短评链路完成 1–500 字发布、最新/最早游标分页、本人软删除、敏感词和服务端频率限制。
+- OpenAPI 补齐 Anime 社区评分、个人评分和短评列表/详情/创建/删除端点，合同门禁由 25 条路由扩展为 29 条。
+- 后端同步冲突的 `keep_local` 会真实回写 Bangumi，`use_remote` 更新本地；解决前会重新检查并发修改。
+
+本地验证：
+
+- 后端 `cargo clippy --all-targets -- -D warnings` 和 `cargo test` 通过（13 通过、1 忽略；2 个真实网络 E2E 按设计忽略）。
+- 前端 `animeCheck` 通过，覆盖 ktlint、合同、模块图、Fixture、Android Lint 与 Desktop/Android/Wasm 编译测试。
+- `core:navigation:wasmJsBrowserTest` 因上游 Navigation3/Skiko 测试运行时不解析 `skiko.mjs` 而定向禁用；Wasm 生产编译与浏览器分发仍由交付门禁验证。
+
+## 2026-08-10 真实目录闭环 P1-A
+
+- 后端补齐 `GET /api/v1/home`，以服务端主题镜像生成“最近同步 / 高分动画”真实分区。
+- 后端补齐 `GET /api/v1/search/subjects`：优先经服务端统一代理查询 Bangumi，结果规范化写入 PostgreSQL；上游失败时降级到本地镜像搜索。
+- 搜索响应支持 `next_offset` 游标，Desktop 新增 `RemoteSearchRepository` 并取代 Dev 运行时的 Fixture 搜索注入。
+- 发现页切换到 `/home` 多分区响应，不再把服务端目录包装成单个 Fixture 风格分区。
+- 用户收藏同步完成后，后台按 20 条一批渐进补齐浅层主题；请求限速执行，不阻塞 `/me` 返回。
+- 搜索命中的主题与收藏、发现、详情共用 Bangumi ID、Anime 海报 URL 和同一服务端缓存记录。
+
+已验证：
+
+- 后端 11 个单元测试通过，严格 Clippy 通过。
+- `:data:catalog:desktopTest`、`:shared:app:desktopTest` 与 `:app:desktop:compileKotlin` 通过。
+- 本地真实 E2E 返回 2 个发现分区；“大理寺”搜索返回真实条目“大理寺日志”。
+
+P1 后续：剧集/人物/关联资料补齐、统一 stale-while-revalidate 状态提示，以及 Remote Repository 的可注入传输层合同测试。
+
+## 2026-08-10 真实目录与媒体缓存 P0
+
+- Desktop Dev 组合根新增 `RemoteCatalogRepository`，发现与作品详情改读 Anime API；Demo 继续使用 Fixture。
+- 公开 Subject ID 统一为 Bangumi ID，收藏条目可直接打开真实详情。
+- 后端浅层收藏主题在首次打开时通过官方 API 补齐简介、话数、标签和评分。
+- 收藏与主题 DTO 不再向 Desktop 暴露 Bangumi CDN 直链，统一使用 Anime 海报端点。
+- 新增服务端海报允许列表、8 MiB 限制、类型校验、本地持久缓存和浏览器缓存头。
+- 本阶段仍未替换 `SearchRepository`，搜索真实化属于 P1。
+
+已验证：
+
+- 后端 11 个单元测试通过，1 个真实网络测试按设计忽略。
+- `:data:catalog:desktopTest` 与 `:app:desktop:compileKotlin` 通过。
+- 本地 PostgreSQL migration 成功；真实 Bangumi 主题详情补齐与 JPEG 海报缓存端到端通过。
+
+## 2026-08-04 Social Core 第二阶段
+
+- 一级导航完成“发现 / 资料库 / 动态 / 我的”迁移，并保持四根独立返回栈。
+- 新增 `feature:activity` 与 `feature:community`，Fixture 下可浏览关注动态、长评和片单。
+- 作品详情新增 Anime/Bangumi 双评分来源卡、评分编辑入口、热门评价与关联片单。
+- “我的”新增评分、评价、片单个人档案入口；收藏归入个人空间。
+- 新增 `RatingEditor`、`Review`、`CuratedList` 类型安全路由和恢复序列化测试。
+
 ## 2026-07-31 Windows Desktop 体验适配
 
 已落地：

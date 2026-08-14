@@ -12,6 +12,8 @@ kotlin {
         implementation(projects.core.navigation)
         implementation(projects.data.session)
         implementation(projects.data.collection)
+        implementation(libs.coil.compose)
+        implementation(libs.coil.network.ktor)
         implementation(libs.lifecycle.viewmodel.compose)
         implementation(libs.compose.runtime)
     }

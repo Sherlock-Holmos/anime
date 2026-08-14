@@ -140,6 +140,15 @@ public class FixtureSearchRepository(
 
     override fun observeHistory(): Flow<List<SearchHistoryItem>> = history.asStateFlow()
 
+    override suspend fun discovery(): Result<site.jokersh.anime.core.model.SearchDiscovery> =
+        Result.success(
+            site.jokersh.anime.core.model.SearchDiscovery(
+                trending = fixtureRecords.take(4).map { it.title },
+                recommendations = fixtureSubjects.values.take(3),
+                personalized = false,
+            ),
+        )
+
     override fun observeSuggestions(query: String): Flow<ResourceState<List<SearchSuggestion>>> {
         val normalized = query.trim()
         val suggestions =

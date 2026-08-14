@@ -122,6 +122,12 @@ public data class DiscoverySection(
     public val subjects: List<SubjectSummary>,
 )
 
+public data class SearchDiscovery(
+    public val trending: List<String>,
+    public val recommendations: List<SubjectSummary>,
+    public val personalized: Boolean,
+)
+
 public data class SubjectCredits(
     public val characters: List<CharacterCredit>,
     public val persons: List<PersonCredit>,

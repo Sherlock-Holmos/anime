@@ -18,6 +18,8 @@ kotlin {
         implementation(projects.data.settings)
 
         implementation(projects.feature.discover)
+        implementation(projects.feature.activity)
+        implementation(projects.feature.community)
         implementation(projects.feature.search)
         implementation(projects.feature.subject)
         implementation(projects.feature.collection)

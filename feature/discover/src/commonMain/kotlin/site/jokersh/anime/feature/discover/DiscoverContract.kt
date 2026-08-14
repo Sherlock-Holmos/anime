@@ -23,9 +23,16 @@ public sealed interface AsyncContent<out T> {
 
 @Immutable
 public data class DiscoverContentUi(
-    val hero: SubjectCardUi,
+    val heroes: List<SubjectCardUi>,
     val sections: List<DiscoverSectionUi>,
-)
+) {
+    init {
+        require(heroes.isNotEmpty()) { "Discover hero carousel must not be empty" }
+    }
+
+    public val hero: SubjectCardUi
+        get() = heroes.first()
+}
 
 @Immutable
 public data class DiscoverSectionUi(

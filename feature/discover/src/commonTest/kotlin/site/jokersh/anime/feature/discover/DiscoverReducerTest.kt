@@ -44,6 +44,27 @@ class DiscoverReducerTest {
     }
 
     @Test
+    fun `VM-DIS-005 hero carousel keeps stable unique recommendations`() {
+        val first = subject()
+        val second = subject(id = 1002, title = "雨城备忘录")
+        val content =
+            requireNotNull(
+                DiscoverUiMapper.map(
+                    DiscoveryFeed(
+                        sections =
+                            listOf(
+                                DiscoverySection("recent", "最近同步", listOf(first, second)),
+                                DiscoverySection("top-rated", "高分动画", listOf(second, first)),
+                            ),
+                        generatedAt = now,
+                    ),
+                ),
+            )
+
+        assertEquals(listOf(SubjectId(1001), SubjectId(1002)), content.heroes.map { it.id })
+    }
+
+    @Test
     fun `VM-OFF-002 offline without cache becomes blocking failure`() {
         val state =
             DiscoverReducer.repositoryChanged(
@@ -70,10 +91,13 @@ private fun feed(): DiscoveryFeed =
         generatedAt = now,
     )
 
-private fun subject(): SubjectSummary =
+private fun subject(
+    id: Long = 1001,
+    title: String = "星海邮差",
+): SubjectSummary =
     SubjectSummary(
-        id = SubjectId(1001),
-        title = "星海邮差",
+        id = SubjectId(id),
+        title = title,
         originalTitle = null,
         aliases = emptyList(),
         poster = null,

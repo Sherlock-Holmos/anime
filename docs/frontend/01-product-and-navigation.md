@@ -1,8 +1,9 @@
-# CMP 前端产品范围与导航规范
+# CMP 前端产品范围与导航规范 V2.0
 
-> 状态：V1.3 规范性文档<br>
+> 状态：V2.0 规范性文档<br>
 > 适用范围：Android 优先的 Compose Multiplatform 客户端；iOS 后续复用<br>
-> 目标：先交付可安装、可浏览、可交互的 Fixture Demo，再接入真实后端
+> 产品事实源：`docs/product/00-product-vision.md`<br>
+> 目标：以 Fixture 先验证资料、档案、评价、片单和动态闭环，再接入真实后端
 
 ## 1. 本阶段交付边界
 
@@ -16,33 +17,42 @@
 | 短评 | 本地发布、删除自己的短评 | 服务端发布与治理 |
 | 登录 | 场景开关模拟 | OAuth / Anime 会话 |
 | 弱网、离线、冲突 | Demo 控制台一键复现 | 由真实网络与同步状态触发 |
+| Anime 评分 | 本地个人评分和社区聚合样例 | 独立于 Bangumi 的社区评分服务 |
+| 长评与片单 | 本地确定性内容与编辑预览 | 服务端发布、版本和治理 |
+| 关注与动态 | 本地关注流 Fixture | 服务端关系图与 Feed 游标 |
 
-本阶段不出现自有打分入口、自有评分聚合或自有榜单。所有评分组件必须标注“Bangumi 评分”，且只读。
+Bangumi 评分仍为只读外部数据；Anime 个人评分和社区评分是独立领域，必须分别标注来源，不得混算。
 
 ## 2. 信息架构
 
 根导航固定为四项，避免把低频功能提升到一级入口：
 
-1. **发现**：推荐分区、热门与最近更新。
-2. **搜索**：关键词、历史、筛选与结果。
-3. **收藏**：想看、在看、看过、搁置、抛弃及进度。
-4. **我的**：账号、同步、外观、无障碍、缓存和关于。
+1. **发现**：当季、趋势、热门评价、精选片单和关注动态摘要。
+2. **资料库**：搜索、筛选、榜单、标签、人物、公司和系列关系。
+3. **动态**：关注流、热门评价、片单更新和社区互动。
+4. **我的**：收藏、进度、评分、评价、片单、统计、账号和设置。
 
 ```mermaid
 flowchart TD
     App[App Shell] --> Discover[发现]
-    App --> Search[搜索]
-    App --> Collection[收藏]
+    App --> Library[资料库]
+    App --> Activity[动态]
     App --> Profile[我的]
     Discover --> Subject[条目详情]
-    Search --> Results[搜索结果]
+    Library --> Results[搜索与筛选结果]
     Results --> Subject
+    Profile --> Collection[收藏与进度]
     Collection --> Subject
+    Activity --> Review[评价详情]
+    Activity --> List[片单详情]
     Subject --> Episodes[章节列表]
     Subject --> Cast[角色与人物]
     Subject --> Relations[关联条目]
     Subject --> Comments[短评]
     Comments --> Composer[发布短评]
+    Profile --> Ratings[我的评分]
+    Profile --> Reviews[我的评价]
+    Profile --> Lists[我的片单]
     Profile --> Settings[设置]
     Profile --> Diagnostics[Demo/诊断]
 ```
@@ -53,7 +63,7 @@ flowchart TD
 |---|---|---:|---|---|
 | `splash` | 无 | 否 | 冷启动 | 自动进入目标根页 |
 | `discover` | 无 | 否 | 根导航 | 再次点击回顶 |
-| `search` | `query?` | 否 | 根导航/Deep Link | 保留查询与筛选 |
+| `library` | `query?` | 否 | 根导航/Deep Link | 保留查询与筛选 |
 | `search/results` | `query`, `filters?` | 否 | 搜索页 | 回到编辑态搜索页 |
 | `subject/{id}` | `id` | 否 | 任意条目卡/Deep Link | 回到来源页及原滚动位置 |
 | `subject/{id}/episodes` | `id` | 否 | 详情 | 回详情 |
@@ -61,7 +71,8 @@ flowchart TD
 | `subject/{id}/relations` | `id` | 否 | 详情 | 回详情 |
 | `subject/{id}/comments` | `id`, `sort?` | 否 | 详情 | 回详情 |
 | `subject/{id}/comment/new` | `id` | 是 | 短评页 | 成功后回短评并定位新项 |
-| `collection` | `status?` | 是* | 根导航 | 游客显示登录引导，不强跳 |
+| `activity` | `feed?` | 否 | 根导航 | 保留动态游标与滚动位置 |
+| `collection` | `status?` | 是* | 我的 | 游客显示登录引导，不强跳 |
 | `profile` | 无 | 否 | 根导航 | 游客显示访客版 |
 | `login` | `returnTo` | 否 | 受保护操作 | 成功后回到原操作位置 |
 | `settings` | 无 | 否 | 我的 | 回我的 |
@@ -77,6 +88,7 @@ flowchart TD
 - 页面进程恢复只保存轻量参数、筛选和草稿，不序列化大对象；内容从 Repository 恢复。
 - 底部导航在详情等沉浸式子页隐藏；返回根页后恢复。大屏可替换为 Navigation Rail，但路由不变。
 - 受保护操作通过 `AuthGate` 包装，不在各页面复制登录判断。
+- 收藏、评分、评价和片单是个人档案能力，不得重新提升为独立根导航。
 
 ## 5. 内容与交互原则
 
@@ -89,4 +101,4 @@ flowchart TD
 
 ## 6. 首个可玩版本验收
 
-安装 APK 后，测试者可以在不联网的情况下完成：浏览发现页 → 搜索条目 → 查看完整详情和 Bangumi 评分 → 收藏为“在看” → 修改观看进度 → 发布一条本地短评 → 切换离线/空数据/错误场景 → 重启应用后保留本地操作。全部路径必须可用系统返回键闭环。
+安装后，测试者可以在不联网的情况下完成：发现作品 → 在资料库搜索 → 查看详情及双来源评分 → 收藏并更新进度 → 给出个人评分 → 发布评价或加入片单 → 在动态中看到对应活动 → 回到个人主页查看兴趣档案。全部路径必须可用系统返回键闭环。

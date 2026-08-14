@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">Anime</string>
     <string name="root_discover">发现</string>
-    <string name="root_search">搜索</string>
-    <string name="root_collection">收藏</string>
+    <string name="root_library">资料库</string>
+    <string name="root_activity">动态</string>
     <string name="root_profile">我的</string>
     <string name="shell_environment">CMP Android · %1$s</string>
     <string name="f0_description">F0 工程骨架已就绪。业务状态与 Fixture 将按照对应 Feature 契约逐步接入。</string>

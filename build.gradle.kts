@@ -6,6 +6,7 @@ import java.security.MessageDigest
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.test) apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.compose.multiplatform) apply false
@@ -32,7 +33,14 @@ tasks.register<JavaExec>("animeKtlintCheck") {
     description = "Checks Kotlin and Kotlin DSL formatting."
     classpath = ktlint
     mainClass.set("com.pinterest.ktlint.Main")
-    args("**/*.kt", "**/*.kts", "!**/build/**", "!**/.gradle/**", "!core/vendor/**")
+    args(
+        "**/*.kt",
+        "**/*.kts",
+        "!**/build/**",
+        "!**/bin/**",
+        "!**/.gradle/**",
+        "!core/vendor/**",
+    )
 }
 
 tasks.register<JavaExec>("animeFormat") {
@@ -40,7 +48,15 @@ tasks.register<JavaExec>("animeFormat") {
     description = "Formats Kotlin and Kotlin DSL sources."
     classpath = ktlint
     mainClass.set("com.pinterest.ktlint.Main")
-    args("--format", "**/*.kt", "**/*.kts", "!**/build/**", "!**/.gradle/**", "!core/vendor/**")
+    args(
+        "--format",
+        "**/*.kt",
+        "**/*.kts",
+        "!**/build/**",
+        "!**/bin/**",
+        "!**/.gradle/**",
+        "!core/vendor/**",
+    )
 }
 
 tasks.register("animeCheck") {
@@ -209,12 +225,10 @@ gradle.projectsEvaluated {
     val violations =
         projectEdges.filterNot { (source, target) ->
             when {
-                source == ":app:android" -> {
-                    target == ":shared:app"
-                }
-
-                source == ":app:desktop" -> {
-                    target == ":shared:app"
+                source == ":app:android" || source == ":app:desktop" || source == ":app:web" -> {
+                    target == ":shared:app" ||
+                        target.startsWith(":core:") ||
+                        target.startsWith(":data:")
                 }
 
                 source == ":shared:app" -> {

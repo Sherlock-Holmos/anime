@@ -1,5 +1,7 @@
 package site.jokersh.anime.core.model
 
+import kotlin.jvm.JvmInline
+
 @JvmInline
 public value class SubjectId(
     public val value: Long,
@@ -55,6 +57,42 @@ public value class UserId(
 }
 
 @JvmInline
+public value class RatingId(
+    public val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "RatingId must not be blank" }
+    }
+}
+
+@JvmInline
+public value class ReviewId(
+    public val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "ReviewId must not be blank" }
+    }
+}
+
+@JvmInline
+public value class CuratedListId(
+    public val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "CuratedListId must not be blank" }
+    }
+}
+
+@JvmInline
+public value class ActivityId(
+    public val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "ActivityId must not be blank" }
+    }
+}
+
+@JvmInline
 public value class MutationId(
     public val value: String,
 ) {
@@ -78,7 +116,11 @@ public sealed interface ImageRef {
         public val cacheKey: String,
     ) : ImageRef {
         init {
-            require(url.startsWith("https://")) { "Remote images must use HTTPS" }
+            require(
+                url.startsWith("https://") ||
+                    url.startsWith("http://127.0.0.1") ||
+                    url.startsWith("http://localhost"),
+            ) { "Remote images must use HTTPS except for loopback development servers" }
             require(cacheKey.isNotBlank()) { "Image cacheKey must not be blank" }
         }
     }

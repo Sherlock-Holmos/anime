@@ -16,12 +16,12 @@ class AppNavigatorTest {
         val navigator = AppNavigator({ selectedRoot }, { selectedRoot = it }, stacks::getValue)
 
         navigator.push(AppRoute.Subject(1001, RouteOrigin.Discover))
-        navigator.selectRoot(AppRoot.Search)
+        navigator.selectRoot(AppRoot.Library)
         navigator.push(AppRoute.SearchResults(SearchRouteRequest("星海")))
 
         assertEquals(
             AppRoute.SearchResults(SearchRouteRequest("星海")),
-            stacks.getValue(AppRoot.Search).last(),
+            stacks.getValue(AppRoot.Library).last(),
         )
         navigator.selectRoot(AppRoot.Discover)
         assertEquals(AppRoute.Subject(1001, RouteOrigin.Discover), stacks.getValue(AppRoot.Discover).last())
@@ -67,5 +67,23 @@ class AppNavigatorTest {
         val restored = json.decodeFromString(PolymorphicSerializer(NavKey::class), encoded)
 
         assertEquals(route, restored)
+    }
+
+    @Test
+    fun socialRoutesRoundTripThroughSavedState() {
+        val json = Json { serializersModule = AppNavigationSavedStateConfiguration.serializersModule }
+        val routes: List<NavKey> =
+            listOf(
+                AppRoute.Activity(ActivityFeedRoute.Popular),
+                AppRoute.RatingEditor(1001),
+                AppRoute.Review("review-1"),
+                AppRoute.CuratedList("list-1"),
+                AppRoute.User("user-1"),
+            )
+
+        routes.forEach { route ->
+            val encoded = json.encodeToString(PolymorphicSerializer(NavKey::class), route)
+            assertEquals(route, json.decodeFromString(PolymorphicSerializer(NavKey::class), encoded))
+        }
     }
 }

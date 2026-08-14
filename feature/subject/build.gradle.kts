@@ -12,6 +12,8 @@ kotlin {
         implementation(projects.core.navigation)
         implementation(projects.data.catalog)
         implementation(projects.data.collection)
+        implementation(projects.data.comment)
+        implementation(projects.data.session)
         implementation(libs.lifecycle.viewmodel)
         implementation(libs.lifecycle.viewmodel.compose)
         implementation(libs.compose.foundation)

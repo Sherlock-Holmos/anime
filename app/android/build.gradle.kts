@@ -21,6 +21,7 @@ extensions.configure<ApplicationExtension> {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
     }
 
     flavorDimensions += "environment"
@@ -34,6 +35,7 @@ extensions.configure<ApplicationExtension> {
             buildConfigField("String", "ANIME_API_BASE_URL", "\"\"")
             buildConfigField("boolean", "ANIME_DIAGNOSTICS_ENABLED", "true")
             buildConfigField("int", "ANIME_SEARCH_PAGE_SIZE", "5")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
         create("dev") {
             dimension = "environment"
@@ -44,6 +46,7 @@ extensions.configure<ApplicationExtension> {
             buildConfigField("String", "ANIME_API_BASE_URL", apiBaseUrlLiteral)
             buildConfigField("boolean", "ANIME_DIAGNOSTICS_ENABLED", "true")
             buildConfigField("int", "ANIME_SEARCH_PAGE_SIZE", "20")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
         create("prod") {
             dimension = "environment"
@@ -126,8 +129,15 @@ androidComponents {
 
 dependencies {
     implementation(projects.shared.app)
+    implementation(projects.core.model)
+    implementation(projects.data.catalog)
+    implementation(projects.data.comment)
+    implementation(projects.data.session)
+    implementation(projects.data.settings)
+    implementation(projects.data.collection)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.ktor.client.okhttp)
 }
 
 val verifyDemoDebugRuntimeResources by

@@ -2,9 +2,12 @@ package site.jokersh.anime.feature.search
 
 import androidx.compose.runtime.Immutable
 import site.jokersh.anime.core.designsystem.SubjectCardUi
+import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.Cursor
+import site.jokersh.anime.core.model.SearchSort
 import site.jokersh.anime.core.model.SubjectId
+import site.jokersh.anime.core.model.SubjectType
 
 @Immutable
 public data class SearchUiState(
@@ -17,6 +20,14 @@ public data class SearchUiState(
     val resultQuery: String? = null,
     val isLoadingMore: Boolean = false,
     val loadMoreError: AppError? = null,
+    val trending: List<String> = emptyList(),
+    val recommendations: List<SubjectCardUi> = emptyList(),
+    val recommendationsPersonalized: Boolean = false,
+    val discoveryLoading: Boolean = false,
+    val types: Set<SubjectType> = emptySet(),
+    val years: IntRange? = null,
+    val airing: Set<AiringStatus> = emptySet(),
+    val sort: SearchSort = SearchSort.Relevance,
 )
 
 public enum class SearchMode {
@@ -63,6 +74,20 @@ public sealed interface SearchIntent {
     public data object ClearAllRecent : SearchIntent
 
     public data object ClearQuery : SearchIntent
+
+    public data class ToggleType(
+        val value: SubjectType,
+    ) : SearchIntent
+
+    public data class ToggleAiring(
+        val value: AiringStatus,
+    ) : SearchIntent
+
+    public data object ToggleRecentYears : SearchIntent
+
+    public data class SortChanged(
+        val value: SearchSort,
+    ) : SearchIntent
 
     public data object LoadNextPage : SearchIntent
 

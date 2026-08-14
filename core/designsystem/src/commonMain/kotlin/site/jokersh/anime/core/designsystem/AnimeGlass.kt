@@ -9,6 +9,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.dp
 
 public enum class GlassTier { None, Translucent, Blur, Liquid }
 
@@ -74,18 +75,18 @@ public fun AnimeGlassPanel(
     val alpha =
         when (resolved) {
             GlassTier.None -> 1f
-            GlassTier.Translucent -> 0.82f
-            GlassTier.Blur -> 0.74f
-            GlassTier.Liquid -> 0.62f
+            GlassTier.Translucent -> 0.88f
+            GlassTier.Blur -> 0.8f
+            GlassTier.Liquid -> 0.76f
         }
-    val borderAlpha = if (resolved == GlassTier.None) 0.2f else 0.34f
+    val borderAlpha = if (resolved == GlassTier.None) 0.08f else 0.1f
 
     Surface(
         modifier = modifier.platformGlassEffect(role, resolved, shape),
         shape = shape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = alpha),
         border = BorderStroke(AnimeSize.border, MaterialTheme.colorScheme.outline.copy(alpha = borderAlpha)),
-        tonalElevation = if (resolved == GlassTier.None) AnimeSpacing.xxs else AnimeSpacing.sm,
+        tonalElevation = 0.dp,
     ) {
         Box(Modifier.padding(contentPadding)) {
             content()

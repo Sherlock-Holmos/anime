@@ -13,19 +13,33 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.Cursor
 import site.jokersh.anime.core.model.Page
 import site.jokersh.anime.core.model.SearchRequest
+import site.jokersh.anime.core.model.SearchSort
 import site.jokersh.anime.core.model.SubjectSummary
+import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.data.catalog.SearchRepository
 
 public class SearchViewModel(
     private val repository: SearchRepository,
     initialQuery: String? = null,
+    initialTypes: Set<SubjectType> = emptySet(),
+    initialYears: IntRange? = null,
+    initialAiring: Set<AiringStatus> = emptySet(),
     private val pageSize: Int = 12,
 ) : ViewModel() {
-    private val mutableState = MutableStateFlow(SearchUiState(query = initialQuery.orEmpty()))
+    private val mutableState =
+        MutableStateFlow(
+            SearchUiState(
+                query = initialQuery.orEmpty(),
+                types = initialTypes,
+                years = initialYears,
+                airing = initialAiring,
+            ),
+        )
     private val mutableEffects = Channel<SearchEffect>(capacity = Channel.BUFFERED)
     private var suggestionJob: Job? = null
     private var searchJob: Job? = null
@@ -34,6 +48,7 @@ public class SearchViewModel(
     public val effects: Flow<SearchEffect> = mutableEffects.receiveAsFlow()
 
     init {
+        loadDiscovery()
         viewModelScope.launch {
             repository.observeHistory().collect { history ->
                 mutableState.update { state ->
@@ -42,6 +57,25 @@ public class SearchViewModel(
             }
         }
         initialQuery?.trim()?.takeIf { it.isNotBlank() }?.let(::submit)
+    }
+
+    private fun loadDiscovery() {
+        mutableState.update { it.copy(discoveryLoading = true) }
+        viewModelScope.launch {
+            repository.discovery().fold(
+                onSuccess = { discovery ->
+                    mutableState.update {
+                        it.copy(
+                            trending = discovery.trending,
+                            recommendations = discovery.recommendations.map(SearchUiMapper::subject),
+                            recommendationsPersonalized = discovery.personalized,
+                            discoveryLoading = false,
+                        )
+                    }
+                },
+                onFailure = { mutableState.update { it.copy(discoveryLoading = false) } },
+            )
+        }
     }
 
     public fun accept(intent: SearchIntent) {
@@ -72,6 +106,28 @@ public class SearchViewModel(
 
             SearchIntent.ClearQuery -> {
                 clearQuery()
+            }
+
+            is SearchIntent.ToggleType -> {
+                updateFilters { state ->
+                    state.copy(types = state.types.toggle(intent.value))
+                }
+            }
+
+            is SearchIntent.ToggleAiring -> {
+                updateFilters { state ->
+                    state.copy(airing = state.airing.toggle(intent.value))
+                }
+            }
+
+            SearchIntent.ToggleRecentYears -> {
+                updateFilters { state ->
+                    state.copy(years = if (state.years == null) 2022..2026 else null)
+                }
+            }
+
+            is SearchIntent.SortChanged -> {
+                updateFilters { it.copy(sort = intent.value) }
             }
 
             SearchIntent.LoadNextPage,
@@ -155,7 +211,19 @@ public class SearchViewModel(
         if (cursor != null) {
             mutableState.update { it.copy(isLoadingMore = true, loadMoreError = null) }
         }
-        val result = repository.search(SearchRequest(query = query, cursor = cursor, pageSize = pageSize))
+        val filters = mutableState.value
+        val result =
+            repository.search(
+                SearchRequest(
+                    query = query,
+                    types = filters.types,
+                    years = filters.years,
+                    airing = filters.airing,
+                    sort = filters.sort,
+                    cursor = cursor,
+                    pageSize = pageSize,
+                ),
+            )
         result.fold(
             onSuccess = { page -> applyPage(page, cursor) },
             onFailure = {
@@ -208,4 +276,15 @@ public class SearchViewModel(
             )
         }
     }
+
+    private fun updateFilters(transform: (SearchUiState) -> SearchUiState) {
+        mutableState.update(transform)
+        val query =
+            mutableState.value.resultQuery ?: mutableState.value.query
+                .trim()
+                .takeIf(String::isNotEmpty)
+        if (query != null) submit(query)
+    }
 }
+
+private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - value else this + value

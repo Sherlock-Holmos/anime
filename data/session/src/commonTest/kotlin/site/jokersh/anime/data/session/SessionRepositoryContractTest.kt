@@ -4,6 +4,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import site.jokersh.anime.core.model.AnimeLoginCredentials
+import site.jokersh.anime.core.model.AnimeRegistration
 import site.jokersh.anime.core.model.AuthCallback
 import site.jokersh.anime.core.model.CollectionStatus
 import site.jokersh.anime.core.model.ExternalAuthRequest
@@ -35,7 +37,7 @@ abstract class SessionRepositoryContract {
             val repository = createRepository()
             val request = repository.beginLogin(LoginRequest("request-1", null)).getOrThrow()
 
-            val authenticated = repository.completeLogin(AuthCallback(request.requestId, "ticket")).getOrThrow()
+            val authenticated = repository.completeLogin(AuthCallback("ticket", "state")).getOrThrow()
 
             assertEquals(fixtureUser, authenticated.user)
             assertIs<SessionState.Authenticated>(repository.observeSession().first())
@@ -55,7 +57,7 @@ abstract class SessionRepositoryContract {
         runTest {
             val repository = createRepository()
             val request = repository.beginLogin(LoginRequest("request-2", null)).getOrThrow()
-            repository.completeLogin(AuthCallback(request.requestId, "ticket")).getOrThrow()
+            repository.completeLogin(AuthCallback("ticket", "state")).getOrThrow()
 
             assertTrue(repository.logout().isSuccess)
             assertEquals(SessionState.Guest, repository.observeSession().first())
@@ -84,7 +86,7 @@ private class InMemorySessionRepository : SessionRepository {
     }
 
     override suspend fun completeLogin(callback: AuthCallback): Result<SessionState.Authenticated> {
-        if (callback.requestId != pendingRequestId || callback.ticket.isBlank()) {
+        if (pendingRequestId == null || callback.authorizationCode.isBlank() || callback.state.isBlank()) {
             return Result.failure(IllegalArgumentException("Invalid auth callback"))
         }
         val authenticated =
@@ -97,6 +99,12 @@ private class InMemorySessionRepository : SessionRepository {
         return Result.success(authenticated)
     }
 
+    override suspend fun loginWithAnime(credentials: AnimeLoginCredentials): Result<SessionState.Authenticated> =
+        authenticateFixture()
+
+    override suspend fun registerAnime(registration: AnimeRegistration): Result<SessionState.Authenticated> =
+        authenticateFixture()
+
     override suspend fun refresh(): Result<SessionState.Authenticated> {
         val current = state.value as? SessionState.Authenticated
         return current?.let(Result.Companion::success)
@@ -107,5 +115,15 @@ private class InMemorySessionRepository : SessionRepository {
         pendingRequestId = null
         state.value = SessionState.Guest
         return Result.success(Unit)
+    }
+
+    private fun authenticateFixture(): Result<SessionState.Authenticated> {
+        val authenticated =
+            SessionState.Authenticated(
+                user = fixtureUser,
+                expiresAt = Instant.parse("2026-07-19T09:00:00Z"),
+            )
+        state.value = authenticated
+        return Result.success(authenticated)
     }
 }

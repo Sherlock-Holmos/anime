@@ -1,6 +1,7 @@
 package site.jokersh.anime.feature.search
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -10,25 +11,30 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -47,6 +53,10 @@ import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.StatePaneKind
 import site.jokersh.anime.core.designsystem.StatePaneModel
+import site.jokersh.anime.core.designsystem.SubjectCardUi
+import site.jokersh.anime.core.model.AiringStatus
+import site.jokersh.anime.core.model.SearchSort
+import site.jokersh.anime.core.model.SubjectType
 
 @Composable
 public fun SearchScreen(
@@ -58,9 +68,10 @@ public fun SearchScreen(
         val columns =
             when {
                 maxWidth >= 1_200.dp -> 3
-                maxWidth >= 720.dp -> 2
+                maxWidth >= 580.dp -> 2
                 else -> 1
             }
+
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxSize().statusBarsPadding().testTag("search.list"),
@@ -81,6 +92,20 @@ public fun SearchScreen(
                 )
             }
 
+            item(
+                key = "filters",
+                contentType = "filters",
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
+                SearchFilters(
+                    types = state.types,
+                    years = state.years,
+                    airing = state.airing,
+                    sort = state.sort,
+                    onIntent = onIntent,
+                )
+            }
+
             when (state.mode) {
                 SearchMode.Idle -> {
                     item(
@@ -93,6 +118,22 @@ public fun SearchScreen(
                             onClick = { query -> onIntent(SearchIntent.RecentClicked(query)) },
                             onRemove = { id -> onIntent(SearchIntent.RemoveRecent(id)) },
                             onClearAll = { onIntent(SearchIntent.ClearAllRecent) },
+                        )
+                    }
+                    item(
+                        key = "discovery",
+                        contentType = "discovery",
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        SearchDiscovery(
+                            trending = state.trending,
+                            recommendations = state.recommendations,
+                            personalized = state.recommendationsPersonalized,
+                            loading = state.discoveryLoading,
+                            onSearch = { query ->
+                                onIntent(SearchIntent.QueryChanged(query))
+                                onIntent(SearchIntent.Submit(query))
+                            },
                         )
                     }
                 }
@@ -192,6 +233,259 @@ public fun SearchScreen(
 }
 
 @Composable
+private fun SearchFilters(
+    types: Set<SubjectType>,
+    years: IntRange?,
+    airing: Set<AiringStatus>,
+    sort: SearchSort,
+    onIntent: (SearchIntent) -> Unit,
+) {
+    val chips =
+        remember(types, years, airing, sort) {
+            listOf(
+                "TV" to (SubjectType.Tv in types),
+                "Web" to (SubjectType.Web in types),
+                "剧场版" to (SubjectType.Movie in types),
+                "近五年" to (years != null),
+                "连载中" to (AiringStatus.Airing in airing),
+                "已完结" to (AiringStatus.Finished in airing),
+                "高分优先" to (sort == SearchSort.Rating),
+            )
+        }
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("search.filters"),
+        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+    ) {
+        chips.forEachIndexed { index, chip ->
+            val action = {
+                when (index) {
+                    0 -> {
+                        onIntent(SearchIntent.ToggleType(SubjectType.Tv))
+                    }
+
+                    1 -> {
+                        onIntent(SearchIntent.ToggleType(SubjectType.Web))
+                    }
+
+                    2 -> {
+                        onIntent(SearchIntent.ToggleType(SubjectType.Movie))
+                    }
+
+                    3 -> {
+                        onIntent(SearchIntent.ToggleRecentYears)
+                    }
+
+                    4 -> {
+                        onIntent(SearchIntent.ToggleAiring(AiringStatus.Airing))
+                    }
+
+                    5 -> {
+                        onIntent(SearchIntent.ToggleAiring(AiringStatus.Finished))
+                    }
+
+                    else -> {
+                        onIntent(
+                            SearchIntent.SortChanged(if (chip.second) SearchSort.Relevance else SearchSort.Rating),
+                        )
+                    }
+                }
+            }
+            if (chip.second) {
+                AnimePrimaryButton(label = chip.first, onClick = action)
+            } else {
+                AnimeSecondaryButton(label = chip.first, onClick = action)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchDiscovery(
+    trending: List<String>,
+    recommendations: List<SubjectCardUi>,
+    personalized: Boolean,
+    loading: Boolean,
+    onSearch: (String) -> Unit,
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val wide = maxWidth >= 860.dp
+        if (wide) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
+                verticalAlignment = Alignment.Top,
+            ) {
+                TrendingSearches(trending, onSearch, Modifier.weight(0.82f))
+                SearchPicks(recommendations, personalized, loading, onSearch, Modifier.weight(1.18f))
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg)) {
+                TrendingSearches(trending, onSearch)
+                SearchPicks(recommendations, personalized, loading, onSearch)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendingSearches(
+    queries: List<String>,
+    onSearch: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SearchDiscoveryPanel(
+        title = "热门搜索",
+        subtitle = "从大家最近关注的作品开始。",
+        modifier = modifier,
+    ) {
+        if (queries.isEmpty()) {
+            Text("还没有足够的搜索热度数据。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        queries.forEachIndexed { index, query ->
+            Surface(
+                onClick = { onSearch(query) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(AnimeRadius.control),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = (index + 1).toString().padStart(2, '0'),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(query, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchPicks(
+    recommendations: List<SubjectCardUi>,
+    personalized: Boolean,
+    loading: Boolean,
+    onSearch: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SearchDiscoveryPanel(
+        title = "不妨试试",
+        subtitle = if (personalized) "根据你的收藏兴趣生成。" else "来自真实高分与热度数据。",
+        modifier = modifier,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+        ) {
+            when {
+                loading -> {
+                    CircularProgressIndicator()
+                }
+
+                recommendations.isEmpty() -> {
+                    Text("推荐数据正在积累。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                else -> {
+                    recommendations.take(3).forEach { subject ->
+                        SearchPick(
+                            subject = subject,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSearch(subject.title) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchPick(
+    subject: SubjectCardUi,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(AnimeRadius.card),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    ) {
+        Column {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(112.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                site.jokersh.anime.core.designsystem.AnimePosterArtwork(
+                    poster = subject.poster,
+                    title = subject.title,
+                    id = subject.id,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            Column(
+                modifier = Modifier.padding(AnimeSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xxs),
+            ) {
+                Text(
+                    subject.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    subject.rating ?: subject.metadata,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchDiscoveryPanel(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(AnimeRadius.panel),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+        border =
+            androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+            ),
+    ) {
+        Column(
+            modifier = Modifier.padding(AnimeSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            content()
+        }
+    }
+}
+
+@Composable
 private fun SearchHeader(
     query: String,
     onQueryChanged: (String) -> Unit,
@@ -207,44 +501,67 @@ private fun SearchHeader(
         )
         Text(
             text = "搜索",
-            style = MaterialTheme.typography.displayLarge,
+            style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
         )
-        AnimeGlassPanel(
-            role = GlassRole.FloatingPanel,
-            shape = RoundedCornerShape(AnimeRadius.round),
-            contentPadding = PaddingValues(AnimeSpacing.sm),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
+                border =
+                    androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
+                    ),
+                tonalElevation = 0.dp,
             ) {
-                OutlinedTextField(
+                BasicTextField(
                     value = query,
                     onValueChange = onQueryChanged,
-                    modifier = Modifier.weight(1f).testTag("search.input"),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 52.dp)
+                            .padding(horizontal = AnimeSpacing.lg, vertical = AnimeSpacing.md)
+                            .testTag("search.input"),
                     singleLine = true,
-                    placeholder = { Text("作品名、别名、Bangumi ID") },
+                    textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
-                )
-                if (query.isNotBlank()) {
-                    PillButton(
-                        label = "清除",
-                        onClick = onClear,
-                        modifier =
-                            Modifier
-                                .testTag("search.clear")
-                                .semantics { contentDescription = "清空搜索内容" },
-                    )
-                }
-                PillButton(
-                    label = "搜索",
-                    onClick = onSubmit,
-                    modifier = Modifier.testTag("search.submit"),
+                    decorationBox = { innerTextField ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (query.isBlank()) {
+                                Text(
+                                    text = "作品名、别名、Bangumi ID",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
                 )
             }
+            if (query.isNotBlank()) {
+                PillButton(
+                    label = "清除",
+                    onClick = onClear,
+                    modifier =
+                        Modifier
+                            .testTag("search.clear")
+                            .semantics { contentDescription = "清空搜索内容" },
+                )
+            }
+            PillButton(
+                label = "搜索",
+                onClick = onSubmit,
+                modifier = Modifier.testTag("search.submit"),
+            )
         }
     }
 }
@@ -302,28 +619,30 @@ private fun RecentRow(
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(AnimeRadius.control))
-                .clickable(onClick = onClick)
-                .padding(vertical = AnimeSpacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(AnimeRadius.control),
+        color = Color.Transparent,
     ) {
-        Text(
-            text = item.query,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        PillButton(
-            label = "删除",
-            onClick = onRemove,
-            modifier = Modifier.semantics { contentDescription = "删除最近搜索：${item.query}" },
-        )
+        Row(
+            modifier = Modifier.padding(vertical = AnimeSpacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = item.query,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            PillButton(
+                label = "删除",
+                onClick = onRemove,
+                modifier = Modifier.semantics { contentDescription = "删除最近搜索：${item.query}" },
+            )
+        }
     }
 }
 
@@ -333,6 +652,7 @@ private fun SearchSuggestionRow(
     onClick: () -> Unit,
 ) {
     Surface(
+        onClick = onClick,
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -340,9 +660,7 @@ private fun SearchSuggestionRow(
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
                     contentDescription = "搜索 ${suggestion.value}"
-                }.clip(RoundedCornerShape(AnimeRadius.card))
-                .clickable(onClick = onClick)
-                .testTag("search.suggestion.${suggestion.value}"),
+                }.testTag("search.suggestion.${suggestion.value}"),
         shape = RoundedCornerShape(AnimeRadius.card),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
     ) {
@@ -426,17 +744,9 @@ private fun PillButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier =
-            modifier
-                .defaultMinSize(minWidth = 54.dp, minHeight = 48.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onClick),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = AnimeSpacing.md)) {
-            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        }
-    }
+    AnimeSecondaryButton(
+        label = label,
+        onClick = onClick,
+        modifier = modifier,
+    )
 }

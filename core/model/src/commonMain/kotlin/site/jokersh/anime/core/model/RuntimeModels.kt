@@ -2,7 +2,21 @@ package site.jokersh.anime.core.model
 
 import kotlin.time.Instant
 
-public enum class ResourceKind { Discovery, Subject, Episode, Character, Person, Comment, User, Collection }
+public enum class ResourceKind {
+    Discovery,
+    Subject,
+    Episode,
+    Character,
+    Person,
+    Comment,
+    User,
+    Collection,
+    Rating,
+    Review,
+    CuratedList,
+    Activity,
+    Feed,
+}
 
 public enum class FieldId { Query, Year, PageSize, Comment, Progress, Status, Url, Identifier }
 

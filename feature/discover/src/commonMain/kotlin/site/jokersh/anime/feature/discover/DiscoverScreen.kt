@@ -4,32 +4,39 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -38,9 +45,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import site.jokersh.anime.core.designsystem.AnimeBackIcon
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
+import site.jokersh.anime.core.designsystem.AnimePosterArtwork
 import site.jokersh.anime.core.designsystem.AnimePosterCard
+import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSectionHeader
 import site.jokersh.anime.core.designsystem.AnimeSpacing
@@ -59,7 +71,6 @@ import site.jokersh.anime.feature.discover.generated.resources.discover_error_ra
 import site.jokersh.anime.feature.discover.generated.resources.discover_error_service
 import site.jokersh.anime.feature.discover.generated.resources.discover_error_unknown
 import site.jokersh.anime.feature.discover.generated.resources.discover_hero_eyebrow
-import site.jokersh.anime.feature.discover.generated.resources.discover_hero_summary
 import site.jokersh.anime.feature.discover.generated.resources.discover_offline
 import site.jokersh.anime.feature.discover.generated.resources.discover_refresh
 import site.jokersh.anime.feature.discover.generated.resources.discover_see_all
@@ -74,67 +85,82 @@ public fun DiscoverScreen(
     onSeeAll: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize().testTag("discover.list"),
-        contentPadding = PaddingValues(top = AnimeSpacing.lg, bottom = 132.dp),
-        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xxl),
-    ) {
-        item(key = "header", contentType = "header") {
-            DiscoverHeader(isRefreshing = state.isRefreshing, onRefresh = onRefresh)
-        }
-        if (state.isOffline) {
-            item(key = "offline", contentType = "status-banner") {
-                OfflineBanner(lastUpdatedLabel = state.lastUpdatedLabel)
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val desktopLayout = maxWidth >= 560.dp
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().testTag("discover.list"),
+            contentPadding =
+                PaddingValues(
+                    top = AnimeSpacing.lg,
+                    bottom = if (desktopLayout) AnimeSpacing.giant else 132.dp,
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    if (desktopLayout) AnimeSpacing.xl else AnimeSpacing.xxl,
+                ),
+        ) {
+            item(key = "header", contentType = "header") {
+                DiscoverHeader(
+                    isRefreshing = state.isRefreshing,
+                    onRefresh = onRefresh,
+                    desktopLayout = desktopLayout,
+                )
             }
-        }
-        when (val content = state.content) {
-            AsyncContent.Initial,
-            AsyncContent.Loading,
-            -> {
-                item(key = "loading", contentType = "loading") { DiscoverLoading() }
-            }
-
-            AsyncContent.Empty -> {
-                item(key = "empty", contentType = "empty") {
-                    DiscoverStatusPanel(
-                        title = stringResource(Res.string.discover_empty_title),
-                        body = stringResource(Res.string.discover_empty_body),
-                        action = stringResource(Res.string.discover_empty_action),
-                        onAction = onRetry,
-                        tag = "discover.empty",
-                    )
+            if (state.isOffline) {
+                item(key = "offline", contentType = "status-banner") {
+                    OfflineBanner(lastUpdatedLabel = state.lastUpdatedLabel)
                 }
             }
-
-            is AsyncContent.Failure -> {
-                item(key = "error", contentType = "error") {
-                    DiscoverStatusPanel(
-                        title = errorTitle(content.error),
-                        body = stringResource(Res.string.discover_error_unknown),
-                        action = stringResource(Res.string.discover_error_action),
-                        onAction = onRetry,
-                        tag = "discover.error",
-                    )
+            when (val content = state.content) {
+                AsyncContent.Initial,
+                AsyncContent.Loading,
+                -> {
+                    item(key = "loading", contentType = "loading") { DiscoverLoading() }
                 }
-            }
 
-            is AsyncContent.Content -> {
-                item(key = "hero", contentType = "hero") {
-                    DiscoverHero(
-                        subject = content.value.hero,
-                        onClick = { onSubjectClick(content.value.hero.id) },
-                    )
+                AsyncContent.Empty -> {
+                    item(key = "empty", contentType = "empty") {
+                        DiscoverStatusPanel(
+                            title = stringResource(Res.string.discover_empty_title),
+                            body = stringResource(Res.string.discover_empty_body),
+                            action = stringResource(Res.string.discover_empty_action),
+                            onAction = onRetry,
+                            tag = "discover.empty",
+                        )
+                    }
                 }
-                items(
-                    items = content.value.sections,
-                    key = { section -> "section:${section.id}" },
-                    contentType = { "section" },
-                ) { section ->
-                    DiscoverSection(
-                        section = section,
-                        onSubjectClick = onSubjectClick,
-                        onSeeAll = { onSeeAll(section.id) },
-                    )
+
+                is AsyncContent.Failure -> {
+                    item(key = "error", contentType = "error") {
+                        DiscoverStatusPanel(
+                            title = errorTitle(content.error),
+                            body = stringResource(Res.string.discover_error_unknown),
+                            action = stringResource(Res.string.discover_error_action),
+                            onAction = onRetry,
+                            tag = "discover.error",
+                        )
+                    }
+                }
+
+                is AsyncContent.Content -> {
+                    item(key = "hero", contentType = "hero") {
+                        DiscoverHeroCarousel(
+                            subjects = content.value.heroes,
+                            onSubjectClick = onSubjectClick,
+                            desktopLayout = desktopLayout,
+                        )
+                    }
+                    items(
+                        items = content.value.sections,
+                        key = { section -> "section:${section.id}" },
+                        contentType = { "section" },
+                    ) { section ->
+                        DiscoverSection(
+                            section = section,
+                            onSubjectClick = onSubjectClick,
+                            onSeeAll = { onSeeAll(section.id) },
+                        )
+                    }
                 }
             }
         }
@@ -145,6 +171,7 @@ public fun DiscoverScreen(
 private fun DiscoverHeader(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
+    desktopLayout: Boolean,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = AnimeSpacing.lg),
@@ -163,31 +190,21 @@ private fun DiscoverHeader(
         ) {
             Text(
                 text = stringResource(Res.string.discover_title),
-                style = MaterialTheme.typography.displayLarge,
+                style =
+                    if (desktopLayout) {
+                        MaterialTheme.typography.headlineLarge
+                    } else {
+                        MaterialTheme.typography.displayLarge
+                    },
                 fontWeight = FontWeight.Bold,
             )
-            Surface(
-                modifier =
-                    Modifier
-                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                        .clip(CircleShape)
-                        .clickable(enabled = !isRefreshing, onClick = onRefresh)
-                        .testTag("discover.refresh"),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = AnimeSpacing.md)) {
-                    if (isRefreshing) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text(
-                            text = stringResource(Res.string.discover_refresh),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
+            AnimePrimaryButton(
+                label = stringResource(Res.string.discover_refresh),
+                onClick = onRefresh,
+                loading = isRefreshing,
+                enabled = !isRefreshing,
+                modifier = Modifier.testTag("discover.refresh"),
+            )
         }
     }
 }
@@ -214,78 +231,234 @@ private fun OfflineBanner(lastUpdatedLabel: String?) {
 }
 
 @Composable
+private fun DiscoverHeroCarousel(
+    subjects: List<SubjectCardUi>,
+    onSubjectClick: (SubjectId) -> Unit,
+    desktopLayout: Boolean,
+) {
+    val pagerState = rememberPagerState(pageCount = subjects::size)
+    val scope = rememberCoroutineScope()
+    val carouselHeight = if (desktopLayout) 216.dp else 250.dp
+    LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress, subjects.size) {
+        if (subjects.size > 1 && !pagerState.isScrollInProgress) {
+            delay(6_000)
+            pagerState.animateScrollToPage(
+                if (pagerState.currentPage == subjects.lastIndex) 0 else pagerState.currentPage + 1,
+            )
+        }
+    }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(carouselHeight)
+                .testTag("discover.hero.carousel"),
+    ) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            key = { page -> subjects[page].id.value },
+        ) { page ->
+            val subject = subjects[page]
+            DiscoverHero(
+                subject = subject,
+                onClick = { onSubjectClick(subject.id) },
+                desktopLayout = desktopLayout,
+            )
+        }
+        if (subjects.size > 1) {
+            CarouselArrow(
+                label = "上一部推荐",
+                onClick = {
+                    scope.launch {
+                        pagerState.animateScrollToPage(
+                            if (pagerState.currentPage == 0) subjects.lastIndex else pagerState.currentPage - 1,
+                        )
+                    }
+                },
+                modifier = Modifier.align(Alignment.CenterStart).padding(start = AnimeSpacing.xl),
+            )
+            CarouselArrow(
+                label = "下一部推荐",
+                onClick = {
+                    scope.launch {
+                        pagerState.animateScrollToPage(
+                            if (pagerState.currentPage == subjects.lastIndex) 0 else pagerState.currentPage + 1,
+                        )
+                    }
+                },
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = AnimeSpacing.xl)
+                        .rotate(180f),
+            )
+            Row(
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = AnimeSpacing.md),
+                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+            ) {
+                subjects.indices.forEach { page ->
+                    val selected = pagerState.currentPage == page
+                    Box(
+                        Modifier
+                            .width(if (selected) 24.dp else 8.dp)
+                            .height(8.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (selected) Color.White else Color.White.copy(alpha = 0.42f),
+                            ).clickable {
+                                scope.launch { pagerState.animateScrollToPage(page) }
+                            }.semantics {
+                                role = Role.Button
+                                contentDescription = "第 ${page + 1} 部推荐"
+                            },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CarouselArrow(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier =
+            modifier
+                .size(42.dp)
+                .semantics { contentDescription = label },
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+        shadowElevation = 8.dp,
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            AnimeBackIcon(
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun DiscoverHero(
     subject: SubjectCardUi,
     onClick: () -> Unit,
+    desktopLayout: Boolean,
 ) {
+    val gradients =
+        listOf(
+            listOf(Color(0xFF0A4B9F), Color(0xFF4A49A3), Color(0xFF8E4E9E)),
+            listOf(Color(0xFF006B5E), Color(0xFF257A75), Color(0xFF5A5BAA)),
+            listOf(Color(0xFF71411F), Color(0xFF8A4960), Color(0xFF604C9D)),
+            listOf(Color(0xFF1C4F74), Color(0xFF3D6294), Color(0xFF725394)),
+            listOf(Color(0xFF51407E), Color(0xFF77528C), Color(0xFFA35D79)),
+        )
     Box(
         modifier =
             Modifier
                 .padding(horizontal = AnimeSpacing.lg)
                 .fillMaxWidth()
-                .height(250.dp)
+                .height(if (desktopLayout) 216.dp else 250.dp)
                 .clip(RoundedCornerShape(AnimeRadius.panel))
                 .background(
                     Brush.linearGradient(
-                        listOf(Color(0xFF7776E8), Color(0xFFB28FD9), Color(0xFFF4B8C8)),
+                        gradients[(subject.id.value % gradients.size).toInt()],
                     ),
                 ).semantics(mergeDescendants = true) {
                     role = Role.Button
                     contentDescription = subject.accessibilityLabel
                 }.clickable(onClick = onClick),
     ) {
-        Box(
-            Modifier
-                .size(190.dp)
-                .offset(x = 210.dp, y = (-42).dp)
-                .background(Color.White.copy(alpha = 0.16f), CircleShape),
+        AnimePosterArtwork(
+            poster = subject.poster,
+            title = subject.title,
+            id = subject.id,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.1f
+                        scaleY = 1.1f
+                    }.blur(18.dp),
         )
         Box(
             Modifier
-                .size(120.dp)
-                .offset(x = (-24).dp, y = 158.dp)
-                .background(Color(0xFF5A5FC7).copy(alpha = 0.22f), CircleShape),
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color(0xFF071018).copy(alpha = 0.94f),
+                            Color(0xFF071018).copy(alpha = 0.7f),
+                            Color(0xFF071018).copy(alpha = 0.32f),
+                        ),
+                    ),
+                ),
         )
-        AnimeGlassPanel(
-            role = GlassRole.FloatingPanel,
-            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(AnimeSpacing.md),
-            shape = RoundedCornerShape(AnimeRadius.card),
-            contentPadding = PaddingValues(AnimeSpacing.lg),
+        AnimePosterArtwork(
+            poster = subject.poster,
+            title = subject.title,
+            id = subject.id,
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(
+                        top = AnimeSpacing.md,
+                        end = if (desktopLayout) 72.dp else 58.dp,
+                        bottom = AnimeSpacing.md,
+                    ).width(if (desktopLayout) 122.dp else 96.dp)
+                    .fillMaxHeight()
+                    .shadow(12.dp, RoundedCornerShape(AnimeRadius.card))
+                    .clip(RoundedCornerShape(AnimeRadius.card)),
+        )
+        Column(
+            modifier =
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxWidth(if (desktopLayout) 0.7f else 0.72f)
+                    .padding(start = 72.dp, end = AnimeSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
-                Text(
-                    text = stringResource(Res.string.discover_hero_eyebrow),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+            Text(
+                text = stringResource(Res.string.discover_hero_eyebrow),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.7f),
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = subject.title,
+                style = MaterialTheme.typography.headlineLarge,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = subject.originalTitle ?: subject.metadata,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.72f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            subject.rating?.let { rating ->
+                Surface(
+                    shape = RoundedCornerShape(AnimeRadius.round),
+                    color = Color.Black.copy(alpha = 0.36f),
                 ) {
                     Text(
-                        text = subject.title,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        text = rating,
+                        modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.xs),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
                     )
-                    subject.rating?.let { rating ->
-                        Text(
-                            text = rating,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
                 }
-                Text(
-                    text = stringResource(Res.string.discover_hero_summary),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
             }
         }
     }
@@ -342,6 +515,7 @@ private fun ContinueWatchingCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
+        onClick = onClick,
         modifier =
             modifier
                 .width(264.dp)
@@ -349,7 +523,7 @@ private fun ContinueWatchingCard(
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
                     contentDescription = subject.accessibilityLabel
-                }.clickable(onClick = onClick),
+                },
         shape = RoundedCornerShape(AnimeRadius.card),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
     ) {
@@ -454,15 +628,7 @@ private fun DiscoverStatusPanel(
         Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
             Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Surface(
-                modifier = Modifier.defaultMinSize(minHeight = 48.dp).clip(CircleShape).clickable(onClick = onAction),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = AnimeSpacing.xl)) {
-                    Text(action, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
-                }
-            }
+            AnimePrimaryButton(label = action, onClick = onAction)
         }
     }
 }

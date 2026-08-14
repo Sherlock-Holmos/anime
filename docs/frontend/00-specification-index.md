@@ -1,8 +1,8 @@
-# CMP Android 前端实施规范索引
+# Anime CMP 前端实施规范索引
 
-> 基线编号：`FES-1.3`<br>
-> 冻结日期：2026-07-21<br>
-> 适用范围：Android 首发的 Compose Multiplatform 客户端<br>
+> 基线编号：`FES-2.1`<br>
+> 生效日期：2026-08-12<br>
+> 适用范围：Compose Multiplatform 的 Desktop 与 Android 客户端<br>
 > 规范状态：Approved
 
 ## 1. 目标
@@ -13,12 +13,13 @@
 
 发生冲突时按以下顺序处理：
 
-1. 已批准的 ADR/决策记录；
-2. 本索引和 `10`–`16` 实施规范；
-3. `features/` 下的逐 Feature 契约；
-4. `01`–`09` 产品、视觉、页面和测试规范；
-5. 总体设计文档；
-6. 名称中含“探讨”的研究材料。
+1. `product/00-product-vision.md` 产品愿景与领域边界；
+2. 已批准的 ADR/决策记录；
+3. 本索引和 `10`–`20` 实施规范；
+4. `features/` 下的逐 Feature 契约；
+5. `01`–`09` 产品、视觉、页面和测试规范；
+6. 总体设计文档；
+7. 名称中含“探讨”的研究材料。
 
 同一优先级以基线编号较新的内容为准。仍无法判断时不得自行猜测，应登记 `OPEN-*` 决策项并暂停受影响的接口合并。
 
@@ -33,6 +34,8 @@
 | Compose 组件、尺寸、图标、测试标签 | `14-compose-implementation-spec.md` |
 | 一个需求由谁实现、如何验收 | `15-requirements-traceability.md` |
 | 为什么采用当前方案、什么不能擅自改变 | `16-decision-register.md` |
+| Desktop/macOS 与 Mobile/iOS 的视觉原则 | `19-apple-design-baseline.md` |
+| 颜色、间距、圆角、栅格和响应式数值 | `20-color-and-layout-specification.md` |
 | 某个页面的完整状态机 | `features/` 对应文件 |
 
 ## 4. 术语
@@ -40,7 +43,8 @@
 | 术语 | 唯一定义 |
 |---|---|
 | Subject | 动画条目；Android 首发阶段不扩展为书籍、游戏等其他类型 |
-| Bangumi 评分 | Bangumi 返回的只读评分和人数，不是 Anime 自有评分 |
+| Anime 评分 | 用户在 Anime 内提交的 1–10 分个人评分及其社区聚合 |
+| Bangumi 评分 | Bangumi 返回的只读外部评分和人数，必须显示来源 |
 | Collection | 当前用户对 Subject 的收藏状态及观看进度 |
 | Fixture | 可版本化、确定性的本地演示数据和故障脚本 |
 | Demo | 仅使用 Fixture，不访问真实网络、不依赖后端的可把玩版本 |
@@ -58,7 +62,7 @@
 - Loading、Empty、Content、Refreshing、Recoverable Error、Blocking Error、Offline、Auth Required 必须逐一有状态和测试。
 - UI 不得直接依赖 DTO、数据库实体或网络客户端。
 - UI 不得自行拼接后端 URL、解释 HTTP 状态码或写缓存。
-- Bangumi 评分只读；任何评分输入、星级控件、用户评分写接口均不在首发范围。
+- Anime 评分与 Bangumi 评分在命名、视觉和数据源上严格分离；不得混算或用外部评分冒充本站评分。
 - 变更领域接口、路由参数、Fixture Schema、视觉 Token 或验收条件，必须先修改文档和决策记录。
 
 ## 6. 完成定义
@@ -82,4 +86,4 @@
 5. 执行 `python scripts/sync_wiki.py --check`；
 6. 合并主仓库后，由同步流程发布 Wiki。
 
-`FES-1.3` 中没有阻塞 Android Demo 开发的开放决策。标记为 Deferred 的能力不允许被顺手实现。
+`FES-2.1` 以产品愿景中的 Foundation → Social Core → Discovery 分期推进；未进入当前阶段的能力不得以不可用入口污染 UI。`ADS-1.0` 与 `ACL-1.0` 自本版本起作为 UI 视觉变更的强制评审基线。

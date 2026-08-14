@@ -23,7 +23,7 @@ Gitea Wiki 是面向阅读和导航的发布结果，不是第二个可编辑源
 python scripts/sync_wiki.py
 ```
 
-生成结果位于 `build/wiki/`。脚本生成 48 个受管页面，只读取总体设计、`docs/frontend/` 和 `docs/backend/`，不读取历史探讨文档。OpenAPI 与 SQL migration 由后端页面链接并通过 `scripts/check_backend_contracts.py` 独立校验。
+生成结果位于 `build/wiki/`。脚本生成 51 个受管页面，只读取总体设计、`docs/frontend/` 和 `docs/backend/`，不读取历史探讨文档。OpenAPI 与 SQL migration 由后端页面链接并通过 `scripts/check_backend_contracts.py` 独立校验。
 
 ## 检查在线 Wiki 是否同步
 
@@ -111,11 +111,14 @@ WIKI_SYNC_TOKEN
 | 38 Profile Settings Diagnostics Contract | `frontend/features/07-profile-settings-diagnostics.md` |
 | 39 Frontend Implementation Log | `frontend/17-implementation-log.md` |
 | 40 Windows Desktop Baseline | `frontend/18-windows-desktop-baseline.md` |
+| 40A Apple Design Baseline | `frontend/19-apple-design-baseline.md` |
+| 40B Color and Layout Specification | `frontend/20-color-and-layout-specification.md` |
 | 41 Backend Specification Index | `backend/00-backend-specification-index.md` |
 | 42 Backend API Contract | `backend/01-api-contract.md` |
 | 43 Backend Database Contract | `backend/02-database-contract.md` |
 | 44 Bangumi Adapter and Sync Contract | `backend/03-bangumi-and-sync.md` |
 | 45 Backend Testing and Delivery | `backend/04-testing-and-delivery.md` |
+| 46 Catalog Cache and Media | `backend/05-catalog-cache-and-media.md` |
 | 99 References | 25–27 |
 | 99 Complete Design Baseline | 完整快照 |
 

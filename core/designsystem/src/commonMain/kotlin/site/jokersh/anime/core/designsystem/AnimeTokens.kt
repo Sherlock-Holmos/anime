@@ -5,6 +5,7 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -36,8 +37,8 @@ public object AnimeSpacing {
 public object AnimeRadius {
     public val chip: Dp = 10.dp
     public val control: Dp = 14.dp
-    public val card: Dp = 20.dp
-    public val panel: Dp = 28.dp
+    public val card: Dp = 18.dp
+    public val panel: Dp = 24.dp
     public val round: Dp = 999.dp
 }
 
@@ -51,7 +52,7 @@ public object AnimeSize {
     public val posterCompactHeight: Dp = 112.dp
     public val posterWidth: Dp = 132.dp
     public val posterHeight: Dp = 198.dp
-    public val contentMax: Dp = 1200.dp
+    public val contentMax: Dp = 1320.dp
     public val readingMax: Dp = 720.dp
 }
 
@@ -114,6 +115,25 @@ public val AnimeTypography: Typography =
                 lineHeight = 16.sp,
                 fontWeight = FontWeight.Medium,
             ),
+    )
+
+internal fun Typography.withFontFamily(fontFamily: FontFamily): Typography =
+    copy(
+        displayLarge = displayLarge.copy(fontFamily = fontFamily),
+        displayMedium = displayMedium.copy(fontFamily = fontFamily),
+        displaySmall = displaySmall.copy(fontFamily = fontFamily),
+        headlineLarge = headlineLarge.copy(fontFamily = fontFamily),
+        headlineMedium = headlineMedium.copy(fontFamily = fontFamily),
+        headlineSmall = headlineSmall.copy(fontFamily = fontFamily),
+        titleLarge = titleLarge.copy(fontFamily = fontFamily),
+        titleMedium = titleMedium.copy(fontFamily = fontFamily),
+        titleSmall = titleSmall.copy(fontFamily = fontFamily),
+        bodyLarge = bodyLarge.copy(fontFamily = fontFamily),
+        bodyMedium = bodyMedium.copy(fontFamily = fontFamily),
+        bodySmall = bodySmall.copy(fontFamily = fontFamily),
+        labelLarge = labelLarge.copy(fontFamily = fontFamily),
+        labelMedium = labelMedium.copy(fontFamily = fontFamily),
+        labelSmall = labelSmall.copy(fontFamily = fontFamily),
     )
 
 public val AnimeShapes: Shapes =

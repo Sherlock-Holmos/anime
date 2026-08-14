@@ -15,7 +15,9 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // Kotlin/Wasm registers version-pinned Ivy repositories for browser
+    // toolchains such as Binaryen. They are not Maven application dependencies.
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     repositories {
         google()
         maven("https://maven.aliyun.com/repository/central") {
@@ -35,6 +37,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 include(":app:android")
 include(":app:desktop")
+include(":app:web")
 include(":shared:app")
 
 include(":core:common")
@@ -54,6 +57,8 @@ include(":data:session")
 include(":data:settings")
 
 include(":feature:discover")
+include(":feature:activity")
+include(":feature:community")
 include(":feature:search")
 include(":feature:subject")
 include(":feature:collection")

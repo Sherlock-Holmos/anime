@@ -20,19 +20,19 @@ Material 3 只可作为 Compose 底层实现与无障碍语义来源，不得直
 
 | Token | Light | Dark | 用途 |
 |---|---|---|---|
-| `background` | `#F7F7FB` | `#0C0D13` | 页面底色 |
-| `surface` | `#FFFFFF` | `#151720` | 普通卡片、菜单 |
-| `surfaceVariant` | `#EEF0F7` | `#20232E` | 次级容器、输入框 |
-| `onSurface` | `#191A22` | `#E7E8F1` | 主文字 |
-| `onSurfaceVariant` | `#5D6070` | `#C5C6D2` | 次文字 |
-| `primary` | `#5B5CE2` | `#B8B8FF` | 主要动作与选中态 |
-| `onPrimary` | `#FFFFFF` | `#171750` | 主按钮文字 |
-| `secondary` | `#007F80` | `#77DAD7` | 信息与同步状态 |
-| `accent` | `#C93669` | `#FFAFCC` | 少量强调、收藏态 |
+| `background` | `#F5F5F7` | `#09090B` | 页面底色 |
+| `surface` | `#FFFFFF` | `#171719` | 普通卡片、菜单 |
+| `surfaceVariant` | `#E8E8ED` | `#252528` | 次级容器、输入框 |
+| `onSurface` | `#1D1D1F` | `#F5F5F7` | 主文字 |
+| `onSurfaceVariant` | `#6E6E73` | `#A1A1A6` | 次文字 |
+| `primary` | `#007AFF` | `#0A84FF` | 主要动作与选中态 |
+| `onPrimary` | `#FFFFFF` | `#FFFFFF` | 主按钮文字 |
+| `secondary` | `#00A7C4` | `#64D2FF` | 信息与同步状态 |
+| `accent` | `#AF52DE` | `#BF5AF2` | 少量强调、收藏态 |
 | `success` | `#16865B` | `#6DDBA6` | 成功 |
 | `warning` | `#A76500` | `#FFB95C` | 旧数据、待同步 |
 | `error` | `#BA1A1A` | `#FFB4AB` | 错误与破坏性动作 |
-| `outline` | `#CBCDD9` | `#8E909F` | 边框与分隔线 |
+| `outline` | `#C7C7CC` | `#48484A` | 边框与分隔线 |
 | `scrim` | `#00000073` | `#00000099` | 模态遮罩 |
 
 评分数字沿用 `onSurface`，不可用“金色”暗示本站背书；分布条使用 `primary` 单色阶。收藏状态使用文字/图标与颜色共同表达。
@@ -61,7 +61,7 @@ Material 3 只可作为 Compose 底层实现与无障碍语义来源，不得直
 | 类别 | Token / 值 |
 |---|---|
 | 间距 | `space4/8/12/16/20/24/32/40/48/64` dp |
-| 圆角 | `radius8/12/16/20/28/full` |
+| 圆角 | `radius8/12/16/20/full`；同层级不混用 |
 | 最小触控区域 | `48 × 48dp` |
 | 页面水平边距 | 手机 16dp；平板 24–32dp |
 | 内容最大宽度 | 列表 840dp；正文 720dp |
@@ -96,9 +96,9 @@ Material 3 只可作为 Compose 底层实现与无障碍语义来源，不得直
 
 | 宽度 | 布局 |
 |---|---|
-| `< 600dp` | 单列、悬浮 Liquid Glass Tab Bar、全宽详情区块；内容延伸到底栏下方 |
-| `600–839dp` | Navigation Rail；发现页两列；详情主从双栏 |
-| `>= 840dp` | Rail/Drawer；内容居中限宽；详情海报与信息 1:2 分栏 |
+| `< 700dp` | 单列、悬浮 Liquid Glass Tab Bar、全宽详情区块；内容延伸到底栏下方 |
+| `700–1099dp` | 196dp 桌面侧栏；内容单列或主从双栏 |
+| `>= 1100dp` | 196dp 侧栏；主内容与辅助信息双栏，内容区设置最大宽度 |
 
 断点只改变布局，不改变功能、路由或阅读顺序。横屏手机优先保证正文与操作可见，不强制套用平板双栏。
 

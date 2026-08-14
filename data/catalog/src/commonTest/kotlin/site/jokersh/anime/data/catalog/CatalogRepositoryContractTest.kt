@@ -213,6 +213,12 @@ private class InMemorySearchRepository : SearchRepository {
 
     override fun observeHistory(): Flow<List<SearchHistoryItem>> = history
 
+    override suspend fun discovery(): Result<site.jokersh.anime.core.model.SearchDiscovery> =
+        Result.success(
+            site.jokersh.anime.core.model
+                .SearchDiscovery(emptyList(), fixtureSubjects.take(3), false),
+        )
+
     override fun observeSuggestions(query: String): Flow<ResourceState<List<SearchSuggestion>>> =
         MutableStateFlow(
             ResourceState(

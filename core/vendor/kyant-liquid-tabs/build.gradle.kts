@@ -9,7 +9,7 @@ plugins {
 val verifyUpstreamSources =
     tasks.register("verifyUpstreamSources") {
         group = "verification"
-        description = "Verifies vendored Kyant LiquidBottomTabs sources against upstream commit bebb11a9."
+        description = "Verifies vendored Kyant catalog components against upstream commit bebb11a9."
 
         val expected =
             mapOf(
@@ -17,6 +17,10 @@ val verifyUpstreamSources =
                     "40178a5ab429022e4e5523a39b9feb40c8c04370671361b24ad4ee992eaaeeb0",
                 "src/commonMain/kotlin/com/kyant/backdrop/catalog/components/LiquidBottomTabs.kt" to
                     "4dfbafaf008b058bf71ceebbc568c900f7a74acaf94f2fe774c6155367ff0155",
+                "src/commonMain/kotlin/com/kyant/backdrop/catalog/components/LiquidButton.kt" to
+                    "7b95a0c1b33ff984f59b1e7c7a910b7038a0a8ad4377a2fdbe77400711a8244b",
+                "src/commonMain/kotlin/com/kyant/backdrop/catalog/components/LiquidToggle.kt" to
+                    "69cb82d74297f1b390ea3c820691656ac892f9f3593f4b47b8bf5736e69d0f05",
                 "src/commonMain/kotlin/com/kyant/backdrop/catalog/utils/DampedDragAnimation.kt" to
                     "8310075ee00a9b5021935f6da1f016cb38eac61a527d27f5318c34250402c44e",
                 "src/commonMain/kotlin/com/kyant/backdrop/catalog/utils/DragGestureInspector.kt" to

@@ -12,16 +12,21 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.AppError
+import site.jokersh.anime.core.model.FreshnessKind
 import site.jokersh.anime.core.model.RefreshPolicy
 import site.jokersh.anime.core.model.ResourceState
 import site.jokersh.anime.core.model.SubjectDetail
 import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.data.catalog.CatalogRepository
+import site.jokersh.anime.data.comment.CommunityRepository
+import site.jokersh.anime.data.session.SessionRepository
 
 public class SubjectViewModel(
     private val subjectId: SubjectId,
     private val repository: CatalogRepository,
+    private val communityRepository: CommunityRepository,
+    private val sessionRepository: SessionRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SubjectUiState())
     private var refreshJob: Job? = null
@@ -40,16 +45,54 @@ public class SubjectViewModel(
                         SubjectUiState(
                             loading = resource.value == null && resource.error == null,
                             refreshing = resource.refreshing,
-                            content = resource.value?.toUi(),
+                            content = resource.value?.toUi(resource.freshness?.kind),
                             error = resource.error,
                         )
                 }
         }
         refresh(RefreshPolicy.IfMissing)
+        refreshCommunity()
     }
 
     public fun retry() {
         refresh(RefreshPolicy.Force)
+        refreshCommunity()
+    }
+
+    public fun collect() {
+        viewModelScope.launch {
+            mutableState.update { it.copy(actionMessage = "正在同步收藏…") }
+            communityRepository
+                .setCollection(subjectId.value, "wish")
+                .onSuccess {
+                    sessionRepository.refresh()
+                    mutableState.update { it.copy(collectionStatus = "wish", actionMessage = "已加入想看") }
+                }.onFailure { error -> mutableState.update { it.copy(actionMessage = error.message ?: "收藏失败") } }
+        }
+    }
+
+    private fun refreshCommunity() {
+        viewModelScope.launch {
+            mutableState.update { it.copy(communityLoading = true, communityError = null) }
+            val reviews =
+                communityRepository.reviews(subjectId.value).getOrElse { error ->
+                    mutableState.update { it.copy(communityLoading = false, communityError = error.message) }
+                    emptyList()
+                }
+            val comments = communityRepository.comments(subjectId.value).getOrDefault(emptyList())
+            val lists = communityRepository.lists(5).getOrDefault(emptyList())
+            val rating = communityRepository.rating(subjectId.value).getOrNull()
+            mutableState.update {
+                it.copy(
+                    communityLoading = false,
+                    reviews = reviews,
+                    comments = comments,
+                    lists = lists,
+                    communityScore = rating?.score,
+                    communityVotes = rating?.votes ?: 0,
+                )
+            }
+        }
     }
 
     private fun refresh(policy: RefreshPolicy) {
@@ -66,11 +109,12 @@ public class SubjectViewModel(
     }
 }
 
-private fun SubjectDetail.toUi(): SubjectContentUi =
+private fun SubjectDetail.toUi(freshnessKind: FreshnessKind?): SubjectContentUi =
     SubjectContentUi(
         id = summary.id.value,
         title = summary.title,
         originalTitle = summary.originalTitle,
+        poster = summary.poster,
         metadata =
             listOfNotNull(
                 summary.year?.toString(),
@@ -83,6 +127,13 @@ private fun SubjectDetail.toUi(): SubjectContentUi =
         episodeCount = totalEpisodes,
         summary = summaryText.orEmpty(),
         tags = tags.sortedBy { it.order }.map { it.name },
+        ratingDistribution = summary.rating?.distribution.orEmpty(),
+        dataStatusLabel =
+            when (freshnessKind) {
+                FreshnessKind.OfflineCache -> "离线缓存 · 更新于 ${dataUpdatedAt.toString().take(16).replace('T', ' ')}"
+                FreshnessKind.Stale -> "数据可能已过期 · 更新于 ${dataUpdatedAt.toString().take(16).replace('T', ' ')}"
+                else -> "Bangumi 最近同步 · ${dataUpdatedAt.toString().take(16).replace('T', ' ')}"
+            },
     )
 
 private val SubjectType.label: String

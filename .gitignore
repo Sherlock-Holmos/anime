@@ -4,6 +4,7 @@
 .gradle/
 .kotlin/
 local.properties
+**/bin/
 
 # Local AI discussion archives; conclusions belong in the canonical baseline
 /docs/*探讨.md

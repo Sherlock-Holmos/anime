@@ -22,14 +22,16 @@
 | 表、索引、约束、事务边界 | `02-database-contract.md`、SQL migration |
 | Bangumi 映射、限流、重试、冲突 | `03-bangumi-and-sync.md` |
 | 测试、阶段和完成定义 | `04-testing-and-delivery.md` |
+| 目录镜像、媒体缓存、真实数据迁移 | `05-catalog-cache-and-media.md` |
 | CMP 领域语义 | `../frontend/12-domain-repository-contracts.md` |
 
 ## 3. 固定技术边界
 
 - Rust + Axum + Tokio，模块化单体，单一 API 二进制；
 - PostgreSQL 是事实源，Redis 只允许缓存、限流和短租约；
+- 客户端只访问 Anime API；Bangumi API 与图片 CDN 只能由服务端适配器经受控代理访问；
 - Bangumi OAuth 是唯一用户登录方式，Bangumi Token 只保存在服务端；
-- Anime 不建设自有评分，API 仅返回 Bangumi 只读评分快照；
+- Anime 建设独立的个人评分与社区聚合；Bangumi 评分作为只读外部快照，API 字段与聚合链严格隔离；
 - 所有公开 API 位于 `/api/v1`，ID 以字符串传输，时间使用 RFC 3339 UTC；
 - 公开列表使用不透明 Cursor；写接口使用 `Idempotency-Key` 或明确的资源幂等语义；
 - Handler 不包含 SQL、Bangumi URL 或冲突策略；Application Service 不返回 Axum Response；
@@ -46,4 +48,4 @@
 
 ## 5. 当前边界
 
-`BES-1.0` 冻结首版公开资料、OAuth 会话、收藏/进度、短评和同步冲突契约。后台管理 UI、Anime 自有评分、私信、通知、图片上传和独立搜索服务不在本基线。
+`BES-2.0` 在公开资料、OAuth 会话、收藏/进度和同步冲突契约上，新增 Rating、Review、CuratedList、Social、Activity/Feed 领域边界。私信、图片上传和独立搜索服务仍不在本基线。

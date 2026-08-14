@@ -1,10 +1,10 @@
 package site.jokersh.anime.feature.subject
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -38,14 +38,19 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
+import site.jokersh.anime.core.designsystem.AnimePosterArtwork
+import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeRatingBadge
+import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
+import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.AnimeStatePane
 import site.jokersh.anime.core.designsystem.BangumiRatingUi
 import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.StatePaneKind
 import site.jokersh.anime.core.designsystem.StatePaneModel
+import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.feature.subject.generated.resources.Res
 import site.jokersh.anime.feature.subject.generated.resources.subject_back
 import site.jokersh.anime.feature.subject.generated.resources.subject_bangumi
@@ -69,12 +74,34 @@ public fun SubjectScreen(
     state: SubjectUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    onRate: () -> Unit,
+    onCollect: () -> Unit,
+    onEpisodesClick: () -> Unit,
+    onCharactersClick: () -> Unit,
+    onRelationsClick: () -> Unit,
+    onCommentsClick: () -> Unit,
+    onReviewsClick: () -> Unit,
+    onReviewClick: (String) -> Unit,
+    onListClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         when {
             state.content != null -> {
-                SubjectContent(state.content, onBack)
+                SubjectContent(
+                    state,
+                    state.content,
+                    onBack,
+                    onRate,
+                    onCollect,
+                    onEpisodesClick,
+                    onCharactersClick,
+                    onRelationsClick,
+                    onCommentsClick,
+                    onReviewsClick,
+                    onReviewClick,
+                    onListClick,
+                )
             }
 
             state.loading -> {
@@ -102,119 +129,410 @@ public fun SubjectScreen(
 
 @Composable
 private fun SubjectContent(
+    state: SubjectUiState,
     content: SubjectContentUi,
     onBack: () -> Unit,
+    onRate: () -> Unit,
+    onCollect: () -> Unit,
+    onEpisodesClick: () -> Unit,
+    onCharactersClick: () -> Unit,
+    onRelationsClick: () -> Unit,
+    onCommentsClick: () -> Unit,
+    onReviewsClick: () -> Unit,
+    onReviewClick: (String) -> Unit,
+    onListClick: (String) -> Unit,
 ) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .testTag("subject.screen.${content.id}")
-                .verticalScroll(rememberScrollState())
-                .statusBarsPadding()
-                .padding(horizontal = AnimeSpacing.lg)
-                .padding(top = AnimeSpacing.md, bottom = AnimeSpacing.xxl),
-        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xl),
-    ) {
-        BackButton(onBack)
-        Row(
-            modifier = Modifier.fillMaxWidth().testTag("subject.hero"),
-            horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
-            verticalAlignment = Alignment.Bottom,
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 900.dp
+        val compact = maxWidth < 520.dp
+        Column(
+            modifier =
+                Modifier
+                    .widthIn(max = AnimeSize.contentMax)
+                    .fillMaxSize()
+                    .align(Alignment.TopCenter)
+                    .testTag("subject.screen.${content.id}")
+                    .verticalScroll(rememberScrollState())
+                    .statusBarsPadding()
+                    .padding(horizontal = if (compact) AnimeSpacing.lg else AnimeSpacing.xxl)
+                    .padding(top = AnimeSpacing.lg, bottom = AnimeSpacing.huge),
+            verticalArrangement = Arrangement.spacedBy(if (compact) AnimeSpacing.xl else AnimeSpacing.xxl),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .width(112.dp)
-                        .height(158.dp)
-                        .clip(RoundedCornerShape(AnimeRadius.card))
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.34f),
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f),
-                                ),
-                            ),
-                        ),
-                contentAlignment = Alignment.Center,
+            BackButton(onBack)
+            Row(
+                modifier = Modifier.fillMaxWidth().testTag("subject.hero"),
+                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.xl),
+                verticalAlignment = Alignment.Bottom,
             ) {
-                Text(
-                    text = content.title.take(1),
-                    style = MaterialTheme.typography.displayLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold,
+                AnimePosterArtwork(
+                    poster = content.poster,
+                    title = content.title,
+                    id = SubjectId(content.id),
+                    modifier =
+                        Modifier
+                            .width(if (wide) 156.dp else 112.dp)
+                            .height(if (wide) 220.dp else 158.dp)
+                            .clip(RoundedCornerShape(AnimeRadius.card)),
                 )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
-            ) {
-                Text(
-                    text = content.title,
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                content.originalTitle?.let {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+                ) {
                     Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        text = content.title,
+                        style =
+                            if (wide) {
+                                MaterialTheme.typography.headlineLarge
+                            } else {
+                                MaterialTheme.typography.headlineLarge
+                            },
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 4,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    content.originalTitle?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Text(
+                        text = content.metadata,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (content.score != null) {
+                        AnimeRatingBadge(
+                            rating = content.ratingUi(),
+                            modifier = Modifier.testTag("subject.rating"),
+                        )
+                    }
+                    TagRow(content.tags)
+                    Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+                        AnimePrimaryButton(label = "记录评分", onClick = onRate)
+                        AnimeSecondaryButton(
+                            label =
+                                if (state.collectionStatus ==
+                                    null
+                                ) {
+                                    "加入想看"
+                                } else {
+                                    "已加入想看"
+                                },
+                            onClick = onCollect,
+                        )
+                    }
+                    state.actionMessage?.let {
+                        Text(
+                            it,
+                            color =
+                                if (it.contains(
+                                        "失败",
+                                    )
+                                ) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
+            }
+            RatingOverview(content, state.communityScore, state.communityVotes, compact)
+            Text(
+                content.dataStatusLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            if (wide) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.xl),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    DetailSection(
+                        title = stringResource(Res.string.subject_summary),
+                        modifier = Modifier.weight(1.45f),
+                    ) {
+                        SummaryText(content.summary)
+                    }
+                    DetailSection(
+                        title = stringResource(Res.string.subject_information),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        SubjectInformation(content, onEpisodesClick, onCharactersClick, onRelationsClick)
+                    }
+                }
+            } else {
+                DetailSection(stringResource(Res.string.subject_summary)) {
+                    SummaryText(content.summary)
+                }
+                DetailSection(stringResource(Res.string.subject_information)) {
+                    SubjectInformation(content, onEpisodesClick, onCharactersClick, onRelationsClick)
+                }
+            }
+            CommunityPreview(state, onCommentsClick, onReviewsClick, onReviewClick, onListClick, wide)
+        }
+    }
+}
+
+@Composable
+private fun RatingOverview(
+    content: SubjectContentUi,
+    communityScore: Double?,
+    communityVotes: Long,
+    compact: Boolean,
+) {
+    val first: @Composable (Modifier) -> Unit = { modifier ->
+        RatingSourceCard(
+            source = "Anime 社区",
+            score = communityScore?.let { ((it * 10).toInt() / 10.0).toString() } ?: "—",
+            detail = if (communityScore == null) "暂无评分" else "$communityVotes 人评分",
+            highlighted = true,
+            modifier = modifier,
+        )
+    }
+    val second: @Composable (Modifier) -> Unit = { modifier ->
+        RatingSourceCard(
+            source = "Bangumi · 外部参考",
+            score = content.score ?: "—",
+            detail =
+                if (content.score ==
+                    null
+                ) {
+                    "暂无评分"
+                } else {
+                    "${content.votes} 人评分 · ${content.ratingDistribution.entries.sortedByDescending { it.key }.take(
+                        3,
+                    ).joinToString(" / ") { "${it.key}分 ${it.value}" }}"
+                },
+            highlighted = false,
+            modifier = modifier,
+        )
+    }
+    if (compact) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+            first(Modifier.fillMaxWidth())
+            second(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
+            first(Modifier.weight(1f))
+            second(Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun RatingSourceCard(
+    source: String,
+    score: String,
+    detail: String,
+    highlighted: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(AnimeRadius.card),
+        color =
+            if (highlighted) {
+                MaterialTheme.colorScheme.primary.copy(
+                    alpha = 0.1f,
+                )
+            } else {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            },
+        border =
+            androidx.compose.foundation.BorderStroke(
+                0.5.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.24f),
+            ),
+    ) {
+        Row(Modifier.padding(AnimeSpacing.lg), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = content.metadata,
-                    style = MaterialTheme.typography.labelLarge,
+                    source,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    detail,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
-        }
-        if (content.score != null) {
-            AnimeRatingBadge(
-                rating = content.ratingUi(),
-                modifier = Modifier.testTag("subject.rating"),
-            )
-        }
-        TagRow(content.tags)
-        DetailSection(stringResource(Res.string.subject_summary)) {
             Text(
-                text = content.summary,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        DetailSection(stringResource(Res.string.subject_information)) {
-            InformationRow(
-                stringResource(Res.string.subject_episodes),
-                content.episodeCount?.toString()
-                    ?: stringResource(Res.string.subject_episode_unknown),
-            )
-            InformationRow(stringResource(Res.string.subject_status), content.status)
-            InformationRow(
-                stringResource(Res.string.subject_source),
-                stringResource(Res.string.subject_bangumi),
+                score,
+                style = MaterialTheme.typography.headlineMedium,
+                color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
             )
         }
     }
 }
 
 @Composable
+private fun CommunityPreview(
+    state: SubjectUiState,
+    onCompose: () -> Unit,
+    onReviewsClick: () -> Unit,
+    onReviewClick: (String) -> Unit,
+    onListClick: (String) -> Unit,
+    wide: Boolean,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
+        Text("社区", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        val reviews: @Composable (Modifier) -> Unit = { modifier ->
+            Surface(
+                modifier = modifier,
+                shape = RoundedCornerShape(AnimeRadius.card),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+            ) {
+                Column(Modifier.padding(AnimeSpacing.xl), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+                    Text(
+                        "评价与讨论",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    val review = state.reviews.firstOrNull()
+                    val comment = state.comments.firstOrNull()
+                    when {
+                        state.communityLoading -> {
+                            Text("正在加载社区内容…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        review !=
+                            null -> {
+                            Text(
+                                review.title ?: "最新短评",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                review.body,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            AnimeSecondaryButton("阅读评价", { onReviewClick(review.id) })
+                        }
+
+                        comment !=
+                            null -> {
+                            Text("${comment.authorName} 的讨论", fontWeight = FontWeight.Bold)
+                            Text(comment.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        else -> {
+                            Text("还没有评价，来写下第一条记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+                        AnimeSecondaryButton("全部短评", onReviewsClick)
+                        AnimeSecondaryButton("写评价 / 参与讨论", onCompose)
+                    }
+                }
+            }
+        }
+        val lists: @Composable (Modifier) -> Unit = { modifier ->
+            Surface(
+                modifier = modifier,
+                shape = RoundedCornerShape(AnimeRadius.card),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+            ) {
+                Column(Modifier.padding(AnimeSpacing.xl), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+                    Text(
+                        "社区片单",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    val list = state.lists.firstOrNull()
+                    if (list ==
+                        null
+                    ) {
+                        Text("还没有公开片单", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        AnimeSecondaryButton("创建片单", { onListClick("new") })
+                    } else {
+                        Text(list.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${list.itemCount} 部作品 · ${list.ownerName}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        AnimeSecondaryButton("查看片单", { onListClick(list.id) })
+                    }
+                }
+            }
+        }
+        if (wide) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+                verticalAlignment = Alignment.Top,
+            ) {
+                reviews(Modifier.weight(1.2f))
+                lists(Modifier.weight(0.8f))
+            }
+        } else {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
+                reviews(Modifier.fillMaxWidth())
+                lists(Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryText(summary: String) {
+    Text(
+        text = summary,
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun SubjectInformation(
+    content: SubjectContentUi,
+    onEpisodesClick: () -> Unit,
+    onCharactersClick: () -> Unit,
+    onRelationsClick: () -> Unit,
+) {
+    InformationRow(
+        stringResource(Res.string.subject_episodes),
+        content.episodeCount?.toString() ?: stringResource(Res.string.subject_episode_unknown),
+    )
+    InformationRow(stringResource(Res.string.subject_status), content.status)
+    InformationRow(
+        stringResource(Res.string.subject_source),
+        stringResource(Res.string.subject_bangumi),
+    )
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+        AnimeSecondaryButton("分集", onEpisodesClick)
+        AnimeSecondaryButton("角色", onCharactersClick)
+        AnimeSecondaryButton("关联", onRelationsClick)
+    }
+}
+
+@Composable
 private fun BackButton(onBack: () -> Unit) {
     val label = stringResource(Res.string.subject_back)
-    AnimeGlassPanel(
-        role = GlassRole.TopBar,
+    Surface(
+        onClick = onBack,
         shape = CircleShape,
-        contentPadding = PaddingValues(0.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
         modifier =
             Modifier
-                .size(48.dp)
+                .size(44.dp)
                 .semantics {
                     role = Role.Button
                     contentDescription = label
-                }.clickable(onClick = onBack),
+                },
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             AnimeBackIcon(
@@ -227,7 +545,10 @@ private fun BackButton(onBack: () -> Unit) {
 
 @Composable
 private fun TagRow(tags: List<String>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+    ) {
         tags.take(3).forEach { tag ->
             Surface(
                 shape = RoundedCornerShape(AnimeRadius.round),
@@ -246,15 +567,19 @@ private fun TagRow(tags: List<String>) {
 @Composable
 private fun DetailSection(
     title: String,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        AnimeGlassPanel(
-            role = GlassRole.FloatingPanel,
+        Surface(
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(AnimeRadius.card),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) { content() }
+            Box(Modifier.padding(AnimeSpacing.xl)) {
+                Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) { content() }
+            }
         }
     }
 }

@@ -3,8 +3,8 @@ info:
   title: Anime API
   version: 1.0.0
   description: |
-    Anime 的公开资料、Bangumi OAuth 会话、收藏进度、短评和同步 API。
-    评分字段均为 Bangumi 只读快照，不存在 Anime 自有评分写接口。
+    Anime 的公开资料、Bangumi OAuth 会话、收藏进度、评分、短评和同步 API。
+    Bangumi 评分是只读外部快照；Anime 社区评分使用独立聚合与写入接口。
 servers:
   - url: https://api.example.invalid/api/v1
     description: Placeholder; deployment injects the real HTTPS origin.
@@ -14,16 +14,18 @@ tags:
   - name: Auth
   - name: Collection
   - name: Comment
+  - name: Rating
+  - name: Review
   - name: Sync
 security: []
 paths:
-  /health:
+  /health/live:
     get:
       tags: [System]
-      operationId: getHealth
+      operationId: getLiveness
       responses:
         "200":
-          description: Process is ready to serve public requests.
+          description: Process is alive.
           content:
             application/json:
               schema:
@@ -141,6 +143,34 @@ paths:
           description: Cached representation is still current.
         "404":
           $ref: "#/components/responses/NotFound"
+  /media/subjects/{subject_id}/poster:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Catalog]
+      operationId: getSubjectPoster
+      responses:
+        "200":
+          description: Cached subject poster served by Anime.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
   /subjects/{subject_id}/episodes:
     parameters:
       - $ref: "#/components/parameters/SubjectId"
@@ -159,40 +189,22 @@ paths:
                 $ref: "#/components/schemas/EpisodePageResponse"
         "404":
           $ref: "#/components/responses/NotFound"
-  /subjects/{subject_id}/characters:
+  /subjects/{subject_id}/credits:
     parameters:
       - $ref: "#/components/parameters/SubjectId"
     get:
       tags: [Catalog]
-      operationId: listSubjectCharacters
+      operationId: listSubjectCredits
       parameters:
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/Limit"
       responses:
         "200":
-          description: Character credit page.
+          description: Combined character and person credits.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/CharacterPageResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /subjects/{subject_id}/persons:
-    parameters:
-      - $ref: "#/components/parameters/SubjectId"
-    get:
-      tags: [Catalog]
-      operationId: listSubjectPersons
-      parameters:
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
-      responses:
-        "200":
-          description: Person credit page.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PersonPageResponse"
         "404":
           $ref: "#/components/responses/NotFound"
   /subjects/{subject_id}/relations:
@@ -260,6 +272,67 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/ContentRejected"
+  /subjects/{subject_id}/community-rating:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Rating]
+      operationId: getSubjectCommunityRating
+      responses:
+        "200":
+          description: Anime community aggregate, separate from the Bangumi snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityRating"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /subjects/{subject_id}/reviews:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    get:
+      tags: [Review]
+      operationId: listSubjectReviews
+      parameters:
+        - name: sort
+          in: query
+          schema:
+            $ref: "#/components/schemas/CommentSort"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Cursor page of public reviews ordered newest or oldest.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewPage"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      tags: [Review]
+      operationId: createSubjectReview
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewRequest"
+      responses:
+        "200":
+          description: Review accepted after server-side content and rate policy checks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /auth/bangumi/start:
     post:
       tags: [Auth]
@@ -281,7 +354,7 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "429":
           $ref: "#/components/responses/RateLimited"
-  /auth/bangumi/callback:
+  /auth/bangumi/complete:
     post:
       tags: [Auth]
       operationId: completeBangumiAuth
@@ -414,6 +487,31 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+  /me/ratings/{subject_id}:
+    parameters:
+      - $ref: "#/components/parameters/SubjectId"
+    put:
+      tags: [Rating]
+      operationId: putMyRating
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutRatingRequest"
+      responses:
+        "200":
+          description: Current Anime rating and aggregate refresh were committed atomically.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRating"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     delete:
       tags: [Collection]
       operationId: deleteMyCollection
@@ -571,6 +669,37 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/Conflict"
+  /reviews/{review_id}:
+    parameters:
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/Uuid"
+    get:
+      tags: [Review]
+      operationId: getReview
+      responses:
+        "200":
+          description: Public review detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Review]
+      operationId: deleteMyReview
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Own review was soft-deleted and its public body removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     bearerAuth:
@@ -837,6 +966,98 @@ components:
           const: bangumi
         source_updated_at:
           $ref: "#/components/schemas/NullableInstant"
+    CommunityRating:
+      type: object
+      additionalProperties: false
+      required: [score, votes]
+      properties:
+        score:
+          type: [number, "null"]
+          minimum: 1
+          maximum: 10
+        votes:
+          type: integer
+          minimum: 0
+    UserRating:
+      type: object
+      additionalProperties: false
+      required: [id, subject_id, score, tags, visibility, updated_at]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        subject_id:
+          type: integer
+          format: int64
+          minimum: 1
+        score:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 20
+        visibility:
+          type: string
+          enum: [public, followers, private]
+        updated_at:
+          type: string
+    Review:
+      type: object
+      additionalProperties: false
+      required:
+        [id, author_id, subject_id, kind, title, body, spoiler, visibility, created_at, edited_at, like_count, bookmark_count, owned]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        author_id:
+          $ref: "#/components/schemas/Uuid"
+        subject_id:
+          type: integer
+          format: int64
+          minimum: 1
+        kind:
+          type: string
+          enum: [short, long]
+        title:
+          type: [string, "null"]
+          maxLength: 80
+        body:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        spoiler:
+          type: boolean
+        visibility:
+          type: string
+          enum: [public, followers, private]
+        created_at:
+          type: string
+        edited_at:
+          type: [string, "null"]
+        like_count:
+          type: integer
+          minimum: 0
+        bookmark_count:
+          type: integer
+          minimum: 0
+        owned:
+          type: boolean
+    ReviewPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
+        next_cursor:
+          type: [string, "null"]
+          format: uuid
     SyncState:
       type: object
       additionalProperties: false
@@ -1227,6 +1448,48 @@ components:
           type: [integer, "null"]
           format: int64
           minimum: 1
+    PutRatingRequest:
+      type: object
+      additionalProperties: false
+      required: [score]
+      properties:
+        score:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 20
+        visibility:
+          type: string
+          enum: [public, followers, private]
+          default: public
+    CreateReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, body]
+      properties:
+        kind:
+          type: string
+          enum: [short, long]
+        title:
+          type: [string, "null"]
+          maxLength: 80
+        body:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        spoiler:
+          type: boolean
+          default: false
+        visibility:
+          type: string
+          enum: [public, followers, private]
+          default: public
     CreateCommentRequest:
       type: object
       additionalProperties: false

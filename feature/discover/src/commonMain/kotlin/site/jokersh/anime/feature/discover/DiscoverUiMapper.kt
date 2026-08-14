@@ -31,17 +31,18 @@ internal object DiscoverUiMapper {
                     }
                 }.sortedBy { section -> if (section.id == "continue") 0 else 1 }
 
-        val hero =
+        val heroes =
             feed.sections
-                .firstOrNull { it.id == "airing" }
-                ?.subjects
-                ?.firstOrNull()
-                ?.let(::subjectCard)
-                ?: visibleSections.firstOrNull()?.subjects?.firstOrNull()
-                ?: return null
+                .asSequence()
+                .flatMap { it.subjects.asSequence() }
+                .distinctBy { it.id }
+                .take(5)
+                .map(::subjectCard)
+                .toList()
+                .ifEmpty { return null }
 
         return DiscoverContentUi(
-            hero = hero,
+            heroes = heroes,
             sections = visibleSections,
         )
     }
@@ -61,6 +62,8 @@ internal object DiscoverUiMapper {
 
             else -> DiscoverErrorUi.Unknown
         }
+
+    internal fun subject(subject: SubjectSummary): SubjectCardUi = subjectCard(subject)
 
     private fun subjectCard(subject: SubjectSummary): SubjectCardUi {
         val metadata =

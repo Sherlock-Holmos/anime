@@ -101,6 +101,9 @@ Gradle Project Path 使用上表路径，例如 `:core:model`。根包名为 `si
 ```mermaid
 flowchart LR
     Android[app:android] --> App[shared:app]
+    Android --> PlatformAdapters[platform adapters]
+    PlatformAdapters --> Data[data:*]
+    PlatformAdapters --> Core[core:*]
     App --> Feature[feature:*]
     App --> Data[data:*]
     Feature --> Model[core:model]
@@ -117,7 +120,7 @@ flowchart LR
 - Feature 只能依赖 Repository 接口，接口放在对应 `data:*` 的 `api` Source Set；不得依赖 DTO、SQLDelight 生成类型或 Ktor。
 - `core:model` 不依赖 Compose、Android、Ktor、SQLDelight 或 Serialization 注解。
 - `core:designsystem` 不依赖任何 Feature/Data；图片 URL 使用 `ImageRef`。
-- `shared:app` 是唯一装配根；`app:android` 不包含业务条件判断。
+- `shared:app` 是共享业务装配根；平台 `app:*` 是最终组合根，可依赖 `shared:app`、`core:*` 和 `data:*` 以注入 Keystore/DPAPI/LocalStorage、窗口与浏览器等适配器，但不得直接依赖 `feature:*` 或放入业务条件判断。
 - Convention Plugin 只表达构建规则，不引用生产模块代码。
 
 每条依赖约束都要由 `build-logic` 的允许列表和 `checkModuleGraph` 测试执行，不能只靠评审。

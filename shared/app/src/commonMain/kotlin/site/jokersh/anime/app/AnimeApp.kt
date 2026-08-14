@@ -2,6 +2,8 @@ package site.jokersh.anime.app
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -9,30 +11,39 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -40,6 +51,8 @@ import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -50,6 +63,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
@@ -62,7 +76,7 @@ import site.jokersh.anime.app.generated.resources.data_mode_remote_fixture
 import site.jokersh.anime.app.generated.resources.f0_description
 import site.jokersh.anime.app.generated.resources.f0_footer
 import site.jokersh.anime.app.generated.resources.f0_status_title
-import site.jokersh.anime.app.generated.resources.ic_bookmarks
+import site.jokersh.anime.app.generated.resources.ic_activity
 import site.jokersh.anime.app.generated.resources.ic_explore
 import site.jokersh.anime.app.generated.resources.ic_person
 import site.jokersh.anime.app.generated.resources.ic_search
@@ -73,27 +87,51 @@ import site.jokersh.anime.app.generated.resources.profile_diagnostics_disabled
 import site.jokersh.anime.app.generated.resources.profile_diagnostics_enabled
 import site.jokersh.anime.app.generated.resources.profile_page_size
 import site.jokersh.anime.app.generated.resources.profile_page_size_value
-import site.jokersh.anime.app.generated.resources.root_collection
+import site.jokersh.anime.app.generated.resources.root_activity
 import site.jokersh.anime.app.generated.resources.root_discover
+import site.jokersh.anime.app.generated.resources.root_library
 import site.jokersh.anime.app.generated.resources.root_profile
-import site.jokersh.anime.app.generated.resources.root_search
 import site.jokersh.anime.app.generated.resources.shell_environment
 import site.jokersh.anime.core.designsystem.AnimeBackdropHost
-import site.jokersh.anime.core.designsystem.AnimeGlassNavigationRail
-import site.jokersh.anime.core.designsystem.AnimeLiquidTabBar
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.AnimeTheme
+import site.jokersh.anime.core.model.AiringStatus
+import site.jokersh.anime.core.model.AnimeLoginCredentials
+import site.jokersh.anime.core.model.AnimeRegistration
+import site.jokersh.anime.core.model.CollectionStatus
+import site.jokersh.anime.core.model.LoginRequest
+import site.jokersh.anime.core.model.SessionState
+import site.jokersh.anime.core.model.SubjectType
+import site.jokersh.anime.core.model.ThemePreference
 import site.jokersh.anime.core.navigation.AppNavigationSavedStateConfiguration
 import site.jokersh.anime.core.navigation.AppNavigator
 import site.jokersh.anime.core.navigation.AppRoot
 import site.jokersh.anime.core.navigation.AppRoute
+import site.jokersh.anime.core.navigation.AuthGateDecision
+import site.jokersh.anime.core.navigation.CommentRouteSort
+import site.jokersh.anime.core.navigation.PendingAuthAction
 import site.jokersh.anime.core.navigation.RouteOrigin
+import site.jokersh.anime.core.navigation.SearchRouteAiringStatus
+import site.jokersh.anime.core.navigation.SearchRouteSubjectType
 import site.jokersh.anime.core.navigation.root
+import site.jokersh.anime.feature.activity.ActivityScreen
+import site.jokersh.anime.feature.collection.CollectionScreen
+import site.jokersh.anime.feature.comment.CommentsScreen
+import site.jokersh.anime.feature.community.CuratedListScreen
+import site.jokersh.anime.feature.community.RatingEditorScreen
+import site.jokersh.anime.feature.community.ReviewDetailScreen
 import site.jokersh.anime.feature.discover.DiscoverRoute
+import site.jokersh.anime.feature.discover.DiscoverSectionRoute
+import site.jokersh.anime.feature.profile.AnimeAccountCenter
+import site.jokersh.anime.feature.profile.ProfileScreen
 import site.jokersh.anime.feature.search.SearchRoute
+import site.jokersh.anime.feature.subject.CharactersRoute
+import site.jokersh.anime.feature.subject.EpisodesRoute
+import site.jokersh.anime.feature.subject.RelationsRoute
 import site.jokersh.anime.feature.subject.SubjectRoute
+import kotlin.time.Clock
 
 private enum class RootDestination(
     val root: AppRoot,
@@ -101,8 +139,8 @@ private enum class RootDestination(
     val icon: DrawableResource,
 ) {
     Discover(AppRoot.Discover, Res.string.root_discover, Res.drawable.ic_explore),
-    Search(AppRoot.Search, Res.string.root_search, Res.drawable.ic_search),
-    Collection(AppRoot.Collection, Res.string.root_collection, Res.drawable.ic_bookmarks),
+    Library(AppRoot.Library, Res.string.root_library, Res.drawable.ic_search),
+    Activity(AppRoot.Activity, Res.string.root_activity, Res.drawable.ic_activity),
     Profile(AppRoot.Profile, Res.string.root_profile, Res.drawable.ic_person),
 }
 
@@ -126,7 +164,25 @@ fun AnimeApp(
     shortcutDispatcher: AnimeAppShortcutDispatcher? = null,
     initialRoot: AppRoot = AppRoot.Discover,
     initialSearchQuery: String? = null,
+    deepLinkRoute: AppRoute? = null,
+    openExternalUrl: (String) -> Unit = {},
 ) {
+    val sessionState by appContainer.sessionRepository.observeSession().collectAsState(SessionState.Guest)
+    val settings by appContainer.settingsRepository.observeSettings().collectAsState(
+        site.jokersh.anime.core.model.AppSettings(
+            theme = ThemePreference.System,
+            dynamicColor = true,
+            glass = site.jokersh.anime.core.model.GlassPreference.Auto,
+            reduceMotion = site.jokersh.anime.core.model.ReduceMotionPreference.FollowSystem,
+            diagnosticsConsent = false,
+        ),
+    )
+    val sessionScope = rememberCoroutineScope()
+    LaunchedEffect(appContainer.sessionRepository) {
+        appContainer.sessionRepository.refresh()
+        appContainer.collectionRepository.requestSync()
+        appContainer.communityRepository.retryPendingRatings()
+    }
     var selectedIndex by
         rememberSaveable {
             mutableStateOf(
@@ -138,21 +194,21 @@ fun AnimeApp(
     val selectedDestination = RootDestination.entries[selectedIndex]
     val discoverBackStack =
         rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Discover)
-    val searchBackStack =
+    val libraryBackStack =
         rememberNavBackStack(
             AppNavigationSavedStateConfiguration,
-            AppRoute.Search(query = initialSearchQuery),
+            AppRoute.Library(query = initialSearchQuery),
         )
-    val collectionBackStack =
-        rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Collection())
+    val activityBackStack =
+        rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Activity())
     val profileBackStack =
         rememberNavBackStack(AppNavigationSavedStateConfiguration, AppRoute.Profile)
     val backStacks =
-        remember(discoverBackStack, searchBackStack, collectionBackStack, profileBackStack) {
+        remember(discoverBackStack, libraryBackStack, activityBackStack, profileBackStack) {
             mapOf(
                 AppRoot.Discover to discoverBackStack,
-                AppRoot.Search to searchBackStack,
-                AppRoot.Collection to collectionBackStack,
+                AppRoot.Library to libraryBackStack,
+                AppRoot.Activity to activityBackStack,
                 AppRoot.Profile to profileBackStack,
             )
         }
@@ -163,7 +219,59 @@ fun AnimeApp(
             stackFor = backStacks::getValue,
         )
     val activeBackStack = backStacks.getValue(selectedDestination.root)
-    val showBottomBar = (activeBackStack.lastOrNull() as? AppRoute)?.root != null
+    val showRootNavigation = (activeBackStack.lastOrNull() as? AppRoute)?.root != null
+    var pendingAuthAction by remember { mutableStateOf<PendingAuthAction?>(null) }
+    var showAccountCenter by rememberSaveable { mutableStateOf(false) }
+
+    val executeProtectedAction: (PendingAuthAction) -> Unit = { action ->
+        when (action) {
+            is PendingAuthAction.SetCollection -> {
+                sessionScope.launch {
+                    appContainer.collectionRepository.setStatus(
+                        site.jokersh.anime.core.model
+                            .SubjectId(action.subjectId),
+                        action.status.toCollectionStatus(),
+                    )
+                    appContainer.sessionRepository.refresh()
+                }
+            }
+
+            is PendingAuthAction.OpenRating -> {
+                navigator.push(AppRoute.RatingEditor(action.subjectId))
+            }
+
+            is PendingAuthAction.OpenComments -> {
+                navigator.push(AppRoute.Comments(action.subjectId))
+            }
+        }
+    }
+    val requestProtectedAction: (PendingAuthAction) -> Unit = { action ->
+        if (sessionState is SessionState.Authenticated) {
+            pendingAuthAction = null
+            executeProtectedAction(action)
+        } else {
+            pendingAuthAction = action
+            showAccountCenter = true
+        }
+    }
+
+    LaunchedEffect(deepLinkRoute) {
+        val route = deepLinkRoute ?: return@LaunchedEffect
+        if (route is AppRoute.Subject) {
+            navigator.selectRoot(AppRoot.Discover)
+            if (discoverBackStack.lastOrNull() != route) navigator.push(route)
+        }
+    }
+    LaunchedEffect(sessionState, pendingAuthAction) {
+        if (sessionState is SessionState.Authenticated) {
+            appContainer.collectionRepository.requestSync()
+            appContainer.communityRepository.retryPendingRatings()
+            val action = pendingAuthAction ?: return@LaunchedEffect
+            pendingAuthAction = null
+            showAccountCenter = false
+            executeProtectedAction(action)
+        }
+    }
 
     DisposableEffect(shortcutDispatcher, navigator) {
         shortcutDispatcher?.connect { event -> handleAppShortcut(event, navigator) }
@@ -172,50 +280,85 @@ fun AnimeApp(
         }
     }
 
-    AnimeTheme {
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            val useNavigationRail = showBottomBar && maxWidth >= 840.dp
-            val navigationContentPadding =
-                if (useNavigationRail) {
-                    PaddingValues(start = 120.dp)
-                } else {
-                    PaddingValues()
-                }
+    val systemDark = isSystemInDarkTheme()
+    AnimeTheme(
+        darkTheme =
+            when (settings.theme) {
+                ThemePreference.System -> systemDark
+                ThemePreference.Light -> false
+                ThemePreference.Dark -> true
+            },
+    ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val labels = RootDestination.entries.map { stringResource(it.label) }
+            val useDesktopSidebar = maxWidth >= 700.dp
 
             AnimeBackdropHost(
                 modifier = Modifier.fillMaxSize(),
                 background = {
-                    AppNavigationLayer(
-                        backStack = activeBackStack,
-                        navigator = navigator,
-                        appContainer = appContainer,
-                        contentPadding = navigationContentPadding,
-                    )
+                    Row(Modifier.fillMaxSize()) {
+                        if (useDesktopSidebar) {
+                            DesktopSidebar(
+                                labels = labels,
+                                selectedIndex = selectedIndex,
+                                onSelected = { index ->
+                                    navigator.selectRoot(RootDestination.entries[index].root)
+                                },
+                            )
+                        }
+                        AppNavigationLayer(
+                            backStack = activeBackStack,
+                            navigator = navigator,
+                            appContainer = appContainer,
+                            sessionState = sessionState,
+                            onAnimeLogin = { username, password ->
+                                sessionScope.launch {
+                                    appContainer.sessionRepository.loginWithAnime(
+                                        AnimeLoginCredentials(username, password),
+                                    )
+                                }
+                            },
+                            onAnimeRegister = { username, password, displayName ->
+                                sessionScope.launch {
+                                    appContainer.sessionRepository.registerAnime(
+                                        AnimeRegistration(username, password, displayName),
+                                    )
+                                }
+                            },
+                            onBangumiLogin = {
+                                sessionScope.launch {
+                                    appContainer.sessionRepository
+                                        .beginLogin(
+                                            LoginRequest(
+                                                requestId = "desktop-${Clock.System.now().toEpochMilliseconds()}",
+                                                pendingActionId = pendingAuthAction?.actionId,
+                                            ),
+                                        ).onSuccess { openExternalUrl(it.authorizeUrl) }
+                                }
+                            },
+                            onLogout = {
+                                sessionScope.launch { appContainer.sessionRepository.logout() }
+                            },
+                            onProtectedAction = requestProtectedAction,
+                            settings = settings,
+                            onThemeChange = { sessionScope.launch { appContainer.settingsRepository.setTheme(it) } },
+                            onGlassChange = { sessionScope.launch { appContainer.settingsRepository.setGlass(it) } },
+                            onReduceMotionChange = {
+                                sessionScope.launch {
+                                    appContainer.settingsRepository
+                                        .setReduceMotion(
+                                            it,
+                                        )
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 },
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    if (useNavigationRail) {
-                        AnimeGlassNavigationRail(
-                            labels = labels,
-                            selectedIndex = selectedIndex,
-                            onSelected = { index -> navigator.selectRoot(RootDestination.entries[index].root) },
-                            modifier =
-                                Modifier
-                                    .align(Alignment.CenterStart)
-                                    .padding(start = AnimeSpacing.md),
-                            icon = { index, _, tint ->
-                                Icon(
-                                    painter = painterResource(RootDestination.entries[index].icon),
-                                    contentDescription = null,
-                                    tint = tint,
-                                )
-                            },
-                        )
-                    } else if (showBottomBar) {
-                        AnimeLiquidTabBar(
+                    if (showRootNavigation && !useDesktopSidebar) {
+                        AppleMobileTabBar(
                             labels = labels,
                             selectedIndex = selectedIndex,
                             onSelected = { index -> navigator.selectRoot(RootDestination.entries[index].root) },
@@ -223,15 +366,45 @@ fun AnimeApp(
                                 Modifier
                                     .align(Alignment.BottomCenter)
                                     .navigationBarsPadding()
-                                    .padding(horizontal = AnimeSpacing.md)
-                                    .padding(bottom = AnimeSpacing.sm)
                                     .fillMaxWidth(),
-                            icon = { index, _, tint ->
-                                Icon(
-                                    painter = painterResource(RootDestination.entries[index].icon),
-                                    contentDescription = null,
-                                    tint = tint,
-                                )
+                        )
+                    }
+                    if (showAccountCenter) {
+                        AnimeAccountCenter(
+                            sessionState = sessionState,
+                            onDismiss = {
+                                showAccountCenter = false
+                                pendingAuthAction = null
+                            },
+                            onLogin = { username, password ->
+                                sessionScope.launch {
+                                    appContainer.sessionRepository.loginWithAnime(
+                                        AnimeLoginCredentials(username, password),
+                                    )
+                                }
+                            },
+                            onRegister = { username, password, displayName ->
+                                sessionScope.launch {
+                                    appContainer.sessionRepository.registerAnime(
+                                        AnimeRegistration(username, password, displayName),
+                                    )
+                                }
+                            },
+                            onBangumiLogin = {
+                                sessionScope.launch {
+                                    appContainer.sessionRepository
+                                        .beginLogin(
+                                            LoginRequest(
+                                                requestId = "auth-gate-${Clock.System.now().toEpochMilliseconds()}",
+                                                pendingActionId = pendingAuthAction?.actionId,
+                                            ),
+                                        ).onSuccess { openExternalUrl(it.authorizeUrl) }
+                                }
+                            },
+                            onLogout = { sessionScope.launch { appContainer.sessionRepository.logout() } },
+                            onBrowseCollection = {
+                                showAccountCenter = false
+                                navigator.push(AppRoute.Collection())
                             },
                         )
                     }
@@ -241,116 +414,471 @@ fun AnimeApp(
     }
 }
 
+private fun String.toCollectionStatus(): CollectionStatus =
+    when (this) {
+        "watching" -> CollectionStatus.Watching
+        "completed" -> CollectionStatus.Completed
+        "on_hold" -> CollectionStatus.OnHold
+        "dropped" -> CollectionStatus.Dropped
+        else -> CollectionStatus.Wish
+    }
+
+@Composable
+private fun DesktopSidebar(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.width(220.dp).fillMaxHeight(),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().statusBarsPadding().padding(AnimeSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = AnimeSpacing.sm, vertical = AnimeSpacing.lg),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+            ) {
+                Surface(
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(11.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "A",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text = stringResource(Res.string.app_name),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "媒体资料库",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Text(
+                text = "资料库",
+                modifier = Modifier.padding(start = AnimeSpacing.md, top = AnimeSpacing.sm, bottom = AnimeSpacing.xs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+            )
+            RootDestination.entries.forEachIndexed { index, destination ->
+                val selected = index == selectedIndex
+                val shape = RoundedCornerShape(AnimeRadius.control)
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(shape)
+                            .background(
+                                if (selected) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                } else {
+                                    androidx.compose.ui.graphics.Color.Transparent
+                                },
+                            ).clickable { onSelected(index) }
+                            .semantics { this.selected = selected }
+                            .padding(horizontal = AnimeSpacing.md, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+                ) {
+                    Icon(
+                        painter = painterResource(destination.icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(AnimeSize.iconSm),
+                        tint =
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                    )
+                    Text(
+                        text = labels[index],
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color =
+                            if (selected) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    )
+                    Text(
+                        text = "Ctrl ${index + 1}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    )
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+            Text(
+                text = "Bangumi · 实时资料",
+                modifier = Modifier.padding(AnimeSpacing.md),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    Box(
+        modifier =
+            Modifier
+                .width(0.5.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.22f)),
+    )
+}
+
 @Composable
 private fun AppNavigationLayer(
     backStack: NavBackStack<NavKey>,
     navigator: AppNavigator,
     appContainer: AppContainer,
-    contentPadding: PaddingValues,
+    sessionState: SessionState,
+    onAnimeLogin: (String, String) -> Unit,
+    onAnimeRegister: (String, String, String) -> Unit,
+    onBangumiLogin: () -> Unit,
+    onLogout: () -> Unit,
+    onProtectedAction: (PendingAuthAction) -> Unit,
+    settings: site.jokersh.anime.core.model.AppSettings,
+    onThemeChange: (site.jokersh.anime.core.model.ThemePreference) -> Unit,
+    onGlassChange: (site.jokersh.anime.core.model.GlassPreference) -> Unit,
+    onReduceMotionChange: (site.jokersh.anime.core.model.ReduceMotionPreference) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val navigationScope = rememberCoroutineScope()
     Box(
         modifier =
-            Modifier
+            modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
-                            MaterialTheme.colorScheme.background,
-                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.09f),
-                        ),
-                    ),
-                ),
+                .background(MaterialTheme.colorScheme.background),
     ) {
-        NavDisplay(
-            backStack = backStack,
-            modifier = Modifier.fillMaxSize().padding(contentPadding),
-            entryDecorators =
-                listOf(
-                    rememberSaveableStateHolderNavEntryDecorator(),
-                    rememberViewModelStoreNavEntryDecorator(),
-                ),
-            onBack = { navigator.pop() },
-            entryProvider =
-                entryProvider(
-                    fallback = { key ->
-                        NavEntry(key) {
-                            Text(
-                                text = stringResource(Res.string.navigation_not_implemented),
-                                modifier = Modifier.statusBarsPadding().padding(AnimeSpacing.xl),
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+            NavDisplay(
+                backStack = backStack,
+                modifier = Modifier.fillMaxSize(),
+                entryDecorators =
+                    listOf(
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator(),
+                    ),
+                onBack = { navigator.pop() },
+                entryProvider =
+                    entryProvider(
+                        fallback = { key ->
+                            NavEntry(key) {
+                                Text(
+                                    text = stringResource(Res.string.navigation_not_implemented),
+                                    modifier = Modifier.statusBarsPadding().padding(AnimeSpacing.xl),
+                                )
+                            }
+                        },
+                    ) {
+                        entry<AppRoute.Discover> {
+                            DiscoverRoute(
+                                repository = appContainer.catalogRepository,
+                                onSubjectClick = { subjectId ->
+                                    navigator.push(
+                                        AppRoute.Subject(
+                                            subjectId = subjectId.value,
+                                            origin = RouteOrigin.Discover,
+                                        ),
+                                    )
+                                },
+                                onSeeAll = { sectionId -> navigator.push(AppRoute.DiscoverSection(sectionId)) },
+                                onMessage = {},
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.DiscoverSection> { route ->
+                            DiscoverSectionRoute(
+                                sectionId = route.sectionId,
+                                repository = appContainer.catalogRepository,
+                                onBack = { navigator.pop() },
+                                onSubjectClick = { navigator.push(AppRoute.Subject(it.value, RouteOrigin.Discover)) },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Library> {
+                            SearchRoute(
+                                repository = appContainer.searchRepository,
+                                initialQuery = it.query,
+                                pageSize = appContainer.profile.searchPageSize,
+                                onResultsRequested = { query ->
+                                    navigator.push(AppRoute.SearchResults(query.toSearchRouteRequest()))
+                                },
+                                onSubjectClick = { subjectId ->
+                                    navigator.push(
+                                        AppRoute.Subject(
+                                            subjectId = subjectId.value,
+                                            origin = RouteOrigin.Library,
+                                        ),
+                                    )
+                                },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.SearchResults> { route ->
+                            SearchRoute(
+                                repository = appContainer.searchRepository,
+                                initialQuery = route.request.query,
+                                initialTypes = route.request.types.mapTo(mutableSetOf()) { it.toSubjectType() },
+                                initialYears =
+                                    route.request.yearStart?.let { start ->
+                                        start..(route.request.yearEnd ?: start)
+                                    },
+                                initialAiring = route.request.airing.mapTo(mutableSetOf()) { it.toAiringStatus() },
+                                pageSize = appContainer.profile.searchPageSize,
+                                onResultsRequested = { query ->
+                                    navigator.push(AppRoute.SearchResults(query.toSearchRouteRequest()))
+                                },
+                                onSubjectClick = { subjectId ->
+                                    navigator.push(
+                                        AppRoute.Subject(
+                                            subjectId = subjectId.value,
+                                            origin = RouteOrigin.Library,
+                                        ),
+                                    )
+                                },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Activity> {
+                            ActivityScreen(
+                                repository = appContainer.communityRepository,
+                                onSubjectClick = { subjectId ->
+                                    navigator.push(AppRoute.Subject(subjectId, RouteOrigin.Activity))
+                                },
+                                onReviewClick = { navigator.push(AppRoute.Review(it)) },
+                                onListClick = { navigator.push(AppRoute.CuratedList(it)) },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Collection> {
+                            CollectionScreen(
+                                sessionState = sessionState,
+                                sessionRepository = appContainer.sessionRepository,
+                                onSubjectClick = { subjectId ->
+                                    navigator.push(
+                                        AppRoute.Subject(
+                                            subjectId = subjectId.value,
+                                            origin = RouteOrigin.Profile,
+                                        ),
+                                    )
+                                },
+                                onDiscoverClick = { navigator.selectRoot(AppRoot.Discover) },
+                                onBack = { navigator.pop() },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Profile> {
+                            ProfileScreen(
+                                environmentLabel = appContainer.profile.environment.name,
+                                sessionState = sessionState,
+                                sessionRepository = appContainer.sessionRepository,
+                                onAnimeLogin = onAnimeLogin,
+                                onAnimeRegister = onAnimeRegister,
+                                onBangumiLogin = onBangumiLogin,
+                                onLogout = onLogout,
+                                onBrowseCollection = { navigator.push(AppRoute.Collection()) },
+                                onRatingsClick = { navigator.selectRoot(AppRoot.Activity) },
+                                onReviewsClick = { navigator.selectRoot(AppRoot.Activity) },
+                                onListsClick = { navigator.push(AppRoute.CuratedList("new")) },
+                                settings = settings,
+                                onThemeChange = onThemeChange,
+                                onGlassChange = onGlassChange,
+                                onReduceMotionChange = onReduceMotionChange,
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Subject> { route ->
+                            SubjectRoute(
+                                subjectId = route.subjectId,
+                                repository = appContainer.catalogRepository,
+                                communityRepository = appContainer.communityRepository,
+                                sessionRepository = appContainer.sessionRepository,
+                                onBack = { navigator.pop() },
+                                onCollect = { onProtectedAction(PendingAuthAction.SetCollection(it)) },
+                                onRate = { onProtectedAction(PendingAuthAction.OpenRating(it)) },
+                                onEpisodesClick = { navigator.push(AppRoute.Episodes(it)) },
+                                onCharactersClick = { navigator.push(AppRoute.Characters(it)) },
+                                onRelationsClick = { navigator.push(AppRoute.Relations(it)) },
+                                onCommentsClick = { onProtectedAction(PendingAuthAction.OpenComments(it)) },
+                                onReviewsClick = { navigator.push(AppRoute.SubjectReviews(it)) },
+                                onReviewClick = { navigator.push(AppRoute.Review(it)) },
+                                onListClick = { navigator.push(AppRoute.CuratedList(it)) },
+                            )
+                        }
+                        entry<AppRoute.Episodes> { route ->
+                            EpisodesRoute(
+                                subjectId = route.subjectId,
+                                repository = appContainer.catalogRepository,
+                                onBack = { navigator.pop() },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Characters> { route ->
+                            CharactersRoute(
+                                subjectId = route.subjectId,
+                                repository = appContainer.catalogRepository,
+                                onBack = { navigator.pop() },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Relations> { route ->
+                            RelationsRoute(
+                                subjectId = route.subjectId,
+                                repository = appContainer.catalogRepository,
+                                onBack = { navigator.pop() },
+                                onSubjectClick = { navigator.push(AppRoute.Subject(it, RouteOrigin.Related)) },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Comments> { route ->
+                            CommentsScreen(
+                                subjectId = route.subjectId,
+                                initialSort =
+                                    if (route.sort ==
+                                        CommentRouteSort.Oldest
+                                    ) {
+                                        site.jokersh.anime.core.model.CommentSort.Oldest
+                                    } else {
+                                        site.jokersh.anime.core.model.CommentSort.Newest
+                                    },
+                                repository = appContainer.commentRepository,
+                                onBack = { navigator.pop() },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.SubjectReviews> { route ->
+                            site.jokersh.anime.feature.community.SubjectReviewsScreen(
+                                repository = appContainer.communityRepository,
+                                subjectId = route.subjectId,
+                                currentUserId =
+                                    (sessionState as? SessionState.Authenticated)
+                                        ?.user
+                                        ?.summary
+                                        ?.id
+                                        ?.value,
+                                onBack = { navigator.pop() },
+                                onReviewClick = { navigator.push(AppRoute.Review(it)) },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.RatingEditor> { route ->
+                            RatingEditorScreen(
+                                repository = appContainer.communityRepository,
+                                subjectId = route.subjectId,
+                                onBack = { navigator.pop() },
+                                onSaved = {
+                                    navigationScope.launch { appContainer.sessionRepository.refresh() }
+                                    navigator.pop()
+                                },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Review> { route ->
+                            ReviewDetailScreen(
+                                repository = appContainer.communityRepository,
+                                reviewId = route.reviewId,
+                                onBack = { navigator.pop() },
+                                onSubjectClick = { navigator.push(AppRoute.Subject(it, RouteOrigin.Activity)) },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.CuratedList> { route ->
+                            CuratedListScreen(
+                                repository = appContainer.communityRepository,
+                                listId = route.listId,
+                                onBack = { navigator.pop() },
+                                onSubjectClick = { navigator.push(AppRoute.Subject(it, RouteOrigin.Activity)) },
+                                modifier = Modifier.statusBarsPadding(),
                             )
                         }
                     },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppleMobileTabBar(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        border =
+            BorderStroke(
+                width = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            ),
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(62.dp).padding(horizontal = AnimeSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RootDestination.entries.forEachIndexed { index, destination ->
+                val selected = index == selectedIndex
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(AnimeRadius.control))
+                            .clickable { onSelected(index) }
+                            .semantics { this.selected = selected }
+                            .padding(vertical = AnimeSpacing.xs),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xxs),
                 ) {
-                    entry<AppRoute.Discover> {
-                        DiscoverRoute(
-                            repository = appContainer.catalogRepository,
-                            onSubjectClick = { subjectId ->
-                                navigator.push(
-                                    AppRoute.Subject(
-                                        subjectId = subjectId.value,
-                                        origin = RouteOrigin.Discover,
-                                    ),
-                                )
+                    Icon(
+                        painter = painterResource(destination.icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint =
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             },
-                            onSeeAll = {},
-                            onMessage = {},
-                            modifier = Modifier.statusBarsPadding(),
-                        )
-                    }
-                    entry<AppRoute.Search> {
-                        SearchRoute(
-                            repository = appContainer.searchRepository,
-                            initialQuery = it.query,
-                            pageSize = appContainer.profile.searchPageSize,
-                            onResultsRequested = { query ->
-                                navigator.push(AppRoute.SearchResults(query.toSearchRouteRequest()))
+                    )
+                    Text(
+                        labels[index],
+                        style = MaterialTheme.typography.labelSmall,
+                        color =
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             },
-                            onSubjectClick = { subjectId ->
-                                navigator.push(
-                                    AppRoute.Subject(
-                                        subjectId = subjectId.value,
-                                        origin = RouteOrigin.Search,
-                                    ),
-                                )
-                            },
-                            modifier = Modifier.statusBarsPadding(),
-                        )
-                    }
-                    entry<AppRoute.SearchResults> { route ->
-                        SearchRoute(
-                            repository = appContainer.searchRepository,
-                            initialQuery = route.request.query,
-                            pageSize = appContainer.profile.searchPageSize,
-                            onResultsRequested = { query ->
-                                navigator.push(AppRoute.SearchResults(query.toSearchRouteRequest()))
-                            },
-                            onSubjectClick = { subjectId ->
-                                navigator.push(
-                                    AppRoute.Subject(
-                                        subjectId = subjectId.value,
-                                        origin = RouteOrigin.Search,
-                                    ),
-                                )
-                            },
-                            modifier = Modifier.statusBarsPadding(),
-                        )
-                    }
-                    entry<AppRoute.Collection> {
-                        F0Content(RootDestination.Collection, appContainer.profile)
-                    }
-                    entry<AppRoute.Profile> {
-                        F0Content(RootDestination.Profile, appContainer.profile)
-                    }
-                    entry<AppRoute.Subject> { route ->
-                        SubjectRoute(
-                            subjectId = route.subjectId,
-                            repository = appContainer.catalogRepository,
-                            onBack = { navigator.pop() },
-                        )
-                    }
-                },
-        )
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -379,8 +907,8 @@ internal fun shortcutRoot(
     if (!ctrlPressed) return null
     return when (key) {
         Key.One -> AppRoot.Discover
-        Key.Two, Key.K -> AppRoot.Search
-        Key.Three -> AppRoot.Collection
+        Key.Two, Key.K -> AppRoot.Library
+        Key.Three -> AppRoot.Activity
         Key.Four -> AppRoot.Profile
         else -> null
     }
@@ -390,144 +918,19 @@ private fun String.toSearchRouteRequest(): site.jokersh.anime.core.navigation.Se
     site.jokersh.anime.core.navigation
         .SearchRouteRequest(query = trim())
 
-@Composable
-private fun F0Content(
-    destination: RootDestination,
-    profile: BuildProfile,
-) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .statusBarsPadding()
-                .padding(horizontal = AnimeSpacing.lg)
-                .padding(top = AnimeSpacing.lg, bottom = 132.dp),
-        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
-    ) {
-        Text(
-            text = stringResource(Res.string.app_name),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(destination.label),
-                style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            Surface(
-                shape = RoundedCornerShape(AnimeRadius.round),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
-                border =
-                    BorderStroke(
-                        AnimeSize.border,
-                        MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
-                    ),
-            ) {
-                Text(
-                    text =
-                        stringResource(
-                            Res.string.shell_environment,
-                            profile.environment.name,
-                        ),
-                    modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.sm),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Text(
-            text = stringResource(Res.string.f0_description),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Surface(
-            shape = RoundedCornerShape(AnimeRadius.card),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-            border =
-                BorderStroke(
-                    width = AnimeSize.border,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
-                ),
-        ) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(AnimeSpacing.xl),
-                verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
-            ) {
-                Text(
-                    text = stringResource(Res.string.f0_status_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                ProfileRow(
-                    label = stringResource(Res.string.profile_data_mode),
-                    value = stringResource(profile.dataModePolicy.resource),
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
-                ProfileRow(
-                    label = stringResource(Res.string.profile_page_size),
-                    value =
-                        stringResource(
-                            Res.string.profile_page_size_value,
-                            profile.searchPageSize,
-                        ),
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
-                ProfileRow(
-                    label = stringResource(Res.string.profile_diagnostics),
-                    value =
-                        stringResource(
-                            if (profile.diagnosticsEnabled) {
-                                Res.string.profile_diagnostics_enabled
-                            } else {
-                                Res.string.profile_diagnostics_disabled
-                            },
-                        ),
-                )
-            }
-        }
-        Spacer(Modifier.height(AnimeSpacing.sm))
-        Text(
-            text = stringResource(Res.string.f0_footer),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        DesignSystemCatalog()
+private fun SearchRouteSubjectType.toSubjectType(): SubjectType =
+    when (this) {
+        SearchRouteSubjectType.Tv -> SubjectType.Tv
+        SearchRouteSubjectType.Web -> SubjectType.Web
+        SearchRouteSubjectType.Ova -> SubjectType.Ova
+        SearchRouteSubjectType.Movie -> SubjectType.Movie
+        SearchRouteSubjectType.Other -> SubjectType.Other
     }
-}
 
-private val DataModePolicy.resource: StringResource
-    get() =
-        when (this) {
-            DataModePolicy.FixtureOnly -> Res.string.data_mode_fixture
-            DataModePolicy.RemoteWithFixtureSwitch -> Res.string.data_mode_remote_fixture
-            DataModePolicy.RemoteOnly -> Res.string.data_mode_remote
-        }
-
-@Composable
-private fun ProfileRow(
-    label: String,
-    value: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(
-            text = value,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
-        )
+private fun SearchRouteAiringStatus.toAiringStatus(): AiringStatus =
+    when (this) {
+        SearchRouteAiringStatus.Announced -> AiringStatus.Announced
+        SearchRouteAiringStatus.Airing -> AiringStatus.Airing
+        SearchRouteAiringStatus.Finished -> AiringStatus.Finished
+        SearchRouteAiringStatus.Unknown -> AiringStatus.Unknown
     }
-}

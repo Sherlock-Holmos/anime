@@ -1,12 +1,12 @@
 package site.jokersh.anime.core.designsystem
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -15,13 +15,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,12 +31,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.kyant.backdrop.backdrops.rememberCanvasBackdrop
+import com.kyant.backdrop.catalog.components.LiquidButton
+import com.kyant.backdrop.catalog.components.LiquidToggle
 import site.jokersh.anime.core.model.ImageRef
 import site.jokersh.anime.core.model.SubjectId
 
@@ -90,21 +93,56 @@ public fun AnimePrimaryButton(
     enabled: Boolean = true,
     loading: Boolean = false,
 ) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.heightIn(min = AnimeSize.touch),
-        enabled = enabled && !loading,
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val canvasBackdrop = rememberCanvasBackdrop { drawRect(backgroundColor) }
+    val backdrop = LocalAnimeBackdrop.current ?: canvasBackdrop
+    val interactive = enabled && !loading
+    LiquidButton(
+        onClick = if (interactive) onClick else ({}),
+        backdrop = backdrop,
+        modifier =
+            modifier.semantics {
+                if (!interactive) disabled()
+            },
+        isInteractive = interactive,
+        tint = MaterialTheme.colorScheme.primary,
     ) {
-        if (loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(AnimeSize.iconSm),
-                strokeWidth = AnimeSize.border,
-                color = MaterialTheme.colorScheme.onPrimary,
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = label,
+                maxLines = 2,
+                color =
+                    MaterialTheme.colorScheme.onPrimary.copy(
+                        alpha = if (loading) 0f else 1f,
+                    ),
             )
-            Spacer(Modifier.width(AnimeSpacing.sm))
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(AnimeSize.iconSm),
+                    strokeWidth = AnimeSize.border,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
         }
-        Text(label, maxLines = 2)
     }
+}
+
+@Composable
+public fun AnimeLiquidToggle(
+    selected: Boolean,
+    onSelectedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val canvasBackdrop = rememberCanvasBackdrop { drawRect(backgroundColor) }
+    val backdrop = LocalAnimeBackdrop.current ?: canvasBackdrop
+
+    LiquidToggle(
+        selected = { selected },
+        onSelect = onSelectedChange,
+        backdrop = backdrop,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -114,12 +152,24 @@ public fun AnimeSecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.heightIn(min = AnimeSize.touch),
-        enabled = enabled,
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val canvasBackdrop = rememberCanvasBackdrop { drawRect(backgroundColor) }
+    val backdrop = LocalAnimeBackdrop.current ?: canvasBackdrop
+    LiquidButton(
+        onClick = if (enabled) onClick else ({}),
+        backdrop = backdrop,
+        modifier =
+            modifier.semantics {
+                if (!enabled) disabled()
+            },
+        isInteractive = enabled,
+        surfaceColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
     ) {
-        Text(label, maxLines = 2)
+        Text(
+            text = label,
+            maxLines = 2,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
@@ -160,14 +210,16 @@ public fun AnimePosterCard(
     size: PosterCardSize = PosterCardSize.Standard,
 ) {
     Card(
+        onClick = onClick,
         modifier =
             modifier
                 .width(size.width)
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
                     contentDescription = model.accessibilityLabel
-                }.clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 1.dp),
         shape = RoundedCornerShape(AnimeRadius.card),
     ) {
         Poster(model = model, width = size.width, height = size.height)
@@ -208,7 +260,7 @@ public fun AnimeCompactSubjectCard(
                     contentDescription = model.accessibilityLabel
                 },
         shape = RoundedCornerShape(AnimeRadius.card),
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         onClick = onClick,
     ) {
@@ -305,25 +357,37 @@ private fun Poster(
     width: Dp,
     height: Dp,
 ) {
-    val remoteModel = (model.poster as? ImageRef.Remote)?.url
+    AnimePosterArtwork(
+        poster = model.poster,
+        title = model.title,
+        id = model.id,
+        modifier = Modifier.width(width).height(height),
+    )
+}
+
+@Composable
+public fun AnimePosterArtwork(
+    poster: ImageRef?,
+    title: String,
+    id: SubjectId,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
+    val remoteModel = (poster as? ImageRef.Remote)?.url
     Box(
-        modifier =
-            Modifier
-                .width(width)
-                .height(height)
-                .background(model.placeholderColor()),
+        modifier = modifier.background(posterPlaceholderColor(id)),
         contentAlignment = Alignment.Center,
     ) {
         if (remoteModel != null) {
             AsyncImage(
                 model = remoteModel,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.width(width).height(height),
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize(),
             )
         } else {
             Text(
-                text = model.title.take(1),
+                text = title.take(1),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -331,13 +395,13 @@ private fun Poster(
     }
 }
 
-private fun SubjectCardUi.placeholderColor(): Color {
+private fun posterPlaceholderColor(id: SubjectId): Color {
     val colors =
         listOf(
-            Color(0xFFDDE1FF),
-            Color(0xFFD7F2EF),
-            Color(0xFFFFDCE8),
-            Color(0xFFFFE3C2),
+            Color(0xFF1E3A5F),
+            Color(0xFF1F4A48),
+            Color(0xFF4A2942),
+            Color(0xFF5A4025),
         )
     return colors[(id.value % colors.size).toInt()]
 }

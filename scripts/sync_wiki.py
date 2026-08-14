@@ -44,6 +44,8 @@ FRONTEND_PAGE_SOURCES = {
     "38-Profile-Settings-Diagnostics-Contract.md": Path("docs/frontend/features/07-profile-settings-diagnostics.md"),
     "39-Frontend-Implementation-Log.md": Path("docs/frontend/17-implementation-log.md"),
     "40-Windows-Desktop-Baseline.md": Path("docs/frontend/18-windows-desktop-baseline.md"),
+    "40A-Apple-Design-Baseline.md": Path("docs/frontend/19-apple-design-baseline.md"),
+    "40B-Color-and-Layout-Specification.md": Path("docs/frontend/20-color-and-layout-specification.md"),
 }
 BACKEND_PAGE_SOURCES = {
     "41-Backend-Specification-Index.md": Path("docs/backend/00-backend-specification-index.md"),
@@ -51,6 +53,7 @@ BACKEND_PAGE_SOURCES = {
     "43-Backend-Database-Contract.md": Path("docs/backend/02-database-contract.md"),
     "44-Bangumi-Adapter-and-Sync-Contract.md": Path("docs/backend/03-bangumi-and-sync.md"),
     "45-Backend-Testing-and-Delivery.md": Path("docs/backend/04-testing-and-delivery.md"),
+    "46-Catalog-Cache-and-Media.md": Path("docs/backend/05-catalog-cache-and-media.md"),
 }
 PAGE_SOURCES = {**FRONTEND_PAGE_SOURCES, **BACKEND_PAGE_SOURCES}
 

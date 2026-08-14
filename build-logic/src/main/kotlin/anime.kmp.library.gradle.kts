@@ -14,6 +14,15 @@ val moduleNamespace =
         .let { suffix -> "site.jokersh.anime.$suffix" }
 
 kotlin {
+    wasmJs {
+        browser()
+        compilerOptions {
+            languageVersion.set(KotlinVersion.KOTLIN_2_4)
+            apiVersion.set(KotlinVersion.KOTLIN_2_4)
+            allWarningsAsErrors.set(true)
+        }
+    }
+
     jvm("desktop") {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_17)
