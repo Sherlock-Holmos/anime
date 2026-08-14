@@ -45,6 +45,7 @@ jobs:
       - name: Build SwiftUI host without signing
         run: |
           set -o pipefail
+          mkdir -p build
           xcodebuild \
             -project app/iosApp/iosApp.xcodeproj \
             -scheme iosApp \
@@ -52,6 +53,8 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/ios-derived-data \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             build | tee build/ios-xcodebuild.log
 
