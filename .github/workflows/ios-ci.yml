@@ -68,3 +68,78 @@ jobs:
           path: |
             build/ios-derived-data/Build/Products/Debug-iphonesimulator/iosApp.app
             build/ios-xcodebuild.log
+
+  unsigned-ipa:
+    name: Unsigned iOS device IPA
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Show Apple toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Build Kotlin iOS device framework
+        run: ./gradlew :shared:app:linkReleaseFrameworkIosArm64 --stacktrace
+
+      - name: Build unsigned iOS device application
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild \
+            -project app/iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/ios-device-derived-data \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            build | tee build/ios-device-xcodebuild.log
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          app_path='build/ios-device-derived-data/Build/Products/Release-iphoneos/iosApp.app'
+          package_dir='build/ios-device-package'
+          test -d "$app_path"
+          rm -rf "$package_dir"
+          mkdir -p "$package_dir/Payload"
+          ditto "$app_path" "$package_dir/Payload/iosApp.app"
+          rm -rf "$package_dir/Payload/iosApp.app/_CodeSignature"
+          rm -f "$package_dir/Payload/iosApp.app/embedded.mobileprovision"
+          plutil -p "$package_dir/Payload/iosApp.app/Info.plist"
+          file "$package_dir/Payload/iosApp.app/iosApp"
+          (
+            cd "$package_dir"
+            zip -qry '../Anime-unsigned.ipa' Payload
+          )
+          test -s build/Anime-unsigned.ipa
+
+      - name: Upload unsigned IPA and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anime-ios-unsigned-ipa-${{ github.run_number }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/Anime-unsigned.ipa
+            build/ios-device-xcodebuild.log
