@@ -1,3 +1,6 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.konan.target.Family
+
 plugins {
     id("anime.kmp.library")
     alias(libs.plugins.compose.multiplatform)
@@ -5,6 +8,17 @@ plugins {
 }
 
 kotlin {
+    targets
+        .withType<KotlinNativeTarget>()
+        .matching { it.konanTarget.family == Family.IOS }
+        .configureEach {
+            binaries.framework {
+                baseName = "AnimeShared"
+                isStatic = true
+                binaryOption("bundleId", "site.jokersh.anime.shared")
+            }
+        }
+
     sourceSets.commonMain.dependencies {
         api(projects.core.designsystem)
         implementation(projects.core.common)
@@ -34,6 +48,9 @@ kotlin {
         implementation(libs.compose.resources)
         implementation(libs.compose.ui)
         implementation(libs.lifecycle.viewmodel.navigation3)
+    }
+    sourceSets.iosMain.dependencies {
+        implementation(libs.ktor.client.darwin)
     }
 }
 

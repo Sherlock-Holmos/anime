@@ -17,7 +17,10 @@ pluginManagement {
 dependencyResolutionManagement {
     // Kotlin/Wasm registers version-pinned Ivy repositories for browser
     // toolchains such as Binaryen. They are not Maven application dependencies.
-    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    // Keep dependency resolution deterministic and prevent host-level Gradle init
+    // scripts from shadowing Maven Central with incomplete mirrors (notably iOS
+    // Kotlin/Native variants).
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         maven("https://maven.aliyun.com/repository/central") {

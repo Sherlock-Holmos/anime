@@ -13,7 +13,7 @@
 | Gradle Wrapper | `9.5.0` | 只允许 Wrapper，禁止依赖本机 Gradle |
 | Android Gradle Plugin | `9.3.0` | 使用新 DSL 与内置 Kotlin，不设置兼容回退开关 |
 | Kotlin | `2.4.10` | `languageVersion/apiVersion = 2.4` |
-| Compose Multiplatform | `1.11.1` | Android 与未来 iOS 共享 UI |
+| Compose Multiplatform | `1.11.1` | Android、Desktop、Web 与 iOS 共享 UI |
 | compileSdk / targetSdk / minSdk | `37 / 37 / 26` | Android 8.0 起；API 26–30 必须走 Glass 降级 |
 | SDK Build Tools | `36.0.0` | 采用 AGP 9.3 默认兼容版本 |
 | JVM bytecode target | `17` | Kotlin 和 Java 统一 |
@@ -127,7 +127,7 @@ flowchart LR
 
 ## 6. Source Set 规则
 
-KMP 模块至少使用 `commonMain/commonTest/androidMain/androidUnitTest`。未来增加 iOS 时启用 `iosMain/iosTest`，当前 Windows 开发环境不得伪造 iOS 构建成功。
+KMP 模块启用 `commonMain/commonTest/androidMain/androidUnitTest/iosMain`，并同时声明 `iosArm64` 与 `iosSimulatorArm64`。Windows 可执行依赖解析和 iOS metadata 编译；framework 链接、Swift 编译、签名、模拟器和真机验收必须在 macOS + Xcode 完成，二者不得混称。
 
 | Source Set | 允许内容 |
 |---|---|

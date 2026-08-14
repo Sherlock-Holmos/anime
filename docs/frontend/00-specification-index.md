@@ -2,7 +2,7 @@
 
 > 基线编号：`FES-2.1`<br>
 > 生效日期：2026-08-12<br>
-> 适用范围：Compose Multiplatform 的 Desktop 与 Android 客户端<br>
+> 适用范围：Compose Multiplatform 的 Desktop、Android、Web 与 iOS 客户端<br>
 > 规范状态：Approved
 
 ## 1. 目标
@@ -36,6 +36,7 @@
 | 为什么采用当前方案、什么不能擅自改变 | `16-decision-register.md` |
 | Desktop/macOS 与 Mobile/iOS 的视觉原则 | `19-apple-design-baseline.md` |
 | 颜色、间距、圆角、栅格和响应式数值 | `20-color-and-layout-specification.md` |
+| iOS 宿主、平台能力、安全存储与 macOS 验收 | `21-ios-host-baseline.md` |
 | 某个页面的完整状态机 | `features/` 对应文件 |
 
 ## 4. 术语

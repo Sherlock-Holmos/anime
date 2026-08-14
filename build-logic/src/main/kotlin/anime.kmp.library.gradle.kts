@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
@@ -14,6 +16,9 @@ val moduleNamespace =
         .let { suffix -> "site.jokersh.anime.$suffix" }
 
 kotlin {
+    iosArm64()
+    iosSimulatorArm64()
+
     wasmJs {
         browser()
         compilerOptions {

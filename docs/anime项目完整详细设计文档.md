@@ -5,7 +5,7 @@
 > 项目代号：Anime<br>
 > 文档用途：作为个人开发者与 AI Agent 协作时的产品、架构、接口、数据和验收基线<br>
 > 当前交付平台：Android 优先，Windows CMP 基线同步验证<br>
-> 未来目标平台：iOS（当前无 macOS 构建与验证环境）
+> iOS 状态：宿主与平台适配源码已实现；当前无 macOS 构建、签名与真机验证环境
 
 ---
 
@@ -1010,7 +1010,7 @@ sequenceDiagram
 
 #### 8.10.1 当前边界
 
-iOS 是已设计、未实现和未验证的平台。当前 Windows 环境只维护共享代码边界与 `iosMain` 契约；任何“iOS 已支持”的表述都必须等到 macOS + Xcode + 模拟器/真机测试通过后才能成立。
+iOS 宿主、`iosMain` 平台适配、Darwin 网络引擎、Keychain 会话存储和内置 `ASWebAuthenticationSession` 授权窗口已经实现。当前 Windows 环境可验证依赖解析与 metadata 编译，但不能替代 macOS + Xcode 的 framework 链接、Swift 编译、签名、模拟器和真机测试；发布就绪状态必须等这些门禁通过后才能成立。
 
 #### 8.10.2 iOS 宿主结构
 
