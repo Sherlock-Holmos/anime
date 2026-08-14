@@ -91,7 +91,8 @@ jobs:
           app_pid=${launch_output##*: }
           test -n "$app_pid"
           sleep 12
-          if ! xcrun simctl spawn "$device_id" kill -0 "$app_pid" >/dev/null 2>&1; then
+          if ! xcrun simctl spawn "$device_id" ps -ax -o pid= | \
+            awk -v pid="$app_pid" '$1 == pid { found=1 } END { exit found ? 0 : 1 }'; then
             xcrun simctl spawn "$device_id" log show \
               --last 2m \
               --style compact \
