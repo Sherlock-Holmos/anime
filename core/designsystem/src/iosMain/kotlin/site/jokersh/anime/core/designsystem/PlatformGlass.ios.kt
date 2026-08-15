@@ -1,13 +1,12 @@
 package site.jokersh.anime.core.designsystem
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.rememberCanvasBackdrop
 
 @Composable
 internal actual fun PlatformAnimeBackdropHost(
@@ -15,11 +14,16 @@ internal actual fun PlatformAnimeBackdropHost(
     background: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val backdrop = rememberLayerBackdrop()
+    val glassColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
+    // LayerBackdrop records the complete scrolling scene again on every draw. AndroidLiquidGlass
+    // currently flickers on physical iOS devices while that recorded layer is changing. A stable
+    // CanvasBackdrop keeps the official liquid tab motion and selection surface without replaying
+    // transient scroll frames underneath it.
+    val backdrop = rememberCanvasBackdrop {
+        drawRect(glassColor)
+    }
     Box(modifier) {
-        Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
-            background()
-        }
+        background()
         CompositionLocalProvider(LocalAnimeBackdrop provides backdrop) {
             content()
         }
