@@ -1,6 +1,9 @@
 package site.jokersh.anime.app
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -93,6 +96,7 @@ import site.jokersh.anime.app.generated.resources.root_library
 import site.jokersh.anime.app.generated.resources.root_profile
 import site.jokersh.anime.app.generated.resources.shell_environment
 import site.jokersh.anime.core.designsystem.AnimeBackdropHost
+import site.jokersh.anime.core.designsystem.AnimeLiquidTabBar
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
@@ -358,7 +362,7 @@ fun AnimeApp(
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     if (showRootNavigation && !useDesktopSidebar) {
-                        AppleMobileTabBar(
+                        AnimeLiquidTabBar(
                             labels = labels,
                             selectedIndex = selectedIndex,
                             onSelected = { index -> navigator.selectRoot(RootDestination.entries[index].root) },
@@ -366,8 +370,17 @@ fun AnimeApp(
                                 Modifier
                                     .align(Alignment.BottomCenter)
                                     .navigationBarsPadding()
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .widthIn(max = 560.dp)
                                     .fillMaxWidth(),
-                        )
+                        ) { index, _, tint ->
+                            Icon(
+                                painter = painterResource(RootDestination.entries[index].icon),
+                                contentDescription = labels[index],
+                                modifier = Modifier.size(22.dp),
+                                tint = tint,
+                            )
+                        }
                     }
                     if (showAccountCenter) {
                         AnimeAccountCenter(
@@ -593,7 +606,7 @@ private fun AppNavigationLayer(
                             }
                         },
                     ) {
-                        entry<AppRoute.Discover> {
+                        entry<AppRoute.Discover>(metadata = rootTabTransitionMetadata()) {
                             DiscoverRoute(
                                 repository = appContainer.catalogRepository,
                                 onSubjectClick = { subjectId ->
@@ -618,7 +631,7 @@ private fun AppNavigationLayer(
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
-                        entry<AppRoute.Library> {
+                        entry<AppRoute.Library>(metadata = rootTabTransitionMetadata()) {
                             SearchRoute(
                                 repository = appContainer.searchRepository,
                                 initialQuery = it.query,
@@ -662,7 +675,7 @@ private fun AppNavigationLayer(
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
-                        entry<AppRoute.Activity> {
+                        entry<AppRoute.Activity>(metadata = rootTabTransitionMetadata()) {
                             ActivityScreen(
                                 repository = appContainer.communityRepository,
                                 onSubjectClick = { subjectId ->
@@ -690,7 +703,7 @@ private fun AppNavigationLayer(
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
-                        entry<AppRoute.Profile> {
+                        entry<AppRoute.Profile>(metadata = rootTabTransitionMetadata()) {
                             ProfileScreen(
                                 environmentLabel = appContainer.profile.environment.name,
                                 sessionState = sessionState,
@@ -820,67 +833,11 @@ private fun AppNavigationLayer(
     }
 }
 
-@Composable
-private fun AppleMobileTabBar(
-    labels: List<String>,
-    selectedIndex: Int,
-    onSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-        border =
-            BorderStroke(
-                width = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
-            ),
-        tonalElevation = 0.dp,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(62.dp).padding(horizontal = AnimeSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RootDestination.entries.forEachIndexed { index, destination ->
-                val selected = index == selectedIndex
-                Column(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(AnimeRadius.control))
-                            .clickable { onSelected(index) }
-                            .semantics { this.selected = selected }
-                            .padding(vertical = AnimeSpacing.xs),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xxs),
-                ) {
-                    Icon(
-                        painter = painterResource(destination.icon),
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint =
-                            if (selected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    )
-                    Text(
-                        labels[index],
-                        style = MaterialTheme.typography.labelSmall,
-                        color =
-                            if (selected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    )
-                }
-            }
-        }
+private fun rootTabTransitionMetadata(): Map<String, Any> =
+    NavDisplay.transitionSpec {
+        fadeIn(animationSpec = tween(durationMillis = 160)) togetherWith
+            fadeOut(animationSpec = tween(durationMillis = 110))
     }
-}
 
 private fun handleAppShortcut(
     event: KeyEvent,
