@@ -1,12 +1,10 @@
 package site.jokersh.anime.core.designsystem
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
-import com.kyant.backdrop.backdrops.rememberCanvasBackdrop
 
 @Composable
 internal actual fun PlatformAnimeBackdropHost(
@@ -14,24 +12,23 @@ internal actual fun PlatformAnimeBackdropHost(
     background: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val glassColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
-    // LayerBackdrop records the complete scrolling scene again on every draw. AndroidLiquidGlass
-    // currently flickers on physical iOS devices while that recorded layer is changing. A stable
-    // CanvasBackdrop keeps the official liquid tab motion and selection surface without replaying
-    // transient scroll frames underneath it.
-    val backdrop = rememberCanvasBackdrop {
-        drawRect(glassColor)
-    }
     Box(modifier) {
         background()
-        CompositionLocalProvider(LocalAnimeBackdrop provides backdrop) {
+        // AndroidLiquidGlass still flickers on physical iOS devices even with a static backdrop:
+        // its RuntimeShader/GraphicsLayer path is the remaining trigger. Keep iOS on the stable
+        // translucent material path until the upstream renderer issue is fixed.
+        CompositionLocalProvider(
+            LocalAnimeBackdrop provides null,
+            LocalLiquidComponentsEnabled provides false,
+        ) {
             content()
         }
     }
 }
 
 @Composable
-internal actual fun platformGlassCapabilities(): GlassCapabilities = GlassCapabilities(maximumTier = GlassTier.Liquid)
+internal actual fun platformGlassCapabilities(): GlassCapabilities =
+    GlassCapabilities(maximumTier = GlassTier.Translucent)
 
 @Composable
 internal actual fun Modifier.platformGlassEffect(
