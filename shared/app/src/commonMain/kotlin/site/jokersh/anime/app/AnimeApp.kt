@@ -702,7 +702,9 @@ private fun AppNavigationLayer(
                 }
             }
         }
-    val rootTabMetadata = remember(reduceMotion) { rootTabTransitionMetadata(reduceMotion) }
+    // Root tabs stay mounted in independent back stacks. A full-screen fade while the Backdrop
+    // graph is also updating exposes a blank frame on iOS, so root selection is instantaneous.
+    val rootTabMetadata = remember { rootTabTransitionMetadata() }
     Box(
         modifier =
             modifier
@@ -965,14 +967,9 @@ private fun AppNavigationLayer(
     }
 }
 
-private fun rootTabTransitionMetadata(reduceMotion: Boolean): Map<String, Any> =
+private fun rootTabTransitionMetadata(): Map<String, Any> =
     NavDisplay.transitionSpec {
-        if (reduceMotion) {
-            EnterTransition.None togetherWith ExitTransition.None
-        } else {
-            fadeIn(animationSpec = tween(durationMillis = AnimeMotion.fast)) togetherWith
-                fadeOut(animationSpec = tween(durationMillis = AnimeMotion.fast))
-        }
+        EnterTransition.None togetherWith ExitTransition.None
     }
 
 private fun handleAppShortcut(

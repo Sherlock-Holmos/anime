@@ -68,7 +68,11 @@ public fun AnimeLiquidTabBar(
     val selectedIndexProvider = remember { { selectedIndexState.value } }
     LiquidBottomTabs(
         selectedTabIndex = selectedIndexProvider,
-        onTabSelected = onSelected,
+        // A direct tap dispatches from LiquidBottomTab. The vendor component then mirrors the
+        // new selected index through its drag animation; do not dispatch that same index twice.
+        onTabSelected = { index ->
+            if (index != safeSelectedIndex) onSelected(index)
+        },
         backdrop = backdrop,
         tabsCount = labels.size,
         modifier =
