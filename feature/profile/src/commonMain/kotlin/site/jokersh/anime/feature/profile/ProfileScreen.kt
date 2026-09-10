@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,8 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
@@ -77,9 +77,6 @@ public fun ProfileScreen(
     onBangumiLogin: () -> Unit,
     onLogout: () -> Unit,
     onBrowseCollection: () -> Unit,
-    onRatingsClick: () -> Unit,
-    onReviewsClick: () -> Unit,
-    onListsClick: () -> Unit,
     settings: AppSettings,
     onThemeChange: (ThemePreference) -> Unit,
     onGlassChange: (GlassPreference) -> Unit,
@@ -130,7 +127,7 @@ public fun ProfileScreen(
             if (sessionState is SessionState.Authenticated) {
                 item { BangumiSyncPanel(sessionState, sessionRepository) }
             }
-            item { PersonalArchive(wide, sessionState, onRatingsClick, onReviewsClick, onListsClick) }
+            item { PersonalArchive(wide, sessionState) }
             item {
                 if (wide) {
                     Row(
@@ -303,17 +300,14 @@ private fun BangumiSyncPanel(
 private fun PersonalArchive(
     wide: Boolean,
     sessionState: SessionState,
-    onRatingsClick: () -> Unit,
-    onReviewsClick: () -> Unit,
-    onListsClick: () -> Unit,
 ) {
     val profile = (sessionState as? SessionState.Authenticated)?.user
     val source = if (profile?.connectedProvider == Provider.Bangumi) "Bangumi" else "Anime"
     val entries =
         listOf(
-            ArchiveEntry("我的评分", profile?.ratingCount?.toString() ?: "—", "$source 动画评分", onRatingsClick),
-            ArchiveEntry("我的评价", profile?.reviewCount?.toString() ?: "—", "$source 作品评价", onReviewsClick),
-            ArchiveEntry("我的片单", profile?.listCount?.toString() ?: "—", "Anime 主题片单", onListsClick),
+            ArchiveEntry("我的评分", profile?.ratingCount?.toString() ?: "—", "$source 动画评分"),
+            ArchiveEntry("我的评价", profile?.reviewCount?.toString() ?: "—", "$source 作品评价"),
+            ArchiveEntry("我的片单", profile?.listCount?.toString() ?: "—", "Anime 主题片单"),
         )
     Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
         Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
@@ -334,7 +328,6 @@ private data class ArchiveEntry(
     val title: String,
     val count: String,
     val subtitle: String,
-    val onClick: () -> Unit,
 )
 
 @Composable
@@ -343,7 +336,6 @@ private fun ArchiveCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        onClick = entry.onClick,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(AnimeRadius.card),
         color = MaterialTheme.colorScheme.surface,
@@ -621,7 +613,7 @@ private fun PreferencePanel(
     sessionState: SessionState,
     modifier: Modifier = Modifier,
 ) {
-    SettingsPanel(title = "偏好与状态", subtitle = "桌面端运行状态一目了然。", modifier = modifier) {
+    SettingsPanel(title = "偏好与状态", subtitle = "让动画与显示效果适应当前设备。", modifier = modifier) {
         SettingSwitch(
             title = "减少动态效果",
             description = "降低切换动画和背景位移。",
@@ -643,8 +635,7 @@ private fun PreferencePanel(
             },
         )
         StatusLine("运行环境", environmentLabel)
-        StatusLine("桌面构建", "UI Preview")
-        AnimeSecondaryButton(label = "查看诊断信息", onClick = {})
+        StatusLine("应用状态", "已启用本地偏好同步")
     }
 }
 
@@ -677,6 +668,7 @@ private fun String.toGlassPreference(): GlassPreference =
     }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 public fun AnimeAccountCenter(
     sessionState: SessionState,
     onDismiss: () -> Unit,
@@ -697,122 +689,127 @@ public fun AnimeAccountCenter(
     val connectedToBangumi = authenticated?.user?.connectedProvider == Provider.Bangumi
     val valid = username.isNotBlank() && password.isNotBlank() && (!registering || displayName.isNotBlank())
 
-    Dialog(
+    ModalBottomSheet(
         onDismissRequest = { if (!loading) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = AnimeRadius.panel, topEnd = AnimeRadius.panel),
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp).padding(AnimeSpacing.lg),
-            shape = RoundedCornerShape(AnimeRadius.panel),
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(AnimeSize.border, MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
-            shadowElevation = 24.dp,
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 760.dp)
+                    .padding(horizontal = AnimeSpacing.xl, vertical = AnimeSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
         ) {
-            Column(
-                modifier = Modifier.padding(AnimeSpacing.xl),
-                verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
-                        Text("Anime 账户", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (authenticated == null) "一个账户，连接收藏、评分与社区档案。" else "管理登录身份与外部数据连接。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    AnimeSecondaryButton(label = "完成", onClick = onDismiss, enabled = !loading)
-                }
-
-                if (authenticated == null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
-                    ) {
-                        AccountModeButton("登录", !registering, { registering = false }, Modifier.weight(1f))
-                        AccountModeButton("创建账户", registering, { registering = true }, Modifier.weight(1f))
-                    }
-
+                Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
+                    Text("Anime 账户", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        if (registering) "创建后即可跨设备保存收藏、评分与社区内容。" else "使用 Anime 账号登录，无需代理。",
+                        if (authenticated == null) "一个账户，连接收藏、评分与社区档案。" else "管理登录身份与外部数据连接。",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text("用户名") },
-                        supportingText = { if (registering) Text("3–32 位字母、数字或下划线") },
-                        singleLine = true,
-                        enabled = !loading,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (registering) {
-                        OutlinedTextField(
-                            value = displayName,
-                            onValueChange = { displayName = it },
-                            label = { Text("昵称") },
-                            singleLine = true,
-                            enabled = !loading,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("密码") },
-                        supportingText = { if (registering) Text("至少 10 个字符") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        singleLine = true,
-                        enabled = !loading,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (error != null) {
-                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                    AnimePrimaryButton(
-                        label = if (registering) "创建并登录" else "登录 Anime",
-                        onClick = {
-                            if (registering) {
-                                onRegister(username.trim(), password, displayName.trim())
-                            } else {
-                                onLogin(username.trim(), password)
-                            }
-                        },
-                        enabled = valid && !loading,
-                        loading = loading,
-                    )
-                } else {
-                    AccountIdentityCard(authenticated)
+                }
+                AnimeSecondaryButton(label = "完成", onClick = onDismiss, enabled = !loading)
+            }
+
+            if (authenticated == null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+                ) {
+                    AccountModeButton("登录", !registering, { registering = false }, Modifier.weight(1f))
+                    AccountModeButton("创建账户", registering, { registering = true }, Modifier.weight(1f))
                 }
 
-                BangumiConnectionCard(
-                    authenticated = authenticated,
-                    connected = connectedToBangumi,
-                    loading = loading,
-                    authorizationStarted = authorizationStarted,
-                    onConnect = {
-                        authorizationStarted = true
-                        onBangumiLogin()
-                    },
-                )
-
                 Text(
-                    "Bangumi 密码不会交给 Anime。授权令牌仅加密保存在服务器，客户端始终使用 Anime Session。",
-                    style = MaterialTheme.typography.bodySmall,
+                    if (registering) "创建后即可跨设备保存收藏、评分与社区内容。" else "使用 Anime 账号登录，无需代理。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
-                if (authenticated != null) {
-                    Row(
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("用户名") },
+                    supportingText = { if (registering) Text("3–32 位字母、数字或下划线") },
+                    singleLine = true,
+                    enabled = !loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (registering) {
+                    OutlinedTextField(
+                        value = displayName,
+                        onValueChange = { displayName = it },
+                        label = { Text("昵称") },
+                        singleLine = true,
+                        enabled = !loading,
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
-                    ) {
-                        AnimeSecondaryButton(label = "查看我的收藏", onClick = onBrowseCollection)
-                        AnimeSecondaryButton(label = "退出登录", onClick = onLogout)
-                    }
+                    )
+                }
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("密码") },
+                    supportingText = { if (registering) Text("至少 10 个字符") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    enabled = !loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (error != null) {
+                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                AnimePrimaryButton(
+                    label = if (registering) "创建并登录" else "登录 Anime",
+                    onClick = {
+                        if (registering) {
+                            onRegister(username.trim(), password, displayName.trim())
+                        } else {
+                            onLogin(username.trim(), password)
+                        }
+                    },
+                    enabled = valid && !loading,
+                    loading = loading,
+                )
+            } else {
+                AccountIdentityCard(authenticated)
+            }
+
+            BangumiConnectionCard(
+                authenticated = authenticated,
+                connected = connectedToBangumi,
+                loading = loading,
+                authorizationStarted = authorizationStarted,
+                onConnect = {
+                    authorizationStarted = true
+                    onBangumiLogin()
+                },
+            )
+
+            Text(
+                "Bangumi 密码不会交给 Anime。授权令牌仅加密保存在服务器，客户端始终使用 Anime Session。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            if (authenticated != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+                ) {
+                    AnimeSecondaryButton(
+                        label = "查看我的收藏",
+                        onClick = {
+                            onBrowseCollection()
+                            onDismiss()
+                        },
+                    )
+                    AnimeSecondaryButton(label = "退出登录", onClick = onLogout)
                 }
             }
         }
