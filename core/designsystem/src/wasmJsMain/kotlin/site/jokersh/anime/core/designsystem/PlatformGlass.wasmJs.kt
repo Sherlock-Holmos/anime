@@ -10,10 +10,16 @@ internal actual fun PlatformAnimeBackdropHost(
     modifier: Modifier,
     background: @Composable () -> Unit,
     content: @Composable () -> Unit,
+    glassEnabled: Boolean,
+    reduceMotion: Boolean,
 ) {
     Box(modifier) {
         background()
-        content()
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalAnimeGlassEnabled provides glassEnabled,
+            LocalAnimeLiquidGlassEnabled provides glassEnabled,
+            LocalAnimeReduceMotion provides reduceMotion,
+        ) { content() }
     }
 }
 

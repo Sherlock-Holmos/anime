@@ -101,6 +101,10 @@ public sealed interface SearchIntent {
 public sealed interface SearchEffect {
     public data class NavigateToResults(
         val query: String,
+        val types: Set<SubjectType> = emptySet(),
+        val years: IntRange? = null,
+        val airing: Set<AiringStatus> = emptySet(),
+        val sort: SearchSort = SearchSort.Relevance,
     ) : SearchEffect
 
     public data class NavigateToSubject(

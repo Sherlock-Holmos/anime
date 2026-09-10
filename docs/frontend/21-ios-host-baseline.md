@@ -20,6 +20,7 @@ Windows 上“完成”仅指依赖可解析、iOS metadata 可编译、公共�
 | Bangumi 绑定 | `ASWebAuthenticationSession` 应用内安全授权页 | 客户端不收集 Bangumi 密码；访问由 Anime 服务端代理 |
 | 回调 | `anime://bangumi-auth` | 必须同时校验 code 与 state，交换操作由后端完成 |
 | UI | Compose Multiplatform + iOS 安全区 | 平台玻璃不支持时使用半透明降级，不阻断内容 |
+| 页面转场 | Navigation 3 统一前进/返回/预测性返回规格 | 子页方向性横移不超过 24dp；根 Tab 仅短淡入淡出；减少动态时瞬时切换 |
 
 ## 3. Xcode 宿主
 
@@ -38,7 +39,7 @@ xcodebuild -project app/iosApp/iosApp.xcodeproj \
   -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
 ```
 
-随后必须人工验证：冷启动、登录/注册、应用内 Bangumi 授权、授权取消、回调恢复、Token 重启恢复、退出登录、发现/搜索/动态/收藏/详情、离线缓存、深浅色、动态字体、VoiceOver 和减少动态效果。
+随后必须人工验证：冷启动、登录/注册、应用内 Bangumi 授权、授权取消、回调恢复、Token 重启恢复、退出登录、发现/搜索/动态/收藏/详情、子页前进/返回及左缘返回手势、根 Tab 切换与重复点击回顶、离线缓存、深浅色、动态字体、VoiceOver 和减少动态效果。
 
 ## 5. 发布阻塞条件
 

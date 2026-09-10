@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidBottomTab
 import com.kyant.backdrop.catalog.components.LiquidBottomTabs
+import com.kyant.backdrop.catalog.components.LiquidButton
+import com.kyant.backdrop.catalog.components.LiquidToggle
 
 @Composable
 public fun AnimeLiquidTabBar(
@@ -46,7 +48,8 @@ public fun AnimeLiquidTabBar(
     val safeSelectedIndex = selectedIndex.coerceIn(labels.indices)
     val backdrop = LocalAnimeBackdrop.current
     val liquidGlassEnabled = LocalAnimeLiquidGlassEnabled.current
-    if (backdrop == null || !liquidGlassEnabled) {
+    val reduceMotion = LocalAnimeReduceMotion.current
+    if (backdrop == null || !liquidGlassEnabled || reduceMotion) {
         StaticTabBarFallback(
             labels = labels,
             selectedIndex = safeSelectedIndex,
@@ -54,7 +57,7 @@ public fun AnimeLiquidTabBar(
             modifier = modifier,
             icon = icon,
         )
-        if (backdrop != null && LocalAnimeLiquidGlassWarmup.current) {
+        if (backdrop != null && LocalAnimeLiquidGlassWarmup.current && !reduceMotion) {
             LiquidTabBarWarmup(backdrop = backdrop, tabsCount = labels.size)
         }
         return
@@ -99,22 +102,39 @@ private fun LiquidTabBarWarmup(
     backdrop: Backdrop,
     tabsCount: Int,
 ) {
-    LiquidBottomTabs(
-        selectedTabIndex = { 0 },
-        onTabSelected = {},
-        backdrop = backdrop,
-        tabsCount = tabsCount,
-        modifier =
-            Modifier
-                .offset(x = (-1000).dp, y = (-1000).dp)
-                .size(width = 320.dp, height = 64.dp)
-                .alpha(0.01f)
-                .clearAndSetSemantics {},
+    Box(
+        Modifier
+            .offset(x = (-1000).dp, y = (-1000).dp)
+            .size(width = 320.dp, height = 128.dp)
+            .alpha(0.01f)
+            .clearAndSetSemantics {},
     ) {
-        repeat(tabsCount) {
-            LiquidBottomTab(onClick = {}) {
+        LiquidBottomTabs(
+            selectedTabIndex = { 0 },
+            onTabSelected = {},
+            backdrop = backdrop,
+            tabsCount = tabsCount,
+            modifier = Modifier.size(width = 320.dp, height = 64.dp),
+        ) {
+            repeat(tabsCount) {
+                LiquidBottomTab(onClick = {}) {
+                    Spacer(Modifier.size(1.dp))
+                }
+            }
+        }
+        Row(
+            modifier = Modifier.padding(top = 72.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            LiquidButton(onClick = {}, backdrop = backdrop, modifier = Modifier.size(96.dp, 48.dp)) {
                 Spacer(Modifier.size(1.dp))
             }
+            LiquidToggle(
+                selected = { false },
+                onSelect = {},
+                backdrop = backdrop,
+                modifier = Modifier.size(52.dp, 32.dp),
+            )
         }
     }
 }

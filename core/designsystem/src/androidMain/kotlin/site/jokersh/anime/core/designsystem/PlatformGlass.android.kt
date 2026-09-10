@@ -24,13 +24,32 @@ internal actual fun PlatformAnimeBackdropHost(
     modifier: Modifier,
     background: @Composable () -> Unit,
     content: @Composable () -> Unit,
+    glassEnabled: Boolean,
+    reduceMotion: Boolean,
 ) {
+    if (!glassEnabled) {
+        Box(modifier) {
+            background()
+            CompositionLocalProvider(
+                LocalAnimeBackdrop provides null,
+                LocalAnimeGlassEnabled provides false,
+                LocalAnimeLiquidGlassEnabled provides false,
+                LocalAnimeReduceMotion provides reduceMotion,
+            ) { content() }
+        }
+        return
+    }
     val backdrop = rememberLayerBackdrop()
     Box(modifier) {
         Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
             background()
         }
-        CompositionLocalProvider(LocalAnimeBackdrop provides backdrop) {
+        CompositionLocalProvider(
+            LocalAnimeBackdrop provides backdrop,
+            LocalAnimeGlassEnabled provides glassEnabled,
+            LocalAnimeLiquidGlassEnabled provides glassEnabled,
+            LocalAnimeReduceMotion provides reduceMotion,
+        ) {
             content()
         }
     }

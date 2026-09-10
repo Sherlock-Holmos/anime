@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import site.jokersh.anime.core.model.AiringStatus
+import site.jokersh.anime.core.model.SearchSort
 import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.data.catalog.SearchRepository
@@ -18,8 +19,9 @@ public fun SearchRoute(
     initialTypes: Set<SubjectType> = emptySet(),
     initialYears: IntRange? = null,
     initialAiring: Set<AiringStatus> = emptySet(),
+    initialSort: SearchSort = SearchSort.Relevance,
     pageSize: Int,
-    onResultsRequested: (String) -> Unit,
+    onResultsRequested: (SearchEffect.NavigateToResults) -> Unit,
     onSubjectClick: (SubjectId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -31,6 +33,7 @@ public fun SearchRoute(
                 initialTypes = initialTypes,
                 initialYears = initialYears,
                 initialAiring = initialAiring,
+                initialSort = initialSort,
                 pageSize = pageSize,
             )
         }
@@ -39,7 +42,7 @@ public fun SearchRoute(
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                is SearchEffect.NavigateToResults -> onResultsRequested(effect.query)
+                is SearchEffect.NavigateToResults -> onResultsRequested(effect)
                 is SearchEffect.NavigateToSubject -> onSubjectClick(effect.subjectId)
             }
         }

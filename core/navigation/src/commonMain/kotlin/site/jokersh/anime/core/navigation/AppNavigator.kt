@@ -16,7 +16,7 @@ public class AppNavigator(
         val stack = activeStack()
         if (stack.size <= 1) {
             stack.add(route)
-        } else {
+        } else if (stack.lastOrNull() != route) {
             stack[stack.lastIndex] = route
         }
     }
@@ -35,7 +35,13 @@ public class AppNavigator(
     }
 
     public fun selectRoot(root: AppRoot) {
-        updateRoot(root)
+        if (currentRoot() == root) {
+            // Match the platform tab-bar convention: tapping the active tab returns
+            // to that tab's root instead of leaving a deep child route on screen.
+            popToRoot()
+        } else {
+            updateRoot(root)
+        }
     }
 
     private fun activeStack(): MutableList<NavKey> = stackFor(currentRoot())

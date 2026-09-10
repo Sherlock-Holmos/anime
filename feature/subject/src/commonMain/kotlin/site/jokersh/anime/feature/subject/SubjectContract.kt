@@ -18,8 +18,6 @@ public data class SubjectUiState(
     val comments: List<CommunityComment> = emptyList(),
     val lists: List<CommunityListSummary> = emptyList(),
     val communityError: String? = null,
-    val communityScore: Double? = null,
-    val communityVotes: Long = 0,
     val collectionStatus: String? = null,
     val actionMessage: String? = null,
 )

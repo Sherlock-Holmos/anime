@@ -69,7 +69,7 @@ public fun CollectionScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var selectedFilter by rememberSaveable { mutableStateOf<CollectionStatus?>(null) }
+    var selectedFilter by rememberSaveable { mutableStateOf<CollectionStatus?>(CollectionStatus.Watching) }
     val profile = (sessionState as? SessionState.Authenticated)?.user
     val cachedCollection = profile?.collections.orEmpty()
     var collection by remember(
@@ -114,6 +114,7 @@ public fun CollectionScreen(
         } else {
             cachedCollection.filter { it.status == selectedFilter }
         }
+    val overviewItems = (cachedCollection + collection).distinctBy { it.subjectId }
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         // The root navigation rail consumes part of the desktop window. Keep the
@@ -134,11 +135,11 @@ public fun CollectionScreen(
             verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                CollectionHeader(itemCount = cachedCollection.size, onBack = onBack)
+                CollectionHeader(itemCount = visibleItems.size, onBack = onBack)
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 CollectionOverview(
-                    collection = cachedCollection,
+                    collection = overviewItems,
                     syncedAt = profile?.syncedAt?.toString(),
                     restoring = sessionState is SessionState.Restoring,
                 )
@@ -149,7 +150,17 @@ public fun CollectionScreen(
                     onSelected = { selectedFilter = it },
                 )
             }
-            if (visibleItems.isEmpty()) {
+            if (sessionState is SessionState.Restoring && profile == null) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    AnimeGlassPanel(
+                        role = GlassRole.FloatingPanel,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(AnimeRadius.panel),
+                    ) {
+                        Text("正在恢复片库…", style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+            } else if (visibleItems.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     EmptyCollection(onDiscoverClick = onDiscoverClick)
                 }

@@ -41,13 +41,22 @@ public class SubjectViewModel(
                     if (error is CancellationException) throw error
                     emit(ResourceState(null, null, false, AppError.Unknown("subject-observe")))
                 }.collect { resource ->
-                    mutableState.value =
-                        SubjectUiState(
+                    mutableState.update { state ->
+                        state.copy(
                             loading = resource.value == null && resource.error == null,
                             refreshing = resource.refreshing,
-                            content = resource.value?.toUi(resource.freshness?.kind),
+                            content = resource.value?.toUi(resource.freshness?.kind) ?: state.content,
                             error = resource.error,
+                            collectionStatus =
+                                resource.value
+                                    ?.summary
+                                    ?.collection
+                                    ?.status
+                                    ?.name
+                                    ?.lowercase()
+                                    ?: state.collectionStatus,
                         )
+                    }
                 }
         }
         refresh(RefreshPolicy.IfMissing)
@@ -81,15 +90,12 @@ public class SubjectViewModel(
                 }
             val comments = communityRepository.comments(subjectId.value).getOrDefault(emptyList())
             val lists = communityRepository.lists(5).getOrDefault(emptyList())
-            val rating = communityRepository.rating(subjectId.value).getOrNull()
             mutableState.update {
                 it.copy(
                     communityLoading = false,
                     reviews = reviews,
                     comments = comments,
                     lists = lists,
-                    communityScore = rating?.score,
-                    communityVotes = rating?.votes ?: 0,
                 )
             }
         }

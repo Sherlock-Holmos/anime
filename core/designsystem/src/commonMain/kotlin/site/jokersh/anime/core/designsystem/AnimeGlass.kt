@@ -49,11 +49,15 @@ public fun AnimeBackdropHost(
     modifier: Modifier = Modifier,
     background: @Composable () -> Unit,
     content: @Composable () -> Unit,
+    glassEnabled: Boolean = true,
+    reduceMotion: Boolean = false,
 ) {
     PlatformAnimeBackdropHost(
         modifier = modifier,
         background = background,
         content = content,
+        glassEnabled = glassEnabled,
+        reduceMotion = reduceMotion,
     )
 }
 
@@ -71,7 +75,13 @@ public fun AnimeGlassPanel(
         resolveGlassTier(
             preferred = tierOverride ?: role.preferredTier(),
             capabilities = capabilities ?: platformGlassCapabilities(),
-        )
+        ).let { tier ->
+            when {
+                !LocalAnimeGlassEnabled.current -> GlassTier.None
+                !LocalAnimeLiquidGlassEnabled.current -> minOf(tier, GlassTier.Translucent)
+                else -> tier
+            }
+        }
     val alpha =
         when (resolved) {
             GlassTier.None -> 1f

@@ -63,6 +63,7 @@ public object AnimeMotion {
     public const val standard: Int = 220
     public const val emphasized: Int = 360
     public const val debounceSearch: Int = 300
+    public val pageOffset: Dp = 24.dp
 }
 
 public val AnimeTypography: Typography =
