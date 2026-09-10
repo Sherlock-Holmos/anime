@@ -400,83 +400,84 @@ fun AnimeApp(
                         )
                     }
                 },
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    if (showRootNavigation && !useDesktopSidebar) {
-                        AnimeLiquidTabBar(
-                            labels = labels,
-                            selectedIndex = selectedIndex,
-                            onSelected = onRootSelected,
-                            modifier =
-                                Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .navigationBarsPadding()
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                                    .fillMaxWidth(),
-                        ) { index, _, tint ->
-                            Icon(
-                                painter = painterResource(RootDestination.entries[index].icon),
-                                contentDescription = labels[index],
-                                modifier = Modifier.size(22.dp),
-                                tint = tint,
+                content = {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (showRootNavigation && !useDesktopSidebar) {
+                            AnimeLiquidTabBar(
+                                labels = labels,
+                                selectedIndex = selectedIndex,
+                                onSelected = onRootSelected,
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .navigationBarsPadding()
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        .fillMaxWidth(),
+                            ) { index, _, tint ->
+                                Icon(
+                                    painter = painterResource(RootDestination.entries[index].icon),
+                                    contentDescription = labels[index],
+                                    modifier = Modifier.size(22.dp),
+                                    tint = tint,
+                                )
+                            }
+                        }
+                        if (showAccountCenter) {
+                            AnimeAccountCenter(
+                                sessionState = sessionState,
+                                onDismiss = {
+                                    showAccountCenter = false
+                                    pendingAuthAction = null
+                                },
+                                onLogin = { username, password ->
+                                    sessionScope.launch {
+                                        appContainer.sessionRepository.loginWithAnime(
+                                            AnimeLoginCredentials(username, password),
+                                        )
+                                    }
+                                },
+                                onRegister = { username, password, displayName ->
+                                    sessionScope.launch {
+                                        appContainer.sessionRepository.registerAnime(
+                                            AnimeRegistration(username, password, displayName),
+                                        )
+                                    }
+                                },
+                                onBangumiLogin = {
+                                    sessionScope.launch {
+                                        appContainer.sessionRepository
+                                            .beginLogin(
+                                                LoginRequest(
+                                                    requestId = "auth-gate-${Clock.System.now().toEpochMilliseconds()}",
+                                                    pendingActionId = pendingAuthAction?.actionId,
+                                                ),
+                                            ).onSuccess { openExternalUrl(it.authorizeUrl) }
+                                    }
+                                },
+                                onLogout = { sessionScope.launch { appContainer.sessionRepository.logout() } },
+                                onBrowseCollection = {
+                                    showAccountCenter = false
+                                    navigator.push(AppRoute.Collection())
+                                },
                             )
                         }
-                    }
-                    if (showAccountCenter) {
-                        AnimeAccountCenter(
-                            sessionState = sessionState,
-                            onDismiss = {
-                                showAccountCenter = false
-                                pendingAuthAction = null
-                            },
-                            onLogin = { username, password ->
-                                sessionScope.launch {
-                                    appContainer.sessionRepository.loginWithAnime(
-                                        AnimeLoginCredentials(username, password),
-                                    )
-                                }
-                            },
-                            onRegister = { username, password, displayName ->
-                                sessionScope.launch {
-                                    appContainer.sessionRepository.registerAnime(
-                                        AnimeRegistration(username, password, displayName),
-                                    )
-                                }
-                            },
-                            onBangumiLogin = {
-                                sessionScope.launch {
-                                    appContainer.sessionRepository
-                                        .beginLogin(
-                                            LoginRequest(
-                                                requestId = "auth-gate-${Clock.System.now().toEpochMilliseconds()}",
-                                                pendingActionId = pendingAuthAction?.actionId,
-                                            ),
-                                        ).onSuccess { openExternalUrl(it.authorizeUrl) }
-                                }
-                            },
-                            onLogout = { sessionScope.launch { appContainer.sessionRepository.logout() } },
-                            onBrowseCollection = {
-                                showAccountCenter = false
-                                navigator.push(AppRoute.Collection())
-                            },
-                        )
-                    }
-                    transientMessage?.let { message ->
-                        AnimeGlassPanel(
-                            role = site.jokersh.anime.core.designsystem.GlassRole.FloatingPanel,
-                            modifier =
-                                Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .navigationBarsPadding()
-                                    .padding(bottom = if (useDesktopSidebar) 24.dp else 88.dp)
-                                    .clickable { transientMessage = null },
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        ) {
-                            Text(message, style = MaterialTheme.typography.bodyMedium)
+                        transientMessage?.let { message ->
+                            AnimeGlassPanel(
+                                role = site.jokersh.anime.core.designsystem.GlassRole.FloatingPanel,
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .navigationBarsPadding()
+                                        .padding(bottom = if (useDesktopSidebar) 24.dp else 88.dp)
+                                        .clickable { transientMessage = null },
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            ) {
+                                Text(message, style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
                     }
-                }
-            }
+                },
+            )
         }
     }
 }
