@@ -216,16 +216,25 @@ fun AnimeApp(
                 AppRoot.Profile to profileBackStack,
             )
         }
+    // Keep the navigator identity stable while session/settings flows emit their initial
+    // snapshots. Recreating it on every emission also recreates the shortcut effect and
+    // changes callback identities passed into the liquid tab bar during the warm-up window.
     val navigator =
-        AppNavigator(
-            currentRoot = { RootDestination.entries[selectedIndex].root },
-            updateRoot = { root -> selectedIndex = RootDestination.entries.indexOfFirst { it.root == root } },
-            stackFor = backStacks::getValue,
-        )
+        remember(backStacks) {
+            AppNavigator(
+                currentRoot = { RootDestination.entries[selectedIndex].root },
+                updateRoot = { root -> selectedIndex = RootDestination.entries.indexOfFirst { it.root == root } },
+                stackFor = backStacks::getValue,
+            )
+        }
     val activeBackStack = backStacks.getValue(selectedDestination.root)
     val showRootNavigation = (activeBackStack.lastOrNull() as? AppRoute)?.root != null
     var pendingAuthAction by remember { mutableStateOf<PendingAuthAction?>(null) }
     var showAccountCenter by rememberSaveable { mutableStateOf(false) }
+    val onRootSelected =
+        remember(navigator) {
+            { index: Int -> navigator.selectRoot(RootDestination.entries[index].root) }
+        }
 
     val executeProtectedAction: (PendingAuthAction) -> Unit = { action ->
         when (action) {
@@ -294,7 +303,14 @@ fun AnimeApp(
             },
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val labels = RootDestination.entries.map { stringResource(it.label) }
+            val discoverLabel = stringResource(Res.string.root_discover)
+            val libraryLabel = stringResource(Res.string.root_library)
+            val activityLabel = stringResource(Res.string.root_activity)
+            val profileLabel = stringResource(Res.string.root_profile)
+            val labels =
+                remember(discoverLabel, libraryLabel, activityLabel, profileLabel) {
+                    listOf(discoverLabel, libraryLabel, activityLabel, profileLabel)
+                }
             val useDesktopSidebar = maxWidth >= 700.dp
 
             AnimeBackdropHost(
@@ -305,9 +321,7 @@ fun AnimeApp(
                             DesktopSidebar(
                                 labels = labels,
                                 selectedIndex = selectedIndex,
-                                onSelected = { index ->
-                                    navigator.selectRoot(RootDestination.entries[index].root)
-                                },
+                                onSelected = onRootSelected,
                             )
                         }
                         AppNavigationLayer(
@@ -365,7 +379,7 @@ fun AnimeApp(
                         AnimeLiquidTabBar(
                             labels = labels,
                             selectedIndex = selectedIndex,
-                            onSelected = { index -> navigator.selectRoot(RootDestination.entries[index].root) },
+                            onSelected = onRootSelected,
                             modifier =
                                 Modifier
                                     .align(Alignment.BottomCenter)

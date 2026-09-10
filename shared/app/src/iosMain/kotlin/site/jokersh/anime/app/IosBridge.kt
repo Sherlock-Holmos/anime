@@ -45,10 +45,11 @@ public object IosBridge {
         val appContainer = createIosContainer(readSecret, writeSecret, removeSecret)
         return ComposeUIViewController(
             configure = {
-                // AndroidLiquidGlass relies on runtime shaders and backdrop readback.
-                // Keep UIKit/Metal rendering on one path on physical iOS devices to
-                // avoid presenting partially updated glass layers while scrolling.
-                parallelRendering = false
+                // Backdrop's runtime shaders can be expensive during the first frames.
+                // Keep composition/layout on the main thread while moving Metal drawing
+                // to Compose's dedicated render thread so scrolling and tab gestures stay
+                // responsive while the pipeline warms up.
+                parallelRendering = true
             },
         ) {
             val callback by pendingAuthCallback.collectAsState()

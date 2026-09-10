@@ -8,6 +8,13 @@ import com.kyant.backdrop.Backdrop
 
 internal val LocalAnimeBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
+/**
+ * iOS starts with the inexpensive tab-bar fallback while Backdrop's first shader pipeline is
+ * compiled off the interaction path. Other platforms keep the liquid path enabled immediately.
+ */
+internal val LocalAnimeLiquidGlassEnabled = staticCompositionLocalOf { true }
+internal val LocalAnimeLiquidGlassWarmup = staticCompositionLocalOf { false }
+
 @Composable
 internal expect fun PlatformAnimeBackdropHost(
     modifier: Modifier,

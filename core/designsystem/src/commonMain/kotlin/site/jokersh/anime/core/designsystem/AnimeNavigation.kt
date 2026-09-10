@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -19,12 +21,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidBottomTab
 import com.kyant.backdrop.catalog.components.LiquidBottomTabs
 
@@ -40,7 +45,8 @@ public fun AnimeLiquidTabBar(
 
     val safeSelectedIndex = selectedIndex.coerceIn(labels.indices)
     val backdrop = LocalAnimeBackdrop.current
-    if (backdrop == null) {
+    val liquidGlassEnabled = LocalAnimeLiquidGlassEnabled.current
+    if (backdrop == null || !liquidGlassEnabled) {
         StaticTabBarFallback(
             labels = labels,
             selectedIndex = safeSelectedIndex,
@@ -48,6 +54,9 @@ public fun AnimeLiquidTabBar(
             modifier = modifier,
             icon = icon,
         )
+        if (backdrop != null && LocalAnimeLiquidGlassWarmup.current) {
+            LiquidTabBarWarmup(backdrop = backdrop, tabsCount = labels.size)
+        }
         return
     }
 
@@ -76,6 +85,35 @@ public fun AnimeLiquidTabBar(
                     selected = selected,
                     icon = { tint -> icon(index, selected, tint) },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Draws the upstream component outside the viewport for one frame on iOS. This compiles the
+ * Backdrop shader/effect graph before the interactive tab bar is exposed to user gestures.
+ */
+@Composable
+private fun LiquidTabBarWarmup(
+    backdrop: Backdrop,
+    tabsCount: Int,
+) {
+    LiquidBottomTabs(
+        selectedTabIndex = { 0 },
+        onTabSelected = {},
+        backdrop = backdrop,
+        tabsCount = tabsCount,
+        modifier =
+            Modifier
+                .offset(x = (-1000).dp, y = (-1000).dp)
+                .size(width = 320.dp, height = 64.dp)
+                .alpha(0.01f)
+                .clearAndSetSemantics {},
+    ) {
+        repeat(tabsCount) {
+            LiquidBottomTab(onClick = {}) {
+                Spacer(Modifier.size(1.dp))
             }
         }
     }
