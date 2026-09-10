@@ -39,7 +39,6 @@ import org.jetbrains.compose.resources.stringResource
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
 import site.jokersh.anime.core.designsystem.AnimePosterArtwork
-import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeRatingBadge
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
@@ -74,7 +73,6 @@ public fun SubjectScreen(
     state: SubjectUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
-    onRate: () -> Unit,
     onCollect: () -> Unit,
     onEpisodesClick: () -> Unit,
     onCharactersClick: () -> Unit,
@@ -92,7 +90,6 @@ public fun SubjectScreen(
                     state,
                     state.content,
                     onBack,
-                    onRate,
                     onCollect,
                     onEpisodesClick,
                     onCharactersClick,
@@ -132,7 +129,6 @@ private fun SubjectContent(
     state: SubjectUiState,
     content: SubjectContentUi,
     onBack: () -> Unit,
-    onRate: () -> Unit,
     onCollect: () -> Unit,
     onEpisodesClick: () -> Unit,
     onCharactersClick: () -> Unit,
@@ -212,16 +208,8 @@ private fun SubjectContent(
                     }
                     TagRow(content.tags)
                     Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-                        AnimePrimaryButton(label = "记录评分", onClick = onRate)
                         AnimeSecondaryButton(
-                            label =
-                                if (state.collectionStatus ==
-                                    null
-                                ) {
-                                    "加入想看"
-                                } else {
-                                    "已加入想看"
-                                },
+                            label = state.collectionStatus.collectionLabel(),
                             onClick = onCollect,
                         )
                     }
@@ -242,7 +230,7 @@ private fun SubjectContent(
                     }
                 }
             }
-            RatingOverview(content, state.communityScore, state.communityVotes, compact)
+            RatingOverview(content, compact)
             Text(
                 content.dataStatusLabel,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -280,25 +268,24 @@ private fun SubjectContent(
     }
 }
 
+private fun String?.collectionLabel(): String =
+    when (this) {
+        null -> "加入想看"
+        "watching" -> "正在观看"
+        "completed" -> "已看完"
+        "onhold" -> "已搁置"
+        "dropped" -> "已停止观看"
+        else -> "已加入想看"
+    }
+
 @Composable
 private fun RatingOverview(
     content: SubjectContentUi,
-    communityScore: Double?,
-    communityVotes: Long,
     compact: Boolean,
 ) {
-    val first: @Composable (Modifier) -> Unit = { modifier ->
+    val rating: @Composable (Modifier) -> Unit = { modifier ->
         RatingSourceCard(
-            source = "Anime 社区",
-            score = communityScore?.let { ((it * 10).toInt() / 10.0).toString() } ?: "—",
-            detail = if (communityScore == null) "暂无评分" else "$communityVotes 人评分",
-            highlighted = true,
-            modifier = modifier,
-        )
-    }
-    val second: @Composable (Modifier) -> Unit = { modifier ->
-        RatingSourceCard(
-            source = "Bangumi · 外部参考",
+            source = "Bangumi 评分",
             score = content.score ?: "—",
             detail =
                 if (content.score ==
@@ -310,20 +297,14 @@ private fun RatingOverview(
                         3,
                     ).joinToString(" / ") { "${it.key}分 ${it.value}" }}"
                 },
-            highlighted = false,
+            highlighted = true,
             modifier = modifier,
         )
     }
     if (compact) {
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-            first(Modifier.fillMaxWidth())
-            second(Modifier.fillMaxWidth())
-        }
+        rating(Modifier.fillMaxWidth())
     } else {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
-            first(Modifier.weight(1f))
-            second(Modifier.weight(1f))
-        }
+        rating(Modifier.fillMaxWidth())
     }
 }
 
@@ -402,6 +383,14 @@ private fun CommunityPreview(
                     val review = state.reviews.firstOrNull()
                     val comment = state.comments.firstOrNull()
                     when {
+                        state.communityError != null -> {
+                            Text("社区内容暂时不可用", color = MaterialTheme.colorScheme.error)
+                            Text(
+                                "稍后可重试，作品资料和 Bangumi 评分仍可正常查看。",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
                         state.communityLoading -> {
                             Text("正在加载社区内容…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -528,7 +517,7 @@ private fun BackButton(onBack: () -> Unit) {
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
         modifier =
             Modifier
-                .size(44.dp)
+                .size(48.dp)
                 .semantics {
                     role = Role.Button
                     contentDescription = label

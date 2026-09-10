@@ -7,19 +7,20 @@ import androidx.compose.ui.graphics.Shape
 import com.kyant.backdrop.Backdrop
 
 internal val LocalAnimeBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+internal val LocalAnimeGlassEnabled = staticCompositionLocalOf { true }
 
-/**
- * iOS starts with the inexpensive tab-bar fallback while Backdrop's first shader pipeline is
- * compiled off the interaction path. Other platforms keep the liquid path enabled immediately.
- */
+/** iOS exposes liquid components only after the Backdrop pipeline has been warmed up. */
 internal val LocalAnimeLiquidGlassEnabled = staticCompositionLocalOf { true }
 internal val LocalAnimeLiquidGlassWarmup = staticCompositionLocalOf { false }
+internal val LocalAnimeReduceMotion = staticCompositionLocalOf { false }
 
 @Composable
 internal expect fun PlatformAnimeBackdropHost(
     modifier: Modifier,
     background: @Composable () -> Unit,
     content: @Composable () -> Unit,
+    glassEnabled: Boolean,
+    reduceMotion: Boolean,
 )
 
 @Composable

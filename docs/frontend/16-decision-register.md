@@ -31,6 +31,7 @@
 | FED-023 | Anime 评分与 Bangumi 评分并存但严格隔离 | 同时保留本站社区价值与外部资料参考 | UI 必须显示来源；模型、接口与聚合均不可复用同一字段 |
 | FED-024 | 社区能力采用模块化单体领域边界 | 当前规模不需要微服务，但需要防止评论、关系和 Feed 相互污染 | Rating、Review、CuratedList、Social、Activity/Feed 分模型和仓储演进 |
 | FED-025 | Remote 模式的 Bangumi 元数据与图片统一经 Anime 后端镜像和缓存 | 客户端网络可能无法访问 Bangumi；直链会造成海报失败、延迟与多端行为不一致 | 客户端禁止直连 Bangumi API/CDN；公开 Subject ID 统一为 Bangumi ID；Fixture 只允许 Demo/测试使用 |
+| FED-026 | 首发阶段不实现 Anime 自有个人评分或社区聚合评分，详情页只读展示 Bangumi 评分 | 先验证资料浏览、收藏和社区阅读闭环，避免评分规则、聚合口径和 UI 入口在产品尚未确定时污染首发体验 | 暂不展示“记录评分”或 Anime 评分卡；`RatingEditor` 保留为后续独立阶段能力，启用前必须新增评分契约与验收矩阵 |
 
 ## 2. 性能降级判定
 

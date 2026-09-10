@@ -152,6 +152,7 @@ public data class SearchRouteRequest(
     val yearStart: Int? = null,
     val yearEnd: Int? = null,
     val airing: Set<SearchRouteAiringStatus> = emptySet(),
+    val sort: SearchRouteSort = SearchRouteSort.Relevance,
 ) {
     init {
         require(query.isNotBlank()) { "query must not be blank" }
@@ -168,6 +169,9 @@ public enum class SearchRouteSubjectType { Tv, Web, Ova, Movie, Other }
 
 @Serializable
 public enum class SearchRouteAiringStatus { Announced, Airing, Finished, Unknown }
+
+@Serializable
+public enum class SearchRouteSort { Relevance, Rating, Updated }
 
 @Serializable
 public enum class CommentRouteSort { Newest, Oldest }

@@ -21,6 +21,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -94,19 +95,8 @@ public fun AnimePrimaryButton(
     loading: Boolean = false,
 ) {
     val interactive = enabled && !loading
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val canvasBackdrop = rememberCanvasBackdrop { drawRect(backgroundColor) }
-    val backdrop = LocalAnimeBackdrop.current ?: canvasBackdrop
-    LiquidButton(
-        onClick = if (interactive) onClick else ({}),
-        backdrop = backdrop,
-        modifier =
-            modifier.semantics {
-                if (!interactive) disabled()
-            },
-        isInteractive = interactive,
-        tint = MaterialTheme.colorScheme.primary,
-    ) {
+    val buttonModifier = modifier.heightIn(min = 48.dp).semantics { if (!interactive) disabled() }
+    val content: @Composable () -> Unit = {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = label,
@@ -125,6 +115,28 @@ public fun AnimePrimaryButton(
             }
         }
     }
+    if (LocalAnimeLiquidGlassEnabled.current && !LocalAnimeReduceMotion.current) {
+        val backgroundColor = MaterialTheme.colorScheme.background
+        val canvasBackdrop = rememberCanvasBackdrop { drawRect(backgroundColor) }
+        val backdrop = LocalAnimeBackdrop.current ?: canvasBackdrop
+        LiquidButton(
+            onClick = if (interactive) onClick else ({}),
+            backdrop = backdrop,
+            modifier = buttonModifier,
+            isInteractive = interactive,
+            tint = MaterialTheme.colorScheme.primary,
+            content = { content() },
+        )
+    } else {
+        Surface(
+            onClick = if (interactive) onClick else ({}),
+            enabled = interactive,
+            modifier = buttonModifier,
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ) { content() }
+    }
 }
 
 @Composable
@@ -133,6 +145,14 @@ public fun AnimeLiquidToggle(
     onSelectedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (!LocalAnimeLiquidGlassEnabled.current || LocalAnimeReduceMotion.current) {
+        Switch(
+            checked = selected,
+            onCheckedChange = onSelectedChange,
+            modifier = modifier,
+        )
+        return
+    }
     val backgroundColor = MaterialTheme.colorScheme.background
     val canvasBackdrop = rememberCanvasBackdrop { drawRect(backgroundColor) }
     val backdrop = LocalAnimeBackdrop.current ?: canvasBackdrop
@@ -152,24 +172,35 @@ public fun AnimeSecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val canvasBackdrop = rememberCanvasBackdrop { drawRect(backgroundColor) }
-    val backdrop = LocalAnimeBackdrop.current ?: canvasBackdrop
-    LiquidButton(
-        onClick = if (enabled) onClick else ({}),
-        backdrop = backdrop,
-        modifier =
-            modifier.semantics {
-                if (!enabled) disabled()
-            },
-        isInteractive = enabled,
-        surfaceColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
-    ) {
+    val buttonModifier = modifier.heightIn(min = 48.dp).semantics { if (!enabled) disabled() }
+    val content: @Composable () -> Unit = {
         Text(
             text = label,
             maxLines = 2,
             color = MaterialTheme.colorScheme.primary,
         )
+    }
+    if (LocalAnimeLiquidGlassEnabled.current && !LocalAnimeReduceMotion.current) {
+        val backgroundColor = MaterialTheme.colorScheme.background
+        val canvasBackdrop = rememberCanvasBackdrop { drawRect(backgroundColor) }
+        val backdrop = LocalAnimeBackdrop.current ?: canvasBackdrop
+        LiquidButton(
+            onClick = if (enabled) onClick else ({}),
+            backdrop = backdrop,
+            modifier = buttonModifier,
+            isInteractive = enabled,
+            surfaceColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
+            content = { content() },
+        )
+    } else {
+        Surface(
+            onClick = if (enabled) onClick else ({}),
+            enabled = enabled,
+            modifier = buttonModifier,
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.primary,
+        ) { content() }
     }
 }
 
@@ -375,7 +406,7 @@ public fun AnimePosterArtwork(
 ) {
     val remoteModel = (poster as? ImageRef.Remote)?.url
     Box(
-        modifier = modifier.background(posterPlaceholderColor(id)),
+        modifier = modifier.background(posterPlaceholderColor()),
         contentAlignment = Alignment.Center,
     ) {
         if (remoteModel != null) {
@@ -395,13 +426,4 @@ public fun AnimePosterArtwork(
     }
 }
 
-private fun posterPlaceholderColor(id: SubjectId): Color {
-    val colors =
-        listOf(
-            Color(0xFF1E3A5F),
-            Color(0xFF1F4A48),
-            Color(0xFF4A2942),
-            Color(0xFF5A4025),
-        )
-    return colors[(id.value % colors.size).toInt()]
-}
+private fun posterPlaceholderColor(): Color = Color(0xFF293241)

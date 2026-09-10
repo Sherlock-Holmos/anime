@@ -56,6 +56,18 @@ class AppNavigatorTest {
     }
 
     @Test
+    fun selectingActiveRootReturnsToItsRoot() {
+        var selectedRoot = AppRoot.Discover
+        val stack = mutableListOf<NavKey>(AppRoute.Discover, AppRoute.Subject(1001))
+        val navigator = AppNavigator({ selectedRoot }, { selectedRoot = it }, { stack })
+
+        navigator.selectRoot(AppRoot.Discover)
+
+        assertEquals(listOf<NavKey>(AppRoute.Discover), stack)
+        assertEquals(AppRoot.Discover, selectedRoot)
+    }
+
+    @Test
     fun routesRoundTripThroughTheSavedStateSerializerModule() {
         val json =
             Json {

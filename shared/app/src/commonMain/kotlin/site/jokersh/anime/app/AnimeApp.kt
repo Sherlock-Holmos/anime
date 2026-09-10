@@ -1,8 +1,14 @@
 package site.jokersh.anime.app
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,7 +29,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -54,6 +59,7 @@ import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -65,7 +71,9 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
@@ -96,7 +104,9 @@ import site.jokersh.anime.app.generated.resources.root_library
 import site.jokersh.anime.app.generated.resources.root_profile
 import site.jokersh.anime.app.generated.resources.shell_environment
 import site.jokersh.anime.core.designsystem.AnimeBackdropHost
+import site.jokersh.anime.core.designsystem.AnimeGlassPanel
 import site.jokersh.anime.core.designsystem.AnimeLiquidTabBar
+import site.jokersh.anime.core.designsystem.AnimeMotion
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
@@ -105,7 +115,10 @@ import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.AnimeLoginCredentials
 import site.jokersh.anime.core.model.AnimeRegistration
 import site.jokersh.anime.core.model.CollectionStatus
+import site.jokersh.anime.core.model.GlassPreference
 import site.jokersh.anime.core.model.LoginRequest
+import site.jokersh.anime.core.model.ReduceMotionPreference
+import site.jokersh.anime.core.model.SearchSort
 import site.jokersh.anime.core.model.SessionState
 import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.core.model.ThemePreference
@@ -118,6 +131,7 @@ import site.jokersh.anime.core.navigation.CommentRouteSort
 import site.jokersh.anime.core.navigation.PendingAuthAction
 import site.jokersh.anime.core.navigation.RouteOrigin
 import site.jokersh.anime.core.navigation.SearchRouteAiringStatus
+import site.jokersh.anime.core.navigation.SearchRouteSort
 import site.jokersh.anime.core.navigation.SearchRouteSubjectType
 import site.jokersh.anime.core.navigation.root
 import site.jokersh.anime.feature.activity.ActivityScreen
@@ -130,6 +144,7 @@ import site.jokersh.anime.feature.discover.DiscoverRoute
 import site.jokersh.anime.feature.discover.DiscoverSectionRoute
 import site.jokersh.anime.feature.profile.AnimeAccountCenter
 import site.jokersh.anime.feature.profile.ProfileScreen
+import site.jokersh.anime.feature.search.SearchEffect
 import site.jokersh.anime.feature.search.SearchRoute
 import site.jokersh.anime.feature.subject.CharactersRoute
 import site.jokersh.anime.feature.subject.EpisodesRoute
@@ -231,6 +246,7 @@ fun AnimeApp(
     val showRootNavigation = (activeBackStack.lastOrNull() as? AppRoute)?.root != null
     var pendingAuthAction by remember { mutableStateOf<PendingAuthAction?>(null) }
     var showAccountCenter by rememberSaveable { mutableStateOf(false) }
+    var transientMessage by rememberSaveable { mutableStateOf<String?>(null) }
     val onRootSelected =
         remember(navigator) {
             { index: Int -> navigator.selectRoot(RootDestination.entries[index].root) }
@@ -285,6 +301,12 @@ fun AnimeApp(
             executeProtectedAction(action)
         }
     }
+    LaunchedEffect(transientMessage) {
+        if (transientMessage != null) {
+            delay(3_500)
+            transientMessage = null
+        }
+    }
 
     DisposableEffect(shortcutDispatcher, navigator) {
         shortcutDispatcher?.connect { event -> handleAppShortcut(event, navigator) }
@@ -294,6 +316,7 @@ fun AnimeApp(
     }
 
     val systemDark = isSystemInDarkTheme()
+    val reduceMotionEnabled = settings.reduceMotion == ReduceMotionPreference.On
     AnimeTheme(
         darkTheme =
             when (settings.theme) {
@@ -315,6 +338,8 @@ fun AnimeApp(
 
             AnimeBackdropHost(
                 modifier = Modifier.fillMaxSize(),
+                glassEnabled = settings.glass != GlassPreference.Off,
+                reduceMotion = reduceMotionEnabled,
                 background = {
                     Row(Modifier.fillMaxSize()) {
                         if (useDesktopSidebar) {
@@ -358,6 +383,8 @@ fun AnimeApp(
                                 sessionScope.launch { appContainer.sessionRepository.logout() }
                             },
                             onProtectedAction = requestProtectedAction,
+                            onMessage = { transientMessage = it },
+                            reduceMotion = reduceMotionEnabled,
                             settings = settings,
                             onThemeChange = { sessionScope.launch { appContainer.settingsRepository.setTheme(it) } },
                             onGlassChange = { sessionScope.launch { appContainer.settingsRepository.setGlass(it) } },
@@ -385,7 +412,6 @@ fun AnimeApp(
                                     .align(Alignment.BottomCenter)
                                     .navigationBarsPadding()
                                     .padding(horizontal = 12.dp, vertical = 6.dp)
-                                    .widthIn(max = 560.dp)
                                     .fillMaxWidth(),
                         ) { index, _, tint ->
                             Icon(
@@ -434,6 +460,20 @@ fun AnimeApp(
                                 navigator.push(AppRoute.Collection())
                             },
                         )
+                    }
+                    transientMessage?.let { message ->
+                        AnimeGlassPanel(
+                            role = site.jokersh.anime.core.designsystem.GlassRole.FloatingPanel,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .navigationBarsPadding()
+                                    .padding(bottom = if (useDesktopSidebar) 24.dp else 88.dp)
+                                    .clickable { transientMessage = null },
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        ) {
+                            Text(message, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             }
@@ -586,6 +626,8 @@ private fun AppNavigationLayer(
     onBangumiLogin: () -> Unit,
     onLogout: () -> Unit,
     onProtectedAction: (PendingAuthAction) -> Unit,
+    onMessage: (String) -> Unit,
+    reduceMotion: Boolean,
     settings: site.jokersh.anime.core.model.AppSettings,
     onThemeChange: (site.jokersh.anime.core.model.ThemePreference) -> Unit,
     onGlassChange: (site.jokersh.anime.core.model.GlassPreference) -> Unit,
@@ -593,6 +635,73 @@ private fun AppNavigationLayer(
     modifier: Modifier = Modifier,
 ) {
     val navigationScope = rememberCoroutineScope()
+    // Navigation 3 defaults to a 700 ms cross-fade. Keep page motion directional and
+    // bounded so iOS push/pop semantics remain readable without competing with Backdrop.
+    val navigationOffsetPx = with(LocalDensity.current) { AnimeMotion.pageOffset.roundToPx() }
+    val pageTransitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform =
+        remember(reduceMotion, navigationOffsetPx) {
+            if (reduceMotion) {
+                { EnterTransition.None togetherWith ExitTransition.None }
+            } else {
+                {
+                    (
+                        slideInHorizontally(
+                            initialOffsetX = { navigationOffsetPx },
+                            animationSpec = tween(durationMillis = AnimeMotion.standard),
+                        ) + fadeIn(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                    ) togetherWith
+                        (
+                            slideOutHorizontally(
+                                targetOffsetX = { -navigationOffsetPx / 2 },
+                                animationSpec = tween(durationMillis = AnimeMotion.standard),
+                            ) + fadeOut(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                        )
+                }
+            }
+        }
+    val pagePopTransitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform =
+        remember(reduceMotion, navigationOffsetPx) {
+            if (reduceMotion) {
+                { EnterTransition.None togetherWith ExitTransition.None }
+            } else {
+                {
+                    (
+                        slideInHorizontally(
+                            initialOffsetX = { -navigationOffsetPx },
+                            animationSpec = tween(durationMillis = AnimeMotion.standard),
+                        ) + fadeIn(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                    ) togetherWith
+                        (
+                            slideOutHorizontally(
+                                targetOffsetX = { navigationOffsetPx / 2 },
+                                animationSpec = tween(durationMillis = AnimeMotion.standard),
+                            ) + fadeOut(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                        )
+                }
+            }
+        }
+    val predictivePopTransitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.(Int) -> ContentTransform =
+        remember(reduceMotion, navigationOffsetPx) {
+            if (reduceMotion) {
+                { EnterTransition.None togetherWith ExitTransition.None }
+            } else {
+                {
+                    (
+                        slideInHorizontally(
+                            initialOffsetX = { -navigationOffsetPx },
+                            animationSpec = tween(durationMillis = AnimeMotion.standard),
+                        ) + fadeIn(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                    ) togetherWith
+                        (
+                            slideOutHorizontally(
+                                targetOffsetX = { navigationOffsetPx },
+                                animationSpec = tween(durationMillis = AnimeMotion.standard),
+                            ) + fadeOut(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                        )
+                }
+            }
+        }
+    val rootTabMetadata = remember(reduceMotion) { rootTabTransitionMetadata(reduceMotion) }
     Box(
         modifier =
             modifier
@@ -608,6 +717,9 @@ private fun AppNavigationLayer(
                         rememberSaveableStateHolderNavEntryDecorator(),
                         rememberViewModelStoreNavEntryDecorator(),
                     ),
+                transitionSpec = pageTransitionSpec,
+                popTransitionSpec = pagePopTransitionSpec,
+                predictivePopTransitionSpec = predictivePopTransitionSpec,
                 onBack = { navigator.pop() },
                 entryProvider =
                     entryProvider(
@@ -620,7 +732,7 @@ private fun AppNavigationLayer(
                             }
                         },
                     ) {
-                        entry<AppRoute.Discover>(metadata = rootTabTransitionMetadata()) {
+                        entry<AppRoute.Discover>(metadata = rootTabMetadata) {
                             DiscoverRoute(
                                 repository = appContainer.catalogRepository,
                                 onSubjectClick = { subjectId ->
@@ -632,7 +744,15 @@ private fun AppNavigationLayer(
                                     )
                                 },
                                 onSeeAll = { sectionId -> navigator.push(AppRoute.DiscoverSection(sectionId)) },
-                                onMessage = {},
+                                onMessage = { message ->
+                                    onMessage(
+                                        when (message) {
+                                            site.jokersh.anime.feature.discover.DiscoverMessageUi.RefreshFailed -> {
+                                                "刷新失败，已保留上次内容"
+                                            }
+                                        },
+                                    )
+                                },
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
@@ -645,13 +765,13 @@ private fun AppNavigationLayer(
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
-                        entry<AppRoute.Library>(metadata = rootTabTransitionMetadata()) {
+                        entry<AppRoute.Library>(metadata = rootTabMetadata) {
                             SearchRoute(
                                 repository = appContainer.searchRepository,
                                 initialQuery = it.query,
                                 pageSize = appContainer.profile.searchPageSize,
-                                onResultsRequested = { query ->
-                                    navigator.push(AppRoute.SearchResults(query.toSearchRouteRequest()))
+                                onResultsRequested = { effect ->
+                                    navigator.push(AppRoute.SearchResults(effect.toSearchRouteRequest()))
                                 },
                                 onSubjectClick = { subjectId ->
                                     navigator.push(
@@ -674,9 +794,10 @@ private fun AppNavigationLayer(
                                         start..(route.request.yearEnd ?: start)
                                     },
                                 initialAiring = route.request.airing.mapTo(mutableSetOf()) { it.toAiringStatus() },
+                                initialSort = route.request.sort.toSearchSort(),
                                 pageSize = appContainer.profile.searchPageSize,
-                                onResultsRequested = { query ->
-                                    navigator.push(AppRoute.SearchResults(query.toSearchRouteRequest()))
+                                onResultsRequested = { effect ->
+                                    navigator.replaceTop(AppRoute.SearchResults(effect.toSearchRouteRequest()))
                                 },
                                 onSubjectClick = { subjectId ->
                                     navigator.push(
@@ -689,7 +810,7 @@ private fun AppNavigationLayer(
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
-                        entry<AppRoute.Activity>(metadata = rootTabTransitionMetadata()) {
+                        entry<AppRoute.Activity>(metadata = rootTabMetadata) {
                             ActivityScreen(
                                 repository = appContainer.communityRepository,
                                 onSubjectClick = { subjectId ->
@@ -717,7 +838,7 @@ private fun AppNavigationLayer(
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
-                        entry<AppRoute.Profile>(metadata = rootTabTransitionMetadata()) {
+                        entry<AppRoute.Profile>(metadata = rootTabMetadata) {
                             ProfileScreen(
                                 environmentLabel = appContainer.profile.environment.name,
                                 sessionState = sessionState,
@@ -742,7 +863,6 @@ private fun AppNavigationLayer(
                                 sessionRepository = appContainer.sessionRepository,
                                 onBack = { navigator.pop() },
                                 onCollect = { onProtectedAction(PendingAuthAction.SetCollection(it)) },
-                                onRate = { onProtectedAction(PendingAuthAction.OpenRating(it)) },
                                 onEpisodesClick = { navigator.push(AppRoute.Episodes(it)) },
                                 onCharactersClick = { navigator.push(AppRoute.Characters(it)) },
                                 onRelationsClick = { navigator.push(AppRoute.Relations(it)) },
@@ -844,10 +964,14 @@ private fun AppNavigationLayer(
     }
 }
 
-private fun rootTabTransitionMetadata(): Map<String, Any> =
+private fun rootTabTransitionMetadata(reduceMotion: Boolean): Map<String, Any> =
     NavDisplay.transitionSpec {
-        fadeIn(animationSpec = tween(durationMillis = 160)) togetherWith
-            fadeOut(animationSpec = tween(durationMillis = 110))
+        if (reduceMotion) {
+            EnterTransition.None togetherWith ExitTransition.None
+        } else {
+            fadeIn(animationSpec = tween(durationMillis = AnimeMotion.fast)) togetherWith
+                fadeOut(animationSpec = tween(durationMillis = AnimeMotion.fast))
+        }
     }
 
 private fun handleAppShortcut(
@@ -882,9 +1006,47 @@ internal fun shortcutRoot(
     }
 }
 
-private fun String.toSearchRouteRequest(): site.jokersh.anime.core.navigation.SearchRouteRequest =
-    site.jokersh.anime.core.navigation
-        .SearchRouteRequest(query = trim())
+private fun SearchEffect.NavigateToResults.toSearchRouteRequest():
+    site.jokersh.anime.core.navigation.SearchRouteRequest =
+    site.jokersh.anime.core.navigation.SearchRouteRequest(
+        query = query.trim(),
+        types = types.mapTo(mutableSetOf()) { it.toSearchRouteType() },
+        yearStart = years?.first,
+        yearEnd = years?.last,
+        airing = airing.mapTo(mutableSetOf()) { it.toSearchRouteAiring() },
+        sort = sort.toSearchRouteSort(),
+    )
+
+private fun SubjectType.toSearchRouteType(): SearchRouteSubjectType =
+    when (this) {
+        SubjectType.Tv -> SearchRouteSubjectType.Tv
+        SubjectType.Web -> SearchRouteSubjectType.Web
+        SubjectType.Ova -> SearchRouteSubjectType.Ova
+        SubjectType.Movie -> SearchRouteSubjectType.Movie
+        SubjectType.Other -> SearchRouteSubjectType.Other
+    }
+
+private fun AiringStatus.toSearchRouteAiring(): SearchRouteAiringStatus =
+    when (this) {
+        AiringStatus.Announced -> SearchRouteAiringStatus.Announced
+        AiringStatus.Airing -> SearchRouteAiringStatus.Airing
+        AiringStatus.Finished -> SearchRouteAiringStatus.Finished
+        AiringStatus.Unknown -> SearchRouteAiringStatus.Unknown
+    }
+
+private fun SearchSort.toSearchRouteSort(): SearchRouteSort =
+    when (this) {
+        SearchSort.Relevance -> SearchRouteSort.Relevance
+        SearchSort.Rating -> SearchRouteSort.Rating
+        SearchSort.Updated -> SearchRouteSort.Updated
+    }
+
+private fun SearchRouteSort.toSearchSort(): SearchSort =
+    when (this) {
+        SearchRouteSort.Relevance -> SearchSort.Relevance
+        SearchRouteSort.Rating -> SearchSort.Rating
+        SearchRouteSort.Updated -> SearchSort.Updated
+    }
 
 private fun SearchRouteSubjectType.toSubjectType(): SubjectType =
     when (this) {

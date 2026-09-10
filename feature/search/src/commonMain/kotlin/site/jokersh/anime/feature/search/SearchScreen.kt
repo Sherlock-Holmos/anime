@@ -75,7 +75,13 @@ public fun SearchScreen(
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxSize().statusBarsPadding().testTag("search.list"),
-            contentPadding = PaddingValues(horizontal = AnimeSpacing.lg, vertical = AnimeSpacing.lg),
+            contentPadding =
+                PaddingValues(
+                    start = AnimeSpacing.lg,
+                    top = AnimeSpacing.lg,
+                    end = AnimeSpacing.lg,
+                    bottom = 132.dp,
+                ),
             verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
             horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
         ) {

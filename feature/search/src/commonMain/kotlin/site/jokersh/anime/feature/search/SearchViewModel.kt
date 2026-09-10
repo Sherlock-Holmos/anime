@@ -29,6 +29,7 @@ public class SearchViewModel(
     initialTypes: Set<SubjectType> = emptySet(),
     initialYears: IntRange? = null,
     initialAiring: Set<AiringStatus> = emptySet(),
+    initialSort: SearchSort = SearchSort.Relevance,
     private val pageSize: Int = 12,
 ) : ViewModel() {
     private val mutableState =
@@ -38,6 +39,7 @@ public class SearchViewModel(
                 types = initialTypes,
                 years = initialYears,
                 airing = initialAiring,
+                sort = initialSort,
             ),
         )
     private val mutableEffects = Channel<SearchEffect>(capacity = Channel.BUFFERED)
@@ -56,7 +58,7 @@ public class SearchViewModel(
                 }
             }
         }
-        initialQuery?.trim()?.takeIf { it.isNotBlank() }?.let(::submit)
+        initialQuery?.trim()?.takeIf { it.isNotBlank() }?.let { submit(it, navigate = false) }
     }
 
     private fun loadDiscovery() {
@@ -170,7 +172,10 @@ public class SearchViewModel(
             }
     }
 
-    private fun submit(rawQuery: String) {
+    private fun submit(
+        rawQuery: String,
+        navigate: Boolean = true,
+    ) {
         val normalized = rawQuery.trim()
         if (normalized.isBlank()) {
             clearQuery()
@@ -191,9 +196,21 @@ public class SearchViewModel(
         }
         viewModelScope.launch {
             repository.saveHistory(normalized)
-            mutableEffects.send(SearchEffect.NavigateToResults(normalized))
+            if (navigate) {
+                val current = mutableState.value
+                mutableEffects.send(
+                    SearchEffect.NavigateToResults(
+                        query = normalized,
+                        types = current.types,
+                        years = current.years,
+                        airing = current.airing,
+                        sort = current.sort,
+                    ),
+                )
+            } else {
+                searchJob = launch { executeSearch(query = normalized, cursor = null) }
+            }
         }
-        searchJob = viewModelScope.launch { executeSearch(query = normalized, cursor = null) }
     }
 
     private fun loadNextPage() {
@@ -279,11 +296,17 @@ public class SearchViewModel(
 
     private fun updateFilters(transform: (SearchUiState) -> SearchUiState) {
         mutableState.update(transform)
+        val current = mutableState.value
         val query =
-            mutableState.value.resultQuery ?: mutableState.value.query
+            current.resultQuery ?: current.query
                 .trim()
                 .takeIf(String::isNotEmpty)
-        if (query != null) submit(query)
+        if (query != null) {
+            submit(
+                query,
+                navigate = current.mode in setOf(SearchMode.Idle, SearchMode.Suggesting),
+            )
+        }
     }
 }
 
