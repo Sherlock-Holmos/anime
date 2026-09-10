@@ -3,6 +3,7 @@ package site.jokersh.anime.app
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeUIViewController
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
@@ -34,6 +35,7 @@ import kotlin.time.Instant
 public object IosBridge {
     private val pendingAuthCallback = MutableStateFlow<AuthCallback?>(null)
 
+    @OptIn(ExperimentalComposeUiApi::class)
     public fun mainViewController(
         openExternalUrl: (String) -> Unit,
         readSecret: (String) -> String?,
@@ -41,7 +43,14 @@ public object IosBridge {
         removeSecret: (String) -> Unit,
     ): UIViewController {
         val appContainer = createIosContainer(readSecret, writeSecret, removeSecret)
-        return ComposeUIViewController {
+        return ComposeUIViewController(
+            configure = {
+                // AndroidLiquidGlass relies on runtime shaders and backdrop readback.
+                // Keep UIKit/Metal rendering on one path on physical iOS devices to
+                // avoid presenting partially updated glass layers while scrolling.
+                parallelRendering = false
+            },
+        ) {
             val callback by pendingAuthCallback.collectAsState()
             AnimeApp(
                 appContainer = appContainer,

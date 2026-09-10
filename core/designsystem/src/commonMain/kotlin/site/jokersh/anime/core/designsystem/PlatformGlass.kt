@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.Shape
 import com.kyant.backdrop.Backdrop
 
 internal val LocalAnimeBackdrop = staticCompositionLocalOf<Backdrop?> { null }
-internal val LocalLiquidComponentsEnabled = staticCompositionLocalOf { true }
 
 @Composable
 internal expect fun PlatformAnimeBackdropHost(

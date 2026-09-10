@@ -1,10 +1,12 @@
 package site.jokersh.anime.core.designsystem
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import com.kyant.backdrop.backdrops.rememberCanvasBackdrop
 
 @Composable
 internal actual fun PlatformAnimeBackdropHost(
@@ -12,14 +14,16 @@ internal actual fun PlatformAnimeBackdropHost(
     background: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val glassColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
+    // Keep AndroidLiquidGlass's official components while avoiding full scrolling-layer replay.
+    val backdrop =
+        rememberCanvasBackdrop {
+            drawRect(glassColor)
+        }
     Box(modifier) {
         background()
-        // AndroidLiquidGlass still flickers on physical iOS devices even with a static backdrop:
-        // its RuntimeShader/GraphicsLayer path is the remaining trigger. Keep iOS on the stable
-        // translucent material path until the upstream renderer issue is fixed.
         CompositionLocalProvider(
-            LocalAnimeBackdrop provides null,
-            LocalLiquidComponentsEnabled provides false,
+            LocalAnimeBackdrop provides backdrop,
         ) {
             content()
         }
@@ -27,8 +31,7 @@ internal actual fun PlatformAnimeBackdropHost(
 }
 
 @Composable
-internal actual fun platformGlassCapabilities(): GlassCapabilities =
-    GlassCapabilities(maximumTier = GlassTier.Translucent)
+internal actual fun platformGlassCapabilities(): GlassCapabilities = GlassCapabilities(maximumTier = GlassTier.Liquid)
 
 @Composable
 internal actual fun Modifier.platformGlassEffect(
