@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
@@ -39,11 +40,19 @@ public fun CommentsScreen(
     var spoiler by remember(draft) { mutableStateOf(draft?.spoiler ?: false) }
     var parentId by remember(draft) { mutableStateOf(draft?.parentId) }
     var message by remember { mutableStateOf<String?>(null) }
+    var hasMore by remember(id, sort) { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(id, sort) { repository.loadNext(id, sort) }
+    LaunchedEffect(id, sort) {
+        repository.loadNext(id, sort).onSuccess { page -> hasMore = page.hasMore }
+    }
     LaunchedEffect(text, spoiler, parentId) {
-        if (text.isNotEmpty() || parentId != null) repository.saveDraft(id, parentId, text, spoiler)
+        delay(DRAFT_SAVE_DELAY_MILLIS)
+        if (text.isNotBlank() || parentId != null) {
+            repository.saveDraft(id, parentId, text, spoiler)
+        } else {
+            repository.deleteDraft(id)
+        }
     }
 
     LazyColumn(
@@ -149,6 +158,24 @@ public fun CommentsScreen(
                     contentAlignment = Alignment.Center,
                 ) { CircularProgressIndicator() }
             }
+        } else if (state.value.isNullOrEmpty() && state.error != null) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("暂时无法加载讨论", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AnimeSecondaryButton(
+                        label = "重试",
+                        onClick = {
+                            scope.launch {
+                                repository.loadNext(id, sort).onSuccess { page -> hasMore = page.hasMore }
+                            }
+                        },
+                    )
+                }
+            }
         } else if (state.value.isNullOrEmpty()) {
             item {
                 Text(
@@ -163,14 +190,22 @@ public fun CommentsScreen(
                     scope.launch { repository.delete(comment.id) }
                 })
             }
-            item {
-                AnimeSecondaryButton(if (state.refreshing) "加载中" else "加载更多", {
-                    if (!state.refreshing) scope.launch { repository.loadNext(id, sort) }
-                })
+            if (hasMore) {
+                item {
+                    AnimeSecondaryButton(if (state.refreshing) "加载中" else "加载更多", {
+                        if (!state.refreshing) {
+                            scope.launch {
+                                repository.loadNext(id, sort).onSuccess { page -> hasMore = page.hasMore }
+                            }
+                        }
+                    })
+                }
             }
         }
     }
 }
+
+private const val DRAFT_SAVE_DELAY_MILLIS: Long = 350
 
 @Composable
 private fun SortButton(
