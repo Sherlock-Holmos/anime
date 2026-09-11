@@ -47,13 +47,10 @@ public object IosBridge {
         onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit,
     ): UIViewController {
         val appContainer = createIosContainer(readSecret, writeSecret, removeSecret)
-        return ComposeUIViewController(
-            configure = {
-                // Keep Compose page composition responsive while the native SwiftUI
-                // Liquid Glass shell handles root navigation independently.
-                parallelRendering = true
-            },
-        ) {
+        // Compose Multiplatform 1.11 enables concurrent rendering by default. Avoid an
+        // app-specific rendering override here; navigation stability is handled by the
+        // Compose navigation layer and the native SwiftUI shell remains independent.
+        return ComposeUIViewController {
             val callback by pendingAuthCallback.collectAsState()
             AnimeApp(
                 appContainer = appContainer,

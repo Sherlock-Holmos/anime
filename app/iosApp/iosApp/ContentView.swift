@@ -115,7 +115,6 @@ private struct NativeLiquidGlassTabBar: View {
         glass: Bool,
     ) -> some View {
         let button = Button {
-            selectedIndex = index
             onSelect(index)
         } label: {
             Label(tab.title, systemImage: tab.systemImage)

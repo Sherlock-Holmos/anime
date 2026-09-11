@@ -5,8 +5,6 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -49,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -248,14 +247,32 @@ fun AnimeApp(
                 stackFor = backStacks::getValue,
             )
         }
+    var suppressNextNavigationTransition by remember { mutableStateOf(false) }
+
+    fun selectRoot(root: AppRoot) {
+        if (navigator.selectRoot(root)) {
+            // Root-tab changes and returning to the active tab's root must not be
+            // interpreted as child-page navigation by NavDisplay.
+            suppressNextNavigationTransition = true
+        }
+    }
+
     DisposableEffect(navigator) {
         bindRootSelectionHandler?.invoke { index ->
             RootDestination.entries.getOrNull(index)?.let { destination ->
-                navigator.selectRoot(destination.root)
+                selectRoot(destination.root)
             }
         }
         onDispose {
             bindRootSelectionHandler?.invoke {}
+        }
+    }
+    LaunchedEffect(suppressNextNavigationTransition) {
+        if (suppressNextNavigationTransition) {
+            // Keep the flag through the recomposition that applies the new back stack,
+            // then restore child-page animations on the next frame.
+            withFrameNanos { }
+            suppressNextNavigationTransition = false
         }
     }
     LaunchedEffect(selectedIndex) {
@@ -270,9 +287,7 @@ fun AnimeApp(
     var showAccountCenter by rememberSaveable { mutableStateOf(false) }
     var transientMessage by rememberSaveable { mutableStateOf<String?>(null) }
     val onRootSelected =
-        remember(navigator) {
-            { index: Int -> navigator.selectRoot(RootDestination.entries[index].root) }
-        }
+        { index: Int -> selectRoot(RootDestination.entries[index].root) }
 
     val executeProtectedAction: (PendingAuthAction) -> Unit = { action ->
         when (action) {
@@ -376,6 +391,7 @@ fun AnimeApp(
                         }
                         AppNavigationLayer(
                             backStack = activeBackStack,
+                            suppressTransition = suppressNextNavigationTransition,
                             navigator = navigator,
                             appContainer = appContainer,
                             sessionState = sessionState,
@@ -644,6 +660,7 @@ private fun DesktopSidebar(
 @Composable
 private fun AppNavigationLayer(
     backStack: NavBackStack<NavKey>,
+    suppressTransition: Boolean,
     navigator: AppNavigator,
     appContainer: AppContainer,
     sessionState: SessionState,
@@ -661,12 +678,12 @@ private fun AppNavigationLayer(
     modifier: Modifier = Modifier,
 ) {
     val navigationScope = rememberCoroutineScope()
-    // Navigation 3 defaults to a 700 ms cross-fade. Keep page motion directional and
-    // bounded so iOS push/pop semantics remain readable without competing with Backdrop.
+    // Keep page motion directional and bounded. Fade transitions are intentionally avoided
+    // because a Compose/iOS frame can expose the opaque shell between two scene snapshots.
     val navigationOffsetPx = with(LocalDensity.current) { AnimeMotion.pageOffset.roundToPx() }
     val pageTransitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform =
-        remember(reduceMotion, navigationOffsetPx) {
-            if (reduceMotion) {
+        remember(reduceMotion, navigationOffsetPx, suppressTransition) {
+            if (reduceMotion || suppressTransition) {
                 { EnterTransition.None togetherWith ExitTransition.None }
             } else {
                 {
@@ -674,20 +691,20 @@ private fun AppNavigationLayer(
                         slideInHorizontally(
                             initialOffsetX = { navigationOffsetPx },
                             animationSpec = tween(durationMillis = AnimeMotion.standard),
-                        ) + fadeIn(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                        )
                     ) togetherWith
                         (
                             slideOutHorizontally(
                                 targetOffsetX = { -navigationOffsetPx / 2 },
                                 animationSpec = tween(durationMillis = AnimeMotion.standard),
-                            ) + fadeOut(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                            )
                         )
                 }
             }
         }
     val pagePopTransitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform =
-        remember(reduceMotion, navigationOffsetPx) {
-            if (reduceMotion) {
+        remember(reduceMotion, navigationOffsetPx, suppressTransition) {
+            if (reduceMotion || suppressTransition) {
                 { EnterTransition.None togetherWith ExitTransition.None }
             } else {
                 {
@@ -695,20 +712,20 @@ private fun AppNavigationLayer(
                         slideInHorizontally(
                             initialOffsetX = { -navigationOffsetPx },
                             animationSpec = tween(durationMillis = AnimeMotion.standard),
-                        ) + fadeIn(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                        )
                     ) togetherWith
                         (
                             slideOutHorizontally(
                                 targetOffsetX = { navigationOffsetPx / 2 },
                                 animationSpec = tween(durationMillis = AnimeMotion.standard),
-                            ) + fadeOut(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                            )
                         )
                 }
             }
         }
     val predictivePopTransitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.(Int) -> ContentTransform =
-        remember(reduceMotion, navigationOffsetPx) {
-            if (reduceMotion) {
+        remember(reduceMotion, navigationOffsetPx, suppressTransition) {
+            if (reduceMotion || suppressTransition) {
                 { EnterTransition.None togetherWith ExitTransition.None }
             } else {
                 {
@@ -716,13 +733,13 @@ private fun AppNavigationLayer(
                         slideInHorizontally(
                             initialOffsetX = { -navigationOffsetPx },
                             animationSpec = tween(durationMillis = AnimeMotion.standard),
-                        ) + fadeIn(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                        )
                     ) togetherWith
                         (
                             slideOutHorizontally(
                                 targetOffsetX = { navigationOffsetPx },
                                 animationSpec = tween(durationMillis = AnimeMotion.standard),
-                            ) + fadeOut(animationSpec = tween(durationMillis = AnimeMotion.standard))
+                            )
                         )
                 }
             }

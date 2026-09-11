@@ -34,13 +34,23 @@ public class AppNavigator(
         while (stack.size > 1) stack.removeAt(stack.lastIndex)
     }
 
-    public fun selectRoot(root: AppRoot) {
+    /**
+     * Selects a root destination and reports whether the visible navigation stack changed.
+     *
+     * The result lets platform shells distinguish a root-tab operation from a child-page
+     * push/pop. That distinction is important because root-tab changes should not run the
+     * child-page transition animation.
+     */
+    public fun selectRoot(root: AppRoot): Boolean {
         if (currentRoot() == root) {
             // Match the platform tab-bar convention: tapping the active tab returns
             // to that tab's root instead of leaving a deep child route on screen.
+            val changed = activeStack().size > 1
             popToRoot()
+            return changed
         } else {
             updateRoot(root)
+            return true
         }
     }
 
