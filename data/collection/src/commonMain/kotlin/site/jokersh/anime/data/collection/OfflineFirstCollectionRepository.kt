@@ -17,6 +17,7 @@ import site.jokersh.anime.core.model.MutationId
 import site.jokersh.anime.core.model.MutationResult
 import site.jokersh.anime.core.model.ResourceState
 import site.jokersh.anime.core.model.SubjectId
+import site.jokersh.anime.core.model.SubjectSummary
 import site.jokersh.anime.core.model.SyncPhase
 import site.jokersh.anime.core.model.SyncState
 import site.jokersh.anime.core.model.SyncSummary
@@ -42,16 +43,26 @@ public class InMemoryCollectionStore : CollectionStore {
 public class OfflineFirstCollectionRepository(
     private val store: CollectionStore,
     private val pushStatus: suspend (Long, String, Int) -> Result<Unit>,
+    private val pullCollections: suspend () -> Result<List<CollectionItem>> = { Result.success(emptyList()) },
 ) : CollectionRepository {
     private val snapshots = MutableStateFlow(load())
+    private val subjects = MutableStateFlow<Map<SubjectId, SubjectSummary>>(emptyMap())
     private val conflicts = MutableStateFlow<Map<String, CollectionConflict>>(emptyMap())
     private val lastSuccessfulAt = MutableStateFlow<kotlin.time.Instant?>(null)
     private var sequence: Long = 0
 
     override fun observeCollections(status: CollectionStatus?): Flow<ResourceState<List<CollectionItem>>> =
         snapshots.map { values ->
+            val visible =
+                values
+                    .filter { (_, snapshot) -> status == null || snapshot.status == status }
+                    .mapNotNull { (id, snapshot) ->
+                        subjects.value[id]?.let { subject ->
+                            CollectionItem(subject.copy(collection = snapshot), snapshot)
+                        }
+                    }
             ResourceState(
-                value = emptyList(),
+                value = visible,
                 freshness =
                     Freshness(
                         if (values.values.any {
@@ -95,6 +106,7 @@ public class OfflineFirstCollectionRepository(
         val mutationId = nextMutationId()
         if (status == null) {
             snapshots.value = snapshots.value - id
+            subjects.value = subjects.value - id
             persist()
             return MutationResult.Accepted(mutationId, SyncState(SyncPhase.Synced))
         }
@@ -195,12 +207,40 @@ public class OfflineFirstCollectionRepository(
         return MutationResult.Accepted(nextMutationId(), snapshots.value.getValue(conflict.subjectId).sync)
     }
 
-    override suspend fun requestSync(): Result<Unit> =
-        runCatching {
-            snapshots.value.values
-                .filter { it.sync.phase != SyncPhase.Synced }
-                .forEach { sync(it.subjectId) }
+    override suspend fun requestSync(): Result<Unit> {
+        var pullError: Throwable? = null
+        pullCollections()
+            .onSuccess(::mergeRemote)
+            .onFailure { pullError = it }
+        snapshots.value.values
+            .filter { it.sync.phase != SyncPhase.Synced }
+            .forEach { sync(it.subjectId) }
+        return pullError?.let { Result.failure(it) } ?: Result.success(Unit)
+    }
+
+    private fun mergeRemote(remote: List<CollectionItem>) {
+        val remoteIds = remote.mapTo(mutableSetOf()) { it.collection.subjectId }
+        val nextSubjects = subjects.value.toMutableMap()
+        val nextSnapshots = snapshots.value.toMutableMap()
+        remote.forEach { item ->
+            val id = item.collection.subjectId
+            nextSubjects[id] = item.subject
+            val local = nextSnapshots[id]
+            if (local == null || local.sync.phase == SyncPhase.Synced) {
+                nextSnapshots[id] = item.collection.copy(sync = SyncState(SyncPhase.Synced))
+            }
         }
+        nextSnapshots
+            .filter { (id, snapshot) -> id !in remoteIds && snapshot.sync.phase == SyncPhase.Synced }
+            .keys
+            .forEach { nextSnapshots.remove(it) }
+        nextSubjects.keys
+            .filter { it !in nextSnapshots }
+            .forEach { nextSubjects.remove(it) }
+        subjects.value = nextSubjects
+        snapshots.value = nextSnapshots
+        persist()
+    }
 
     private suspend fun sync(id: SubjectId) {
         val current = snapshots.value[id] ?: return

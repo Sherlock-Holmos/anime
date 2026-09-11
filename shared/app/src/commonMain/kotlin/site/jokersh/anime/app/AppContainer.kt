@@ -38,8 +38,9 @@ fun createAppContainer(
     settingsRepository: SettingsRepository = PersistentSettingsRepository(InMemorySettingsStore()),
     collectionRepository: CollectionRepository =
         OfflineFirstCollectionRepository(
-            InMemoryCollectionStore(),
-        ) { _, _, _ -> Result.failure(IllegalStateException("Collection service is unavailable")) },
+            store = InMemoryCollectionStore(),
+            pushStatus = { _, _, _ -> Result.failure(IllegalStateException("Collection service is unavailable")) },
+        ),
     commentRepository: CommentRepository =
         RemoteCommentRepository(communityRepository, InMemoryCommentDraftStore(), currentUserId = { null }),
 ): AppContainer =

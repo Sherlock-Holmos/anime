@@ -14,6 +14,7 @@ import site.jokersh.anime.app.BuildProfile
 import site.jokersh.anime.app.DataModePolicy
 import site.jokersh.anime.app.Environment
 import site.jokersh.anime.app.createAppContainer
+import site.jokersh.anime.app.loadAllCollectionItems
 import site.jokersh.anime.core.model.AuthCallback
 import site.jokersh.anime.core.navigation.AnimeDeepLink
 import site.jokersh.anime.data.catalog.CatalogCacheStore
@@ -45,12 +46,13 @@ fun main() {
             }
         }
     val tokenStore = BrowserSessionTokenStore()
+    val remoteSession = RemoteSessionRepository(client, baseUrl, tokenStore)
     val appContainer =
         createAppContainer(
             profile = profile,
             catalogRepository = RemoteCatalogRepository(client, baseUrl, cacheStore = BrowserCatalogCacheStore()),
             searchRepository = RemoteSearchRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token }),
-            sessionRepository = RemoteSessionRepository(client, baseUrl, tokenStore),
+            sessionRepository = remoteSession,
             communityRepository =
                 OfflineFirstCommunityRepository(
                     RemoteCommunityRepository(
@@ -62,16 +64,19 @@ fun main() {
                 ),
             settingsRepository = PersistentSettingsRepository(BrowserSettingsStore()),
             collectionRepository =
-                OfflineFirstCollectionRepository(BrowserCollectionStore()) { subjectId, status, progress ->
-                    RemoteCommunityRepository(client, baseUrl, tokenProvider = {
-                        tokenStore.load()?.token
-                    }).setCollection(subjectId, status, progress)
-                },
+                OfflineFirstCollectionRepository(
+                    store = BrowserCollectionStore(),
+                    pushStatus = { subjectId, status, progress ->
+                        RemoteCommunityRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token })
+                            .setCollection(subjectId, status, progress)
+                    },
+                    pullCollections = { remoteSession.loadAllCollectionItems() },
+                ),
             commentRepository =
                 RemoteCommentRepository(
                     RemoteCommunityRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token }),
                     BrowserCommentDraftStore(),
-                    currentUserId = { null },
+                    currentUserId = { remoteSession.currentUserId() },
                 ),
         )
     val callback = parseAuthCallback(window.location.search)

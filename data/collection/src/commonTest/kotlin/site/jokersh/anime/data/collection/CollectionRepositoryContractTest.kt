@@ -77,6 +77,54 @@ class FixtureCollectionRepositoryContractTest : CollectionRepositoryContract() {
         InMemoryCollectionRepository(conflict)
 }
 
+class OfflineFirstCollectionRepositoryTest {
+    @Test
+    fun `request sync hydrates remote collection items and preserves subject metadata`() =
+        runTest {
+            val subjectId = SubjectId(2001)
+            val snapshot =
+                CollectionSnapshot(
+                    subjectId = subjectId,
+                    status = CollectionStatus.Watching,
+                    watchedEpisodes = 2,
+                    note = null,
+                    updatedAt = fixtureNow,
+                    sync = SyncState(SyncPhase.Synced),
+                )
+            val remoteItem =
+                CollectionItem(
+                    subject =
+                        site.jokersh.anime.core.model.SubjectSummary(
+                            id = subjectId,
+                            title = "Remote collection item",
+                            originalTitle = null,
+                            aliases = emptyList(),
+                            poster = null,
+                            year = 2026,
+                            type = site.jokersh.anime.core.model.SubjectType.Other,
+                            airingStatus = site.jokersh.anime.core.model.AiringStatus.Unknown,
+                            rating = null,
+                            collection = snapshot,
+                        ),
+                    collection = snapshot,
+                )
+            val repository =
+                OfflineFirstCollectionRepository(
+                    store = InMemoryCollectionStore(),
+                    pushStatus = { _, _, _ -> Result.success(Unit) },
+                    pullCollections = { Result.success(listOf(remoteItem)) },
+                )
+
+            assertEquals(Unit, repository.requestSync().getOrThrow())
+
+            val page = repository.observeCollections(CollectionStatus.Watching).first()
+            val items = page.value.orEmpty()
+            assertEquals(1, items.size)
+            assertEquals("Remote collection item", items.single().subject.title)
+            assertEquals(2, items.single().collection.watchedEpisodes)
+        }
+}
+
 private class InMemoryCollectionRepository(
     initialConflict: CollectionConflict?,
 ) : CollectionRepository {

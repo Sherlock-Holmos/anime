@@ -42,6 +42,18 @@ public interface CommentRepository {
 
     public suspend fun delete(id: CommentId): MutationResult
 
+    public suspend fun update(
+        id: CommentId,
+        text: String,
+        spoiler: Boolean,
+    ): Result<Comment> = Result.failure(IllegalStateException("Comment service is unavailable"))
+
+    public suspend fun react(
+        id: CommentId,
+        reaction: String,
+        active: Boolean,
+    ): Result<CommunityReaction> = Result.failure(IllegalStateException("Comment reaction service is unavailable"))
+
     public suspend fun report(
         id: CommentId,
         reasonCode: String,

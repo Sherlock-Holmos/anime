@@ -13,6 +13,9 @@ import site.jokersh.anime.core.model.UserCollectionSummary
 public interface SessionRepository {
     public fun observeSession(): Flow<SessionState>
 
+    /** Returns the currently authenticated user id, when the session has been restored. */
+    public fun currentUserId(): String? = null
+
     public suspend fun beginLogin(request: LoginRequest): Result<ExternalAuthRequest>
 
     public suspend fun loginWithAnime(credentials: AnimeLoginCredentials): Result<SessionState.Authenticated>
@@ -24,6 +27,15 @@ public interface SessionRepository {
     public suspend fun refresh(): Result<SessionState.Authenticated>
 
     public suspend fun logout(): Result<Unit>
+
+    public suspend fun updateProfile(displayName: String): Result<Unit> =
+        Result.failure(IllegalStateException("Profile service is unavailable"))
+
+    public suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> =
+        Result.failure(IllegalStateException("Password service is unavailable"))
+
+    public suspend fun diagnostics(): Result<List<ServiceDiagnostic>> =
+        Result.failure(IllegalStateException("Diagnostics service is unavailable"))
 
     public suspend fun exportMyData(): Result<String> =
         Result.failure(IllegalStateException("Export service is unavailable"))
@@ -54,6 +66,13 @@ public interface SessionRepository {
 public data class UserCollectionPage(
     val items: List<UserCollectionSummary>,
     val nextCursor: String?,
+)
+
+public data class ServiceDiagnostic(
+    val endpoint: String,
+    val statusCode: Int?,
+    val healthy: Boolean,
+    val body: String,
 )
 
 public data class BangumiSyncStatus(

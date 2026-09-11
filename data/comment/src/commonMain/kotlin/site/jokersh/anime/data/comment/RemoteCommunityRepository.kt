@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -27,8 +28,25 @@ public class RemoteCommunityRepository(
     private val baseUrl = apiBaseUrl.trimEnd('/')
 
     public override suspend fun feed(limit: Int): Result<List<CommunityActivity>> =
+        feedPage(limit = limit).map { it.items }
+
+    public override suspend fun feedPage(
+        feed: String,
+        limit: Int,
+        cursor: String?,
+    ): Result<CommunityFeedPage> =
         runCatching {
-            decode<List<ActivityDto>>(client.get("$baseUrl/api/v1/community/feed?limit=$limit")).map { it.toModel() }
+            val cursorQuery = cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty()
+            val response =
+                client.get(
+                    "$baseUrl/api/v1/community/feed?limit=$limit&feed=${feed.encodeURLParameter()}$cursorQuery",
+                ) {
+                    optionalAuth()
+                }
+            CommunityFeedPage(
+                items = decode<List<ActivityDto>>(response).map { it.toModel() },
+                nextCursor = response.headers["x-next-cursor"],
+            )
         }
 
     public override suspend fun notifications(limit: Int): Result<List<CommunityNotification>> =
@@ -50,6 +68,33 @@ public class RemoteCommunityRepository(
 
     public override suspend fun unfollowList(id: String): Result<Boolean> =
         follow("/api/v1/community/lists/$id/follow", delete = true)
+
+    public override suspend fun followUserStatus(id: String): Result<Boolean> =
+        followStatus("/api/v1/users/$id/follow")
+
+    public override suspend fun followListStatus(id: String): Result<Boolean> =
+        followStatus("/api/v1/community/lists/$id/follow")
+
+    public override suspend fun userProfile(id: String): Result<CommunityUserProfile> =
+        runCatching {
+            decode<UserProfileDto>(client.get("$baseUrl/api/v1/users/$id") { optionalAuth() }).toModel()
+        }
+
+    public override suspend fun userReviews(
+        id: String,
+        limit: Int,
+        cursor: String?,
+        oldestFirst: Boolean,
+    ): Result<CommunityReviewPage> =
+        runCatching {
+            val sort = if (oldestFirst) "oldest" else "newest"
+            val cursorQuery = cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty()
+            val response = client.get("$baseUrl/api/v1/users/$id/reviews?limit=$limit&sort=$sort$cursorQuery") {
+                optionalAuth()
+            }
+            val page = decode<ReviewPageDto>(response)
+            CommunityReviewPage(page.items.map { it.toModel() }, page.nextCursor)
+        }
 
     public override suspend fun reviews(
         subjectId: Long,
@@ -89,6 +134,35 @@ public class RemoteCommunityRepository(
     public override suspend fun deleteReview(id: String): Result<Unit> =
         authenticatedRequest {
             client.delete("$baseUrl/api/v1/reviews/$id") { auth() }
+        }
+
+    public override suspend fun updateReview(
+        id: String,
+        title: String?,
+        body: String?,
+        spoiler: Boolean?,
+        visibility: String?,
+    ): Result<CommunityReview> =
+        runCatching {
+            decode<ReviewDto>(client.patch("$baseUrl/api/v1/reviews/$id") {
+                auth()
+                jsonBody(UpdateReviewRequest(title, body, spoiler, visibility))
+            }).toModel()
+        }
+
+    public override suspend fun reactReview(
+        id: String,
+        reaction: String,
+        active: Boolean,
+    ): Result<CommunityReaction> =
+        runCatching {
+            val response =
+                if (active) {
+                    client.put("$baseUrl/api/v1/reviews/$id/reactions/$reaction") { auth() }
+                } else {
+                    client.delete("$baseUrl/api/v1/reviews/$id/reactions/$reaction") { auth() }
+                }
+            decode<ReactionDto>(response).toModel()
         }
 
     public override suspend fun comments(
@@ -178,6 +252,33 @@ public class RemoteCommunityRepository(
             client.delete("$baseUrl/api/v1/comments/$id") { auth() }
         }
 
+    public override suspend fun updateComment(
+        id: String,
+        body: String?,
+        spoiler: Boolean?,
+    ): Result<CommunityComment> =
+        runCatching {
+            decode<CommentDto>(client.patch("$baseUrl/api/v1/comments/$id") {
+                auth()
+                jsonBody(UpdateCommentRequest(body, spoiler))
+            }).toModel()
+        }
+
+    public override suspend fun reactComment(
+        id: String,
+        reaction: String,
+        active: Boolean,
+    ): Result<CommunityReaction> =
+        runCatching {
+            val response =
+                if (active) {
+                    client.put("$baseUrl/api/v1/comments/$id/reactions/$reaction") { auth() }
+                } else {
+                    client.delete("$baseUrl/api/v1/comments/$id/reactions/$reaction") { auth() }
+                }
+            decode<ReactionDto>(response).toModel()
+        }
+
     public override suspend fun reportComment(
         id: String,
         reasonCode: String,
@@ -219,6 +320,29 @@ public class RemoteCommunityRepository(
             ).toModel()
         }
 
+    public override suspend fun userLists(id: String, limit: Int): Result<List<CommunityListSummary>> =
+        runCatching {
+            decode<List<ListSummaryDto>>(client.get("$baseUrl/api/v1/users/$id/lists?limit=$limit") { optionalAuth() })
+                .map { it.toModel() }
+        }
+
+    public override suspend fun updateList(
+        id: String,
+        title: String?,
+        description: String?,
+        visibility: String?,
+        subjectIds: List<Long>?,
+    ): Result<CommunityListSummary> =
+        runCatching {
+            decode<ListSummaryDto>(client.put("$baseUrl/api/v1/community/lists/$id") {
+                auth()
+                jsonBody(UpdateListRequest(title, description, visibility, subjectIds))
+            }).toModel()
+        }
+
+    public override suspend fun deleteList(id: String): Result<Unit> =
+        authenticatedRequest { client.delete("$baseUrl/api/v1/community/lists/$id") { auth() } }
+
     private suspend inline fun authenticatedRequest(crossinline block: suspend () -> HttpResponse): Result<Unit> =
         runCatching { ensureSuccess(block()) }
 
@@ -236,9 +360,16 @@ public class RemoteCommunityRepository(
             decode<FollowResponse>(response).following
         }
 
+    private suspend fun followStatus(path: String): Result<Boolean> =
+        runCatching { decode<FollowResponse>(client.get("$baseUrl$path") { auth() }).following }
+
     private fun io.ktor.client.request.HttpRequestBuilder.auth() {
         val token = tokenProvider() ?: error("请先登录 Anime")
         header(HttpHeaders.Authorization, "Bearer $token")
+    }
+
+    private fun io.ktor.client.request.HttpRequestBuilder.optionalAuth() {
+        tokenProvider()?.let { header(HttpHeaders.Authorization, "Bearer $it") }
     }
 
     private inline fun <reified T> io.ktor.client.request.HttpRequestBuilder.jsonBody(value: T) {
@@ -287,18 +418,23 @@ public class RemoteCommunityRepository(
         )
 
     private fun ReviewDto.toModel() =
-        CommunityReview(id, subjectId, authorId, kind, title, body, spoiler, likeCount, createdAt, owned)
+        CommunityReview(id, subjectId, authorId, kind, title, body, spoiler, likeCount, createdAt, owned, bookmarkCount, editedAt, visibility)
 
     private fun CommentDto.toModel() =
-        CommunityComment(id, parentId, authorId, authorName, body, spoiler, createdAt, owned)
+        CommunityComment(id, parentId, authorId, authorName, body, spoiler, createdAt, owned, likeCount, bookmarkCount)
 
     private fun ListSummaryDto.toModel() =
-        CommunityListSummary(id, ownerName, title, description, itemCount, followerCount, updatedAt)
+        CommunityListSummary(id, ownerName, title, description, itemCount, followerCount, updatedAt, ownerId, owned, following)
 
     private fun ListDetailDto.toSummary() =
-        CommunityListSummary(id, ownerName, title, description, itemCount, followerCount, updatedAt)
+        CommunityListSummary(id, ownerName, title, description, itemCount, followerCount, updatedAt, ownerId, owned, following)
 
     private fun ListItemDto.toModel() = CommunityListItem(subjectId, title, resolve(posterUrl), note, position, score)
+
+    private fun UserProfileDto.toModel() =
+        CommunityUserProfile(id, displayName, resolve(avatarUrl), createdAt, reviewCount, ratingCount, listCount, followerCount, followingCount, following)
+
+    private fun ReactionDto.toModel() = CommunityReaction(reaction, active, likeCount, bookmarkCount)
 }
 
 @Serializable private data class ActivityDto(
@@ -324,10 +460,11 @@ public class RemoteCommunityRepository(
     @SerialName("subject_id") val subjectId: Long? = null,
     @SerialName("comment_id") val commentId: String? = null,
     @SerialName("curated_list_id") val listId: String? = null,
+    @SerialName("review_id") val reviewId: String? = null,
     @SerialName("read_at") val readAt: String? = null,
     @SerialName("created_at") val createdAt: String,
 ) {
-    fun toModel() = CommunityNotification(id, kind, actorId, actorName, subjectId, commentId, listId, readAt, createdAt)
+    fun toModel() = CommunityNotification(id, kind, actorId, actorName, subjectId, commentId, listId, readAt, createdAt, reviewId)
 }
 
 @Serializable private data class ReviewPageDto(
@@ -344,7 +481,10 @@ public class RemoteCommunityRepository(
     val body: String,
     val spoiler: Boolean,
     @SerialName("like_count") val likeCount: Long = 0,
+    @SerialName("bookmark_count") val bookmarkCount: Long = 0,
     @SerialName("created_at") val createdAt: String,
+    @SerialName("edited_at") val editedAt: String? = null,
+    val visibility: String = "public",
     val owned: Boolean = false,
 )
 
@@ -357,6 +497,8 @@ public class RemoteCommunityRepository(
     val spoiler: Boolean,
     @SerialName("created_at") val createdAt: String,
     val owned: Boolean = false,
+    @SerialName("like_count") val likeCount: Long = 0,
+    @SerialName("bookmark_count") val bookmarkCount: Long = 0,
 )
 
 @Serializable private data class RatingSummaryDto(
@@ -366,22 +508,28 @@ public class RemoteCommunityRepository(
 
 @Serializable private data class ListSummaryDto(
     val id: String,
+    @SerialName("owner_id") val ownerId: String? = null,
     @SerialName("owner_name") val ownerName: String,
     val title: String,
     val description: String,
     @SerialName("item_count") val itemCount: Long,
     @SerialName("follower_count") val followerCount: Long,
     @SerialName("updated_at") val updatedAt: String,
+    val owned: Boolean = false,
+    val following: Boolean = false,
 )
 
 @Serializable private data class ListDetailDto(
     val id: String,
+    @SerialName("owner_id") val ownerId: String? = null,
     @SerialName("owner_name") val ownerName: String,
     val title: String,
     val description: String,
     @SerialName("item_count") val itemCount: Long,
     @SerialName("follower_count") val followerCount: Long,
     @SerialName("updated_at") val updatedAt: String,
+    val owned: Boolean = false,
+    val following: Boolean = false,
     val items: List<ListItemDto>,
 )
 
@@ -425,7 +573,46 @@ public class RemoteCommunityRepository(
     @SerialName("subject_ids") val subjectIds: List<Long>,
 )
 
+@Serializable private data class UpdateListRequest(
+    val title: String? = null,
+    val description: String? = null,
+    val visibility: String? = null,
+    @SerialName("subject_ids") val subjectIds: List<Long>? = null,
+)
+
+@Serializable private data class UpdateReviewRequest(
+    val title: String? = null,
+    val body: String? = null,
+    val spoiler: Boolean? = null,
+    val visibility: String? = null,
+)
+
+@Serializable private data class UpdateCommentRequest(
+    val body: String? = null,
+    val spoiler: Boolean? = null,
+)
+
 @Serializable private data class FollowResponse(
+    val following: Boolean,
+)
+
+@Serializable private data class ReactionDto(
+    val reaction: String,
+    val active: Boolean,
+    @SerialName("like_count") val likeCount: Long,
+    @SerialName("bookmark_count") val bookmarkCount: Long,
+)
+
+@Serializable private data class UserProfileDto(
+    val id: String,
+    @SerialName("display_name") val displayName: String,
+    @SerialName("avatar_url") val avatarUrl: String? = null,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("review_count") val reviewCount: Long,
+    @SerialName("rating_count") val ratingCount: Long,
+    @SerialName("list_count") val listCount: Long,
+    @SerialName("follower_count") val followerCount: Long,
+    @SerialName("following_count") val followingCount: Long,
     val following: Boolean,
 )
 

@@ -41,6 +41,9 @@ public fun CommentsScreen(
     var parentId by remember(draft) { mutableStateOf(draft?.parentId) }
     var message by remember { mutableStateOf<String?>(null) }
     var reportTarget by remember { mutableStateOf<Comment?>(null) }
+    var editTarget by remember { mutableStateOf<Comment?>(null) }
+    var editBody by remember { mutableStateOf("") }
+    var editSpoiler by remember { mutableStateOf(false) }
     var reportReason by remember { mutableStateOf<String?>(null) }
     var reportDetails by remember { mutableStateOf("") }
     var hasMore by remember(id, sort) { mutableStateOf(true) }
@@ -193,6 +196,13 @@ public fun CommentsScreen(
                     comment,
                     onReply = { parentId = comment.id },
                     onDelete = { scope.launch { repository.delete(comment.id) } },
+                    onEdit = {
+                        editTarget = comment
+                        editBody = comment.body
+                        editSpoiler = comment.spoiler
+                    },
+                    onLike = { active -> scope.launch { repository.react(comment.id, "like", active) } },
+                    onBookmark = { active -> scope.launch { repository.react(comment.id, "bookmark", active) } },
                     onReport = {
                         reportTarget = comment
                         reportReason = null
@@ -293,6 +303,37 @@ public fun CommentsScreen(
             },
         )
     }
+    editTarget?.let { comment ->
+        AlertDialog(
+            onDismissRequest = { editTarget = null },
+            title = { Text("编辑讨论") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = editBody,
+                        onValueChange = { editBody = it.take(300) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 4,
+                        label = { Text("内容") },
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = editSpoiler, onCheckedChange = { editSpoiler = it })
+                        Text("包含剧透")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        repository.update(comment.id, editBody, editSpoiler)
+                            .onSuccess { editTarget = null; message = "讨论已更新" }
+                            .onFailure { message = "更新失败，请稍后重试" }
+                    }
+                }) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { editTarget = null }) { Text("取消") } },
+        )
+    }
 }
 
 private const val DRAFT_SAVE_DELAY_MILLIS: Long = 350
@@ -328,9 +369,14 @@ private fun CommentCard(
     comment: Comment,
     onReply: () -> Unit,
     onDelete: () -> Unit,
+    onEdit: () -> Unit,
+    onLike: (Boolean) -> Unit,
+    onBookmark: (Boolean) -> Unit,
     onReport: () -> Unit,
 ) {
     var revealSpoiler by remember(comment.id) { mutableStateOf(false) }
+    var liked by remember(comment.id) { mutableStateOf(false) }
+    var bookmarked by remember(comment.id) { mutableStateOf(false) }
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -362,6 +408,16 @@ private fun CommentCard(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AnimeSecondaryButton("回复", onReply)
+                AnimeSecondaryButton(if (liked) "已喜欢" else "喜欢", onClick = {
+                    liked = !liked
+                    onLike(liked)
+                })
+                AnimeSecondaryButton(if (bookmarked) "已收藏" else "收藏", onClick = {
+                    bookmarked = !bookmarked
+                    onBookmark(bookmarked)
+                })
+                Text("${comment.likeCount} 喜欢 · ${comment.bookmarkCount} 收藏", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (comment.ownership == Ownership.Self) AnimeSecondaryButton("编辑", onEdit)
                 if (comment.ownership == Ownership.Self) AnimeSecondaryButton("删除", onDelete)
                 if (comment.ownership == Ownership.Other) AnimeSecondaryButton("举报", onReport)
             }

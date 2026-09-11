@@ -106,6 +106,7 @@ private fun createIosContainer(
             }
         }
     val tokenStore = IosKeychainSessionTokenStore(readSecret, writeSecret, removeSecret)
+    val remoteSession = RemoteSessionRepository(client, baseUrl, tokenStore)
     val remoteCommunity =
         RemoteCommunityRepository(
             client = client,
@@ -123,18 +124,20 @@ private fun createIosContainer(
             ),
         catalogRepository = RemoteCatalogRepository(client, baseUrl, cacheStore = IosCatalogCacheStore()),
         searchRepository = RemoteSearchRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token }),
-        sessionRepository = RemoteSessionRepository(client, baseUrl, tokenStore),
+        sessionRepository = remoteSession,
         communityRepository = OfflineFirstCommunityRepository(remoteCommunity, IosRatingOutboxStore()),
         settingsRepository = PersistentSettingsRepository(IosSettingsStore()),
         collectionRepository =
-            OfflineFirstCollectionRepository(IosCollectionStore()) { subjectId, status, progress ->
-                remoteCommunity.setCollection(subjectId, status, progress)
-            },
+            OfflineFirstCollectionRepository(
+                store = IosCollectionStore(),
+                pushStatus = { subjectId, status, progress -> remoteCommunity.setCollection(subjectId, status, progress) },
+                pullCollections = { remoteSession.loadAllCollectionItems() },
+            ),
         commentRepository =
             RemoteCommentRepository(
                 remoteCommunity,
                 IosCommentDraftStore(),
-                currentUserId = { null },
+                currentUserId = { remoteSession.currentUserId() },
             ),
     )
 }

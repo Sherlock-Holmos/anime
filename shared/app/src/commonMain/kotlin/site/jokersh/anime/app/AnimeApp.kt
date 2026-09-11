@@ -140,6 +140,8 @@ import site.jokersh.anime.feature.comment.CommentsScreen
 import site.jokersh.anime.feature.community.CuratedListScreen
 import site.jokersh.anime.feature.community.RatingEditorScreen
 import site.jokersh.anime.feature.community.ReviewDetailScreen
+import site.jokersh.anime.feature.community.UserProfileScreen
+import site.jokersh.anime.feature.diagnostics.DiagnosticsScreen
 import site.jokersh.anime.feature.discover.CalendarRoute
 import site.jokersh.anime.feature.discover.DiscoverRoute
 import site.jokersh.anime.feature.discover.DiscoverSectionRoute
@@ -878,19 +880,26 @@ private fun AppNavigationLayer(
                         entry<AppRoute.Activity>(metadata = rootTabMetadata) {
                             ActivityScreen(
                                 repository = appContainer.communityRepository,
+                                initialFeed =
+                                    when (it.feed) {
+                                        site.jokersh.anime.core.navigation.ActivityFeedRoute.Popular -> "popular"
+                                        site.jokersh.anime.core.navigation.ActivityFeedRoute.Following -> "following"
+                                    },
                                 onSubjectClick = { subjectId ->
                                     navigator.push(AppRoute.Subject(subjectId, RouteOrigin.Activity))
                                 },
                                 onReviewClick = { navigator.push(AppRoute.Review(it)) },
                                 onListClick = { navigator.push(AppRoute.CuratedList(it)) },
+                                onCommentsClick = { subjectId -> navigator.push(AppRoute.Comments(subjectId)) },
+                                onUserClick = { navigator.push(AppRoute.User(it)) },
+                                onCreateList = { navigator.push(AppRoute.CuratedList("new")) },
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
                         entry<AppRoute.Collection> {
                             CollectionScreen(
                                 sessionState = sessionState,
-                                sessionRepository = appContainer.sessionRepository,
-                                communityRepository = appContainer.communityRepository,
+                                collectionRepository = appContainer.collectionRepository,
                                 onSubjectClick = { subjectId ->
                                     navigator.push(
                                         AppRoute.Subject(
@@ -918,6 +927,7 @@ private fun AppNavigationLayer(
                                 onThemeChange = onThemeChange,
                                 onGlassChange = onGlassChange,
                                 onReduceMotionChange = onReduceMotionChange,
+                                onDiagnostics = { navigator.push(AppRoute.Diagnostics) },
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
@@ -1020,6 +1030,23 @@ private fun AppNavigationLayer(
                                 listId = route.listId,
                                 onBack = { navigator.pop() },
                                 onSubjectClick = { navigator.push(AppRoute.Subject(it, RouteOrigin.Activity)) },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.User> { route ->
+                            UserProfileScreen(
+                                repository = appContainer.communityRepository,
+                                userId = route.userId,
+                                onBack = { navigator.pop() },
+                                onReviewClick = { navigator.push(AppRoute.Review(it)) },
+                                onListClick = { navigator.push(AppRoute.CuratedList(it)) },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Diagnostics> {
+                            DiagnosticsScreen(
+                                repository = appContainer.sessionRepository,
+                                onBack = { navigator.pop() },
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }

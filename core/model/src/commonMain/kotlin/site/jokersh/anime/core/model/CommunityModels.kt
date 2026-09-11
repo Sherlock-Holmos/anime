@@ -13,6 +13,8 @@ public data class Comment(
     public val editedAt: Instant?,
     public val ownership: Ownership,
     public val pending: Boolean,
+    public val likeCount: Long = 0,
+    public val bookmarkCount: Long = 0,
 ) {
     init {
         require(body == body.trim() && body.unicodeCodePointCount() in 1..300) {

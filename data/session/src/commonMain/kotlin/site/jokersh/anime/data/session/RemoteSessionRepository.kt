@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -69,6 +70,13 @@ public class RemoteSessionRepository(
     }
 
     override fun observeSession(): Flow<SessionState> = state
+
+    override fun currentUserId(): String? =
+        (state.value as? SessionState.Authenticated)
+            ?.user
+            ?.summary
+            ?.id
+            ?.value
 
     override suspend fun beginLogin(request: LoginRequest): Result<ExternalAuthRequest> =
         runCatching {
@@ -201,6 +209,39 @@ public class RemoteSessionRepository(
             }
             tokenStore.clear()
             state.value = SessionState.Guest
+        }
+
+    override suspend fun updateProfile(displayName: String): Result<Unit> =
+        runCatching {
+            val stored = tokenStore.load() ?: error("请先登录 Anime")
+            val response =
+                client.patch("$baseUrl/api/v1/me") {
+                    header(HttpHeaders.Authorization, "Bearer ${stored.token}")
+                    contentType(ContentType.Application.Json)
+                    setBody(json.encodeToString(UpdateProfileRequest(displayName)))
+                }
+            val text = response.bodyAsText()
+            check(response.status.value in 200..299) { text.ifBlank { "资料更新失败：${response.status.value}" } }
+            refresh().getOrThrow().let { }
+        }
+
+    override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> =
+        authenticatedPost(
+            "/api/v1/me/password",
+            ChangePasswordRequest(currentPassword, newPassword),
+        )
+
+    override suspend fun diagnostics(): Result<List<ServiceDiagnostic>> =
+        runCatching {
+            listOf("/meta", "/health/live", "/health/ready").map { path ->
+                val response = client.get("$baseUrl$path")
+                ServiceDiagnostic(
+                    endpoint = path,
+                    statusCode = response.status.value,
+                    healthy = response.status.value in 200..299,
+                    body = response.bodyAsText().take(600),
+                )
+            }
         }
 
     override suspend fun exportMyData(): Result<String> =
@@ -482,6 +523,17 @@ private data class NativeAuthRequest(
     val username: String,
     val password: String,
     @SerialName("display_name") val displayName: String? = null,
+)
+
+@Serializable
+private data class UpdateProfileRequest(
+    @SerialName("display_name") val displayName: String,
+)
+
+@Serializable
+private data class ChangePasswordRequest(
+    @SerialName("current_password") val currentPassword: String,
+    @SerialName("new_password") val newPassword: String,
 )
 
 @Serializable

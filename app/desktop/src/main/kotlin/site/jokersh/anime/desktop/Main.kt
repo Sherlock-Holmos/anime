@@ -27,6 +27,7 @@ import site.jokersh.anime.app.BuildProfile
 import site.jokersh.anime.app.DataModePolicy
 import site.jokersh.anime.app.Environment
 import site.jokersh.anime.app.createAppContainer
+import site.jokersh.anime.app.loadAllCollectionItems
 import site.jokersh.anime.core.model.AuthCallback
 import site.jokersh.anime.core.navigation.AnimeDeepLink
 import site.jokersh.anime.core.navigation.AppRoot
@@ -76,6 +77,7 @@ fun main(args: Array<String>) {
                             }
                         }
                     val tokenStore = WindowsProtectedSessionTokenStore()
+                    val remoteSession = RemoteSessionRepository(client, baseUrl, tokenStore)
                     createAppContainer(
                         profile = profile,
                         catalogRepository =
@@ -91,11 +93,7 @@ fun main(args: Array<String>) {
                                 tokenProvider = { tokenStore.load()?.token },
                             ),
                         sessionRepository =
-                            RemoteSessionRepository(
-                                client = client,
-                                apiBaseUrl = baseUrl,
-                                tokenStore = tokenStore,
-                            ),
+                            remoteSession,
                         communityRepository =
                             OfflineFirstCommunityRepository(
                                 RemoteCommunityRepository(
@@ -107,11 +105,14 @@ fun main(args: Array<String>) {
                             ),
                         settingsRepository = PersistentSettingsRepository(DesktopSettingsStore()),
                         collectionRepository =
-                            OfflineFirstCollectionRepository(DesktopCollectionStore()) { subjectId, status, progress ->
-                                RemoteCommunityRepository(client, baseUrl, tokenProvider = {
-                                    tokenStore.load()?.token
-                                }).setCollection(subjectId, status, progress)
-                            },
+                            OfflineFirstCollectionRepository(
+                                store = DesktopCollectionStore(),
+                                pushStatus = { subjectId, status, progress ->
+                                    RemoteCommunityRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token })
+                                        .setCollection(subjectId, status, progress)
+                                },
+                                pullCollections = { remoteSession.loadAllCollectionItems() },
+                            ),
                         commentRepository =
                             RemoteCommentRepository(
                                 RemoteCommunityRepository(
@@ -120,7 +121,7 @@ fun main(args: Array<String>) {
                                     tokenProvider = { tokenStore.load()?.token },
                                 ),
                                 DesktopCommentDraftStore(),
-                                currentUserId = { null },
+                                currentUserId = { remoteSession.currentUserId() },
                             ),
                     )
                 }

@@ -144,6 +144,47 @@ public class RemoteCommentRepository(
             onFailure = { MutationResult.Failed(AppError.Offline) },
         )
 
+    override suspend fun update(
+        id: CommentId,
+        text: String,
+        spoiler: Boolean,
+    ): Result<Comment> =
+        community.updateComment(id.value, text.trim().take(300), spoiler).map { updated ->
+            val subjectId =
+                states.values
+                    .asSequence()
+                    .flatMap { it.value.value.orEmpty().asSequence() }
+                    .firstOrNull { it.id == id }
+                    ?.subjectId
+                    ?: error("Comment $id is not loaded")
+            val model = updated.toModel(subjectId)
+            states.values.forEach { flow ->
+                flow.value = flow.value.copy(value = flow.value.value.orEmpty().map { if (it.id == id) model else it })
+            }
+            model
+        }
+
+    override suspend fun react(
+        id: CommentId,
+        reaction: String,
+        active: Boolean,
+    ): Result<CommunityReaction> =
+        community.reactComment(id.value, reaction, active).map { result ->
+            states.values.forEach { flow ->
+                flow.value =
+                    flow.value.copy(
+                        value = flow.value.value.orEmpty().map { comment ->
+                            if (comment.id != id) {
+                                comment
+                            } else {
+                                comment.copy(likeCount = result.likeCount, bookmarkCount = result.bookmarkCount)
+                            }
+                        },
+                    )
+            }
+            result
+        }
+
     override suspend fun report(
         id: CommentId,
         reasonCode: String,
@@ -182,6 +223,8 @@ public class RemoteCommentRepository(
             editedAt = null,
             ownership = if (owned || authorId == currentUserId()) Ownership.Self else Ownership.Other,
             pending = false,
+            likeCount = likeCount,
+            bookmarkCount = bookmarkCount,
         )
 
     private fun persistDrafts(): Unit =

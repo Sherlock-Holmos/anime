@@ -19,6 +19,7 @@ import site.jokersh.anime.app.BuildProfile
 import site.jokersh.anime.app.DataModePolicy
 import site.jokersh.anime.app.Environment
 import site.jokersh.anime.app.createAppContainer
+import site.jokersh.anime.app.loadAllCollectionItems
 import site.jokersh.anime.core.model.AuthCallback
 import site.jokersh.anime.core.navigation.AnimeDeepLink
 import site.jokersh.anime.core.navigation.AppRoute
@@ -82,11 +83,12 @@ class MainActivity : ComponentActivity() {
                 }
             }.also { httpClient = it }
         val tokenStore = AndroidEncryptedSessionTokenStore(this)
+        val remoteSession = RemoteSessionRepository(client, baseUrl, tokenStore)
         return createAppContainer(
             profile = profile,
             catalogRepository = RemoteCatalogRepository(client, baseUrl, cacheStore = AndroidCatalogCacheStore(this)),
             searchRepository = RemoteSearchRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token }),
-            sessionRepository = RemoteSessionRepository(client, baseUrl, tokenStore),
+            sessionRepository = remoteSession,
             communityRepository =
                 OfflineFirstCommunityRepository(
                     RemoteCommunityRepository(
@@ -98,16 +100,19 @@ class MainActivity : ComponentActivity() {
                 ),
             settingsRepository = PersistentSettingsRepository(AndroidSettingsStore(this)),
             collectionRepository =
-                OfflineFirstCollectionRepository(AndroidCollectionStore(this)) { subjectId, status, progress ->
-                    RemoteCommunityRepository(client, baseUrl, tokenProvider = {
-                        tokenStore.load()?.token
-                    }).setCollection(subjectId, status, progress)
-                },
+                OfflineFirstCollectionRepository(
+                    store = AndroidCollectionStore(this),
+                    pushStatus = { subjectId, status, progress ->
+                        RemoteCommunityRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token })
+                            .setCollection(subjectId, status, progress)
+                    },
+                    pullCollections = { remoteSession.loadAllCollectionItems() },
+                ),
             commentRepository =
                 RemoteCommentRepository(
                     RemoteCommunityRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token }),
                     AndroidCommentDraftStore(this),
-                    currentUserId = { null },
+                    currentUserId = { remoteSession.currentUserId() },
                 ),
         )
     }

@@ -2,6 +2,7 @@ package site.jokersh.anime.feature.activity
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -49,26 +50,37 @@ import site.jokersh.anime.data.comment.CommunityRepository
 @Composable
 public fun ActivityScreen(
     repository: CommunityRepository,
+    initialFeed: String = "following",
     onSubjectClick: (Long) -> Unit,
     onReviewClick: (String) -> Unit,
     onListClick: (String) -> Unit,
+    onCommentsClick: (Long) -> Unit,
+    onUserClick: (String) -> Unit = {},
+    onCreateList: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    var selectedFeed by rememberSaveable { mutableStateOf("全站") }
+    var selectedFeed by rememberSaveable { mutableStateOf(initialFeedLabel(initialFeed)) }
     var selectedMode by rememberSaveable { mutableStateOf("动态") }
     var loading by rememberSaveable { mutableStateOf(true) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var feed by remember { mutableStateOf(emptyList<CommunityActivity>()) }
+    var nextCursor by remember { mutableStateOf<String?>(null) }
     var lists by remember { mutableStateOf(emptyList<CommunityListSummary>()) }
     var notifications by remember { mutableStateOf(emptyList<CommunityNotification>()) }
     var reload by rememberSaveable { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(repository, selectedMode, selectedFeed, reload) {
         loading = true
         error = null
         if (selectedMode == "通知") {
             repository.notifications().onSuccess { notifications = it }.onFailure { error = it.message }
         } else {
-            repository.feed().onSuccess { feed = it }.onFailure { error = it.message }
+            repository
+                .feedPage(feed = selectedFeedWire(selectedFeed), limit = 20)
+                .onSuccess {
+                    feed = it.items
+                    nextCursor = it.nextCursor
+                }.onFailure { error = it.message }
             repository.lists(5).onSuccess { lists = it }
         }
         loading = false
@@ -106,7 +118,7 @@ public fun ActivityScreen(
                         ActivityModeFilters(selectedMode) { selectedMode = it }
                         if (selectedMode == "动态") {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("全站", "讨论").forEach { label ->
+                                listOf("关注", "热门", "全站", "讨论").forEach { label ->
                                     Surface(
                                         onClick = { selectedFeed = label },
                                         shape = CircleShape,
@@ -152,7 +164,7 @@ public fun ActivityScreen(
                             ActivityModeFilters(selectedMode) { selectedMode = it }
                             if (selectedMode == "动态") {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    listOf("全站", "讨论").forEach { label ->
+                                    listOf("关注", "热门", "全站", "讨论").forEach { label ->
                                         Surface(
                                             onClick = { selectedFeed = label },
                                             shape = CircleShape,
@@ -207,7 +219,7 @@ public fun ActivityScreen(
                     ) { reload++ }
                 }
             } else if (selectedMode == "通知") {
-                item { NotificationPanel(notifications, repository, onSubjectClick, onListClick) }
+                item { NotificationPanel(notifications, repository, onSubjectClick, onReviewClick, onListClick, onCommentsClick) }
             } else if (visibleFeed.isEmpty()) {
                 item { EmptyPanel("这里还没有内容", "完成一次评分、评价或讨论后，动态会出现在这里。", null, {}) }
             } else if (wide) {
@@ -218,20 +230,52 @@ public fun ActivityScreen(
                         verticalAlignment = Alignment.Top,
                     ) {
                         Column(Modifier.weight(1.55f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            visibleFeed.forEach { FeedCard(it, repository, onSubjectClick, onReviewClick, onListClick) }
+                            visibleFeed.forEach { FeedCard(it, repository, onSubjectClick, onReviewClick, onListClick, onUserClick) }
+                            if (nextCursor != null) {
+                                AnimeSecondaryButton(if (loading) "加载中" else "加载更多", onClick = {
+                                    if (!loading && nextCursor != null) {
+                                        scope.launch {
+                                            loading = true
+                                            repository
+                                                .feedPage(feed = selectedFeedWire(selectedFeed), limit = 20, cursor = nextCursor)
+                                                .onSuccess {
+                                                    feed = (feed + it.items).distinctBy { item -> item.id }
+                                                    nextCursor = it.nextCursor
+                                                }.onFailure { error = it.message }
+                                            loading = false
+                                        }
+                                    }
+                                })
+                            }
                         }
                         Column(Modifier.weight(0.85f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             DiscussionPanel(feed, onSubjectClick)
-                            ListPanel(lists, onListClick)
+                            ListPanel(lists, onListClick, onCreateList)
                         }
                     }
                 }
             } else {
                 items(
                     visibleFeed.size,
-                ) { FeedCard(visibleFeed[it], repository, onSubjectClick, onReviewClick, onListClick) }
+                ) { FeedCard(visibleFeed[it], repository, onSubjectClick, onReviewClick, onListClick, onUserClick) }
+                if (nextCursor != null) {
+                    item { AnimeSecondaryButton(if (loading) "加载中" else "加载更多", onClick = {
+                        if (!loading && nextCursor != null) {
+                            scope.launch {
+                                loading = true
+                                repository
+                                    .feedPage(feed = selectedFeedWire(selectedFeed), limit = 20, cursor = nextCursor)
+                                    .onSuccess {
+                                        feed = (feed + it.items).distinctBy { item -> item.id }
+                                        nextCursor = it.nextCursor
+                                    }.onFailure { error = it.message }
+                                loading = false
+                            }
+                        }
+                    }) }
+                }
                 item { DiscussionPanel(feed, onSubjectClick) }
-                item { ListPanel(lists, onListClick) }
+                item { ListPanel(lists, onListClick, onCreateList) }
             }
         }
     }
@@ -244,10 +288,14 @@ private fun FeedCard(
     onSubjectClick: (Long) -> Unit,
     onReviewClick: (String) -> Unit,
     onListClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
 ) {
     var following by remember(item.actorId) { mutableStateOf(false) }
     var followMessage by remember(item.actorId) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(item.actorId) {
+        item.actorId?.let { actorId -> repository.followUserStatus(actorId).onSuccess { following = it } }
+    }
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -280,7 +328,11 @@ private fun FeedCard(
                     }
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(item.actorName, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        item.actorName,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = item.actorId?.let { Modifier.clickable { onUserClick(it) } } ?: Modifier,
+                    )
                     Text(
                         actionLabel(item.kind),
                         style = MaterialTheme.typography.bodySmall,
@@ -390,7 +442,9 @@ private fun NotificationPanel(
     notifications: List<CommunityNotification>,
     repository: CommunityRepository,
     onSubjectClick: (Long) -> Unit,
+    onReviewClick: (String) -> Unit,
     onListClick: (String) -> Unit,
+    onCommentsClick: (Long) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     if (notifications.isEmpty()) {
@@ -406,8 +460,15 @@ private fun NotificationPanel(
                         // Fire-and-forget is intentional: navigation should not wait for a best-effort read receipt.
                         scope.launch { repository.markNotificationRead(notification.id) }
                     }
-                    notification.subjectId?.let(onSubjectClick)
-                    notification.listId?.let(onListClick)
+                    val subjectId = notification.subjectId
+                    val listId = notification.listId
+                    val reviewId = notification.reviewId
+                    when {
+                        reviewId != null -> onReviewClick(reviewId)
+                        notification.commentId != null && subjectId != null -> onCommentsClick(subjectId)
+                        listId != null -> onListClick(listId)
+                        subjectId != null -> onSubjectClick(subjectId)
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
@@ -474,6 +535,20 @@ private fun actionLabel(kind: String): String =
         else -> "更新了动态"
     }
 
+private fun initialFeedLabel(feed: String): String =
+    when (feed) {
+        "popular" -> "热门"
+        "public" -> "全站"
+        else -> "关注"
+    }
+
+private fun selectedFeedWire(feed: String): String =
+    when (feed) {
+        "热门" -> "popular"
+        "全站", "讨论" -> "public"
+        else -> "following"
+    }
+
 @Composable private fun DiscussionPanel(
     feed: List<CommunityActivity>,
     onSubjectClick: (Long) -> Unit,
@@ -508,8 +583,10 @@ private fun actionLabel(kind: String): String =
 @Composable private fun ListPanel(
     lists: List<CommunityListSummary>,
     onListClick: (String) -> Unit,
+    onCreateList: () -> Unit,
 ) {
     SidePanel("最新片单") {
+        AnimeSecondaryButton("新建片单", onCreateList)
         if (lists.isEmpty()) {
             Text(
                 "还没有公开片单",

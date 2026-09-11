@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,17 +57,16 @@ import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.animeColors
 import site.jokersh.anime.core.model.CollectionStatus
+import site.jokersh.anime.core.model.CollectionItem
+import site.jokersh.anime.core.model.ResourceState
 import site.jokersh.anime.core.model.SessionState
 import site.jokersh.anime.core.model.SubjectId
-import site.jokersh.anime.core.model.UserCollectionSummary
-import site.jokersh.anime.data.comment.CommunityRepository
-import site.jokersh.anime.data.session.SessionRepository
+import site.jokersh.anime.data.collection.CollectionRepository
 
 @Composable
 public fun CollectionScreen(
     sessionState: SessionState,
-    sessionRepository: SessionRepository,
-    communityRepository: CommunityRepository,
+    collectionRepository: CollectionRepository,
     onSubjectClick: (SubjectId) -> Unit,
     onDiscoverClick: () -> Unit,
     onBack: () -> Unit,
@@ -75,49 +75,17 @@ public fun CollectionScreen(
     var selectedFilter by rememberSaveable { mutableStateOf<CollectionStatus?>(CollectionStatus.Watching) }
     val profile = (sessionState as? SessionState.Authenticated)?.user
     val cachedCollection = profile?.collections.orEmpty()
-    var collection by remember(
-        selectedFilter,
-        profile?.summary?.id,
-    ) { mutableStateOf(emptyList<UserCollectionSummary>()) }
-    var nextCursor by remember(selectedFilter, profile?.summary?.id) { mutableStateOf<String?>(null) }
-    var loading by remember(selectedFilter, profile?.summary?.id) { mutableStateOf(false) }
-    var initialized by remember(selectedFilter, profile?.summary?.id) { mutableStateOf(false) }
+    val collectionState by collectionRepository
+        .observeCollections(selectedFilter)
+        .collectAsState(ResourceState(null, null, false, null))
     var message by remember(selectedFilter, profile?.summary?.id) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(selectedFilter, profile?.summary?.id) {
         if (profile == null) return@LaunchedEffect
-        loading = true
-        sessionRepository
-            .collectionPage(selectedFilter)
-            .onSuccess { page ->
-                collection = page.items
-                nextCursor = page.nextCursor
-                initialized = true
-            }.onFailure {
-                collection =
-                    if (selectedFilter ==
-                        null
-                    ) {
-                        cachedCollection
-                    } else {
-                        cachedCollection.filter { item -> item.status == selectedFilter }
-                    }
-                message = "当前显示本机缓存"
-                initialized = true
-            }
-        loading = false
+        collectionRepository.requestSync().onFailure { message = "云端同步失败，保留本机数据" }
     }
-    val visibleItems =
-        if (initialized) {
-            collection
-        } else if (selectedFilter ==
-            null
-        ) {
-            cachedCollection
-        } else {
-            cachedCollection.filter { it.status == selectedFilter }
-        }
-    val overviewItems = (cachedCollection + collection).distinctBy { it.subjectId }
+    val visibleItems = collectionState.value.orEmpty()
+    val overviewItems = visibleItems
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         // The root navigation rail consumes part of the desktop window. Keep the
@@ -144,7 +112,7 @@ public fun CollectionScreen(
                 CollectionOverview(
                     collection = overviewItems,
                     syncedAt = profile?.syncedAt?.toString(),
-                    restoring = sessionState is SessionState.Restoring,
+                restoring = collectionState.refreshing || sessionState is SessionState.Restoring,
                 )
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
@@ -168,20 +136,16 @@ public fun CollectionScreen(
                     EmptyCollection(onDiscoverClick = onDiscoverClick)
                 }
             } else {
-                items(visibleItems, key = { it.subjectId.value }) { item ->
+                items(visibleItems, key = { it.subject.id.value }) { item ->
                     CollectionCard(
                         item = item,
-                        onClick = { onSubjectClick(item.subjectId) },
+                        onClick = { onSubjectClick(item.subject.id) },
                         onRemove = {
-                            scope.launch {
-                                loading = true
-                                communityRepository
-                                    .deleteCollection(item.subjectId.value)
-                                    .onSuccess {
-                                        collection = collection.filterNot { it.subjectId == item.subjectId }
-                                        message = "已移出收藏"
-                                    }.onFailure { message = it.message ?: "移除收藏失败" }
-                                loading = false
+                        scope.launch {
+                                when (collectionRepository.setStatus(item.subject.id, null)) {
+                                    is site.jokersh.anime.core.model.MutationResult.Accepted -> message = "已移出收藏"
+                                    else -> message = "移除收藏失败"
+                                }
                             }
                         },
                     )
@@ -189,24 +153,7 @@ public fun CollectionScreen(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         message?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        if (nextCursor != null) {
-                            AnimePrimaryButton(if (loading) "加载中" else "加载更多", {
-                                if (!loading) {
-                                    scope.launch {
-                                        loading = true
-                                        sessionRepository
-                                            .collectionPage(selectedFilter, nextCursor)
-                                            .onSuccess { page ->
-                                                collection =
-                                                    (collection + page.items).distinctBy { it.subjectId }
-                                                ; nextCursor =
-                                                    page.nextCursor
-                                            }.onFailure { message = "加载失败，请稍后重试" }
-                                        loading = false
-                                    }
-                                }
-                            }, enabled = !loading)
-                        }
+                        if (collectionState.refreshing) Text("正在同步片库…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -261,12 +208,12 @@ private fun CollectionHeader(
 
 @Composable
 private fun CollectionOverview(
-    collection: List<UserCollectionSummary>,
+    collection: List<CollectionItem>,
     syncedAt: String?,
     restoring: Boolean,
 ) {
-    val watching = collection.count { it.status == CollectionStatus.Watching }
-    val completed = collection.count { it.status == CollectionStatus.Completed }
+    val watching = collection.count { it.collection.status == CollectionStatus.Watching }
+    val completed = collection.count { it.collection.status == CollectionStatus.Completed }
     AnimeGlassPanel(
         role = GlassRole.StaticHero,
         shape = RoundedCornerShape(AnimeRadius.panel),
@@ -326,6 +273,7 @@ private fun CollectionFilters(
             CollectionStatus.Wish to "想看",
             CollectionStatus.Completed to "看过",
             CollectionStatus.OnHold to "搁置",
+            CollectionStatus.Dropped to "抛弃",
         )
     Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -362,7 +310,7 @@ private fun CollectionFilters(
 
 @Composable
 private fun CollectionCard(
-    item: UserCollectionSummary,
+    item: CollectionItem,
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -387,15 +335,16 @@ private fun CollectionCard(
                         .background(Brush.linearGradient(listOf(Color(0xFF3978D4), Color(0xFF8B5CF6)))),
                 contentAlignment = Alignment.Center,
             ) {
-                if (item.posterUrl != null) {
+                val poster = item.subject.poster as? site.jokersh.anime.core.model.ImageRef.Remote
+                if (poster != null) {
                     AsyncImage(
-                        model = item.posterUrl,
-                        contentDescription = "${item.title} 海报",
+                        model = poster.url,
+                        contentDescription = "${item.subject.title} 海报",
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
                     Text(
-                        item.title.take(1),
+                        item.subject.title.take(1),
                         style = MaterialTheme.typography.displayLarge,
                         color = Color.White.copy(alpha = 0.88f),
                         fontWeight = FontWeight.Bold,
@@ -413,21 +362,20 @@ private fun CollectionCard(
                         verticalAlignment = Alignment.Top,
                     ) {
                         Text(
-                            text = item.title,
+                            text = item.subject.title,
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        StatusBadge(item.status.label)
+                        StatusBadge(item.collection.status.label)
                     }
                     Text(
                         text =
                             buildString {
-                                append(item.airDate?.take(4) ?: "年份未知")
-                                if (item.score > 0.0) append(" · ${item.score} Bangumi")
-                                if (item.userRating > 0) append(" · 我的评分 ${item.userRating}")
+                                 append(item.subject.year ?: "年份未知")
+                                 item.subject.rating?.score?.let { append(" · $it Bangumi") }
                             },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -441,28 +389,18 @@ private fun CollectionCard(
                     ) {
                         Text(
                             text =
-                                if (item.status ==
+                                if (item.collection.status ==
                                     CollectionStatus.Watching
                                 ) {
-                                    if (item.totalEpisodes > 0) {
-                                        "已看 ${item.episodeProgress} / ${item.totalEpisodes} 集"
-                                    } else {
-                                        "已看 ${item.episodeProgress} 集"
-                                    }
+                                    "已看 ${item.collection.watchedEpisodes} 集"
                                 } else {
-                                    item.comment.ifBlank { item.status.detail }
+                                    item.collection.note ?: item.collection.status.detail
                                 },
                             style = MaterialTheme.typography.labelLarge,
                         )
                     }
-                    if (item.status == CollectionStatus.Watching && item.totalEpisodes > 0) {
+                    if (item.collection.status == CollectionStatus.Watching) {
                         LinearProgressIndicator(
-                            progress = {
-                                item.episodeProgress
-                                    .toFloat()
-                                    .div(item.totalEpisodes)
-                                    .coerceIn(0f, 1f)
-                            },
                             modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
                             color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant,

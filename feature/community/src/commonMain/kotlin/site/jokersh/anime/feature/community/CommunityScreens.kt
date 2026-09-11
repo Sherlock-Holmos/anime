@@ -20,10 +20,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +49,7 @@ import site.jokersh.anime.core.designsystem.AnimeBackIcon
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
 import site.jokersh.anime.data.comment.CommunityListDetail
+import site.jokersh.anime.data.comment.CommunityListSummary
 import site.jokersh.anime.data.comment.CommunityRepository
 import site.jokersh.anime.data.comment.CommunityReview
 
@@ -130,6 +134,7 @@ public fun SubjectReviewsScreen(
                 ReviewListCard(
                     review = review,
                     owned = review.owned || currentUserId == review.authorId,
+                    repository = repository,
                     onOpen = { onReviewClick(review.id) },
                     onDelete = {
                         scope.launch {
@@ -153,10 +158,16 @@ public fun SubjectReviewsScreen(
 private fun ReviewListCard(
     review: CommunityReview,
     owned: Boolean,
+    repository: CommunityRepository,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var spoilerVisible by remember(review.id) { mutableStateOf(!review.spoiler) }
+    var liked by remember(review.id) { mutableStateOf(false) }
+    var bookmarked by remember(review.id) { mutableStateOf(false) }
+    var likeCount by remember(review.id) { mutableStateOf(review.likeCount) }
+    var bookmarkCount by remember(review.id) { mutableStateOf(review.bookmarkCount) }
+    val scope = rememberCoroutineScope()
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -194,7 +205,25 @@ private fun ReviewListCard(
                 }
                 AnimeSecondaryButton("查看详情", onOpen)
                 if (owned) AnimeSecondaryButton("删除", onDelete)
-                Text("${review.likeCount} 喜欢", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                AnimeSecondaryButton(if (liked) "已喜欢" else "喜欢", onClick = {
+                    scope.launch {
+                        repository.reactReview(review.id, "like", !liked).onSuccess {
+                            liked = it.active
+                            likeCount = it.likeCount
+                            bookmarkCount = it.bookmarkCount
+                        }
+                    }
+                })
+                AnimeSecondaryButton(if (bookmarked) "已收藏" else "收藏", onClick = {
+                    scope.launch {
+                        repository.reactReview(review.id, "bookmark", !bookmarked).onSuccess {
+                            bookmarked = it.active
+                            likeCount = it.likeCount
+                            bookmarkCount = it.bookmarkCount
+                        }
+                    }
+                })
+                Text("$likeCount 喜欢 · $bookmarkCount 收藏", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -352,6 +381,11 @@ public fun ReviewDetailScreen(
 ) {
     var review by remember { mutableStateOf<CommunityReview?>(null) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var liked by remember(reviewId) { mutableStateOf(false) }
+    var bookmarked by remember(reviewId) { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var mutationMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(repository, reviewId) {
         repository.review(reviewId).onSuccess { review = it }.onFailure {
             error =
@@ -377,11 +411,65 @@ public fun ReviewDetailScreen(
                 }
 
                 else -> {
-                    ReviewArticle(review!!, onSubjectClick)
+                    ReviewArticle(
+                        review = review!!,
+                        onSubjectClick = onSubjectClick,
+                        liked = liked,
+                        bookmarked = bookmarked,
+                        onLike = {
+                            scope.launch {
+                                repository.reactReview(review!!.id, "like", !liked)
+                                    .onSuccess { reaction ->
+                                        liked = reaction.active
+                                        review = review!!.copy(likeCount = reaction.likeCount, bookmarkCount = reaction.bookmarkCount)
+                                    }.onFailure { mutationMessage = readableError(it) }
+                            }
+                        },
+                        onBookmark = {
+                            scope.launch {
+                                repository.reactReview(review!!.id, "bookmark", !bookmarked)
+                                    .onSuccess { reaction ->
+                                        bookmarked = reaction.active
+                                        review = review!!.copy(likeCount = reaction.likeCount, bookmarkCount = reaction.bookmarkCount)
+                                    }.onFailure { mutationMessage = readableError(it) }
+                            }
+                        },
+                        onEdit = { editing = true },
+                    )
                 }
             }
         }
     }
+    if (editing && review != null) {
+        var title by remember(review!!.id) { mutableStateOf(review!!.title.orEmpty()) }
+        var body by remember(review!!.id) { mutableStateOf(review!!.body) }
+        var spoiler by remember(review!!.id) { mutableStateOf(review!!.spoiler) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("编辑评价") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(title, { title = it }, label = { Text("标题") }, singleLine = true)
+                    OutlinedTextField(body, { body = it.take(500) }, label = { Text("正文") }, minLines = 5)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Switch(spoiler, { spoiler = it })
+                        Text("包含剧透")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        repository.updateReview(review!!.id, title.trim().ifBlank { null }, body.trim(), spoiler, review!!.visibility)
+                            .onSuccess { review = it; editing = false; mutationMessage = "评价已更新" }
+                            .onFailure { mutationMessage = readableError(it) }
+                    }
+                }) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("取消") } },
+        )
+    }
+    mutationMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(24.dp)) }
 }
 
 @Composable
@@ -399,9 +487,15 @@ public fun CuratedListScreen(
     var detail by remember { mutableStateOf<CommunityListDetail?>(null) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var following by rememberSaveable { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var deleteConfirm by rememberSaveable { mutableStateOf(false) }
+    var mutationMessage by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(repository, listId) {
-        repository.list(listId).onSuccess { detail = it }.onFailure {
+        repository.list(listId).onSuccess {
+            detail = it
+            following = it.summary.following
+        }.onFailure {
             error =
                 readableError(it)
         }
@@ -441,22 +535,21 @@ public fun CuratedListScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            AnimeSecondaryButton(
-                                if (following) "已关注片单" else "关注片单",
-                                onClick = {
-                                    scope.launch {
-                                        val result =
-                                            if (following) {
-                                                repository.unfollowList(
-                                                    listId,
-                                                )
-                                            } else {
-                                                repository.followList(listId)
-                                            }
-                                        result.onSuccess { following = it }
-                                    }
-                                },
-                            )
+                            if (!detail!!.summary.owned) {
+                                AnimeSecondaryButton(
+                                    if (following) "已关注片单" else "关注片单",
+                                    onClick = {
+                                        scope.launch {
+                                            val result =
+                                                if (following) repository.unfollowList(listId) else repository.followList(listId)
+                                            result.onSuccess { following = it }.onFailure { mutationMessage = readableError(it) }
+                                        }
+                                    },
+                                )
+                            } else {
+                                AnimeSecondaryButton("编辑", { editing = true })
+                                AnimeSecondaryButton("删除", { deleteConfirm = true })
+                            }
                             Text(
                                 "${detail!!.summary.followerCount} 人关注",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -526,6 +619,174 @@ public fun CuratedListScreen(
             }
         }
     }
+    if (editing && detail != null) {
+        var title by remember(detail!!.summary.title) { mutableStateOf(detail!!.summary.title) }
+        var description by remember(detail!!.summary.description) { mutableStateOf(detail!!.summary.description) }
+        var subjectIds by remember(detail!!.items) { mutableStateOf(detail!!.items.joinToString(",") { it.subjectId.toString() }) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("编辑片单") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(title, { title = it }, label = { Text("标题") }, singleLine = true)
+                    OutlinedTextField(description, { description = it }, label = { Text("描述") }, minLines = 3)
+                    OutlinedTextField(subjectIds, { subjectIds = it }, label = { Text("作品 ID（逗号分隔，可调整顺序）") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        val ids = subjectIds.split(',', '，', ' ').mapNotNull { it.trim().toLongOrNull() }
+                        repository
+                            .updateList(listId, title.trim(), description.trim(), null, ids)
+                            .onSuccess { updated ->
+                                detail = detail!!.copy(summary = updated)
+                                editing = false
+                                mutationMessage = "片单已更新"
+                            }.onFailure { mutationMessage = readableError(it) }
+                    }
+                }) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("取消") } },
+        )
+    }
+    if (deleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { deleteConfirm = false },
+            title = { Text("删除片单？") },
+            text = { Text("删除后片单及其条目将不再可见。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        repository.deleteList(listId).onSuccess { onBack() }.onFailure { mutationMessage = readableError(it) }
+                        deleteConfirm = false
+                    }
+                }) { Text("删除") }
+            },
+            dismissButton = { TextButton(onClick = { deleteConfirm = false }) { Text("取消") } },
+        )
+    }
+    mutationMessage?.let { message ->
+        if (detail != null) Text(message, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(24.dp))
+    }
+}
+
+@Composable
+public fun UserProfileScreen(
+    repository: CommunityRepository,
+    userId: String,
+    onBack: () -> Unit,
+    onReviewClick: (String) -> Unit,
+    onListClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var profile by remember(userId) { mutableStateOf<site.jokersh.anime.data.comment.CommunityUserProfile?>(null) }
+    var reviews by remember(userId) { mutableStateOf(emptyList<CommunityReview>()) }
+    var lists by remember(userId) { mutableStateOf(emptyList<CommunityListSummary>()) }
+    var following by remember(userId) { mutableStateOf(false) }
+    var loading by remember(userId) { mutableStateOf(true) }
+    var error by remember(userId) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(repository, userId) {
+        loading = true
+        error = null
+        repository.userProfile(userId).onSuccess {
+            profile = it
+            following = it.following
+        }.onFailure { error = readableError(it) }
+        repository.userReviews(userId, limit = 20).onSuccess { reviews = it.items }
+        repository.userLists(userId, limit = 20).onSuccess { lists = it }
+        loading = false
+    }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(24.dp, 20.dp, 24.dp, 96.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item { PageBack(onBack) }
+        item {
+            when {
+                loading && profile == null -> Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                error != null && profile == null -> StatePanel("无法加载用户资料", error.orEmpty())
+                profile != null -> {
+                    val value = profile!!
+                    ContentPanel(Modifier.fillMaxWidth()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Surface(Modifier.size(56.dp), CircleShape, color = MaterialTheme.colorScheme.primary.copy(alpha = .16f)) {
+                                if (value.avatarUrl != null) {
+                                    AsyncImage(value.avatarUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                } else {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(value.displayName.take(1), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(value.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                                Text("加入于 ${value.createdAt.take(10)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            AnimeSecondaryButton(if (following) "已关注" else "关注", onClick = {
+                                scope.launch {
+                                    val result = if (following) repository.unfollowUser(userId) else repository.followUser(userId)
+                                    result.onSuccess { following = it }.onFailure { error = readableError(it) }
+                                }
+                            })
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                            Text("${value.ratingCount} 评分")
+                            Text("${value.reviewCount} 评价")
+                            Text("${value.listCount} 片单")
+                            Text("${value.followerCount} 粉丝")
+                        }
+                    }
+                }
+            }
+        }
+        item { Text("评价", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        if (reviews.isEmpty()) {
+            item { Text("还没有公开评价", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        } else {
+            items(reviews, key = { it.id }) { review ->
+                Surface(
+                    onClick = { onReviewClick(review.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .24f)),
+                ) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(review.title ?: "短评", fontWeight = FontWeight.SemiBold)
+                        Text(review.body, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        Text("${review.likeCount} 喜欢 · ${review.createdAt.take(16).replace('T', ' ')}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        item { Text("片单", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        if (lists.isEmpty()) {
+            item { Text("还没有公开片单", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        } else {
+            items(lists, key = { it.id }) { list ->
+                Surface(
+                    onClick = { onListClick(list.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .24f)),
+                ) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(list.title, fontWeight = FontWeight.SemiBold)
+                        Text(list.description, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${list.itemCount} 部作品 · ${list.followerCount} 人关注", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -583,6 +844,11 @@ private fun CreateListScreen(
 private fun ReviewArticle(
     review: CommunityReview,
     onSubjectClick: (Long) -> Unit,
+    liked: Boolean,
+    bookmarked: Boolean,
+    onLike: () -> Unit,
+    onBookmark: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     ContentPanel(Modifier.widthIn(max = 900.dp)) {
         Text(review.title ?: "短评", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
@@ -593,8 +859,11 @@ private fun ReviewArticle(
         Text(review.body, style = MaterialTheme.typography.bodyLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AnimeSecondaryButton("查看作品", { onSubjectClick(review.subjectId) })
+            AnimeSecondaryButton(if (liked) "已喜欢" else "喜欢", onLike)
+            AnimeSecondaryButton(if (bookmarked) "已收藏" else "收藏", onBookmark)
+            if (review.owned) AnimeSecondaryButton("编辑", onEdit)
             Text(
-                "${review.likeCount} 喜欢",
+                "${review.likeCount} 喜欢 · ${review.bookmarkCount} 收藏",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
             )

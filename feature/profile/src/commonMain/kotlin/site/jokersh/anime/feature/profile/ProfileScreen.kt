@@ -83,6 +83,7 @@ public fun ProfileScreen(
     onThemeChange: (ThemePreference) -> Unit,
     onGlassChange: (GlassPreference) -> Unit,
     onReduceMotionChange: (ReduceMotionPreference) -> Unit,
+    onDiagnostics: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showAccountDialog by rememberSaveable { mutableStateOf(false) }
@@ -101,6 +102,8 @@ public fun ProfileScreen(
             onBrowseCollection = onBrowseCollection,
             onExportData = sessionRepository::exportMyData,
             onDeleteAccount = sessionRepository::deleteAccount,
+            onUpdateProfile = sessionRepository::updateProfile,
+            onChangePassword = sessionRepository::changePassword,
         )
     }
 
@@ -155,6 +158,7 @@ public fun ProfileScreen(
                             },
                             environmentLabel = environmentLabel,
                             sessionState = sessionState,
+                            onDiagnostics = onDiagnostics,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -175,6 +179,7 @@ public fun ProfileScreen(
                             },
                             environmentLabel = environmentLabel,
                             sessionState = sessionState,
+                            onDiagnostics = onDiagnostics,
                         )
                     }
                 }
@@ -615,6 +620,7 @@ private fun PreferencePanel(
     onReduceMotionChange: (Boolean) -> Unit,
     environmentLabel: String,
     sessionState: SessionState,
+    onDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SettingsPanel(title = "偏好与状态", subtitle = "让动画与显示效果适应当前设备。", modifier = modifier) {
@@ -640,6 +646,7 @@ private fun PreferencePanel(
         )
         StatusLine("运行环境", environmentLabel)
         StatusLine("应用状态", "已启用本地偏好同步")
+        AnimeSecondaryButton("服务诊断", onDiagnostics)
     }
 }
 
@@ -683,6 +690,8 @@ public fun AnimeAccountCenter(
     onBrowseCollection: () -> Unit,
     onExportData: (suspend () -> Result<String>)? = null,
     onDeleteAccount: (suspend () -> Result<Unit>)? = null,
+    onUpdateProfile: (suspend (String) -> Result<Unit>)? = null,
+    onChangePassword: (suspend (String, String) -> Result<Unit>)? = null,
 ) {
     var registering by rememberSaveable { mutableStateOf(false) }
     var username by rememberSaveable { mutableStateOf("") }
@@ -692,6 +701,8 @@ public fun AnimeAccountCenter(
     var accountBusy by remember { mutableStateOf(false) }
     var accountMessage by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var editProfile by remember { mutableStateOf(false) }
+    var changePassword by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val loading = sessionState is SessionState.Restoring
     val error = (sessionState as? SessionState.Failed)?.message
@@ -822,6 +833,10 @@ public fun AnimeAccountCenter(
                         )
                         AnimeSecondaryButton(label = "退出登录", onClick = onLogout)
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+                        onUpdateProfile?.let { AnimeSecondaryButton("编辑资料", onClick = { editProfile = true }) }
+                        onChangePassword?.let { AnimeSecondaryButton("修改密码", onClick = { changePassword = true }) }
+                    }
                     onExportData?.let { export ->
                         AnimeSecondaryButton(
                             label = if (accountBusy) "导出中…" else "导出我的数据",
@@ -873,6 +888,54 @@ public fun AnimeAccountCenter(
                     enabled = !accountBusy,
                 ) { Text("确认注销", color = MaterialTheme.colorScheme.error) }
             },
+        )
+    }
+    if (editProfile && authenticated != null) {
+        var name by remember(authenticated.user.summary.displayName) { mutableStateOf(authenticated.user.summary.displayName) }
+        AlertDialog(
+            onDismissRequest = { editProfile = false },
+            title = { Text("编辑个人资料") },
+            text = { OutlinedTextField(name, { name = it }, label = { Text("昵称") }, singleLine = true) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val update = onUpdateProfile ?: return@TextButton
+                    scope.launch {
+                        accountBusy = true
+                        update(name.trim())
+                            .onSuccess { editProfile = false; accountMessage = "资料已更新" }
+                            .onFailure { accountMessage = it.message ?: "资料更新失败" }
+                        accountBusy = false
+                    }
+                }, enabled = !accountBusy && name.isNotBlank()) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { editProfile = false }) { Text("取消") } },
+        )
+    }
+    if (changePassword) {
+        var current by remember { mutableStateOf("") }
+        var next by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { changePassword = false },
+            title = { Text("修改密码") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(current, { current = it }, label = { Text("当前密码") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                    OutlinedTextField(next, { next = it }, label = { Text("新密码") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val update = onChangePassword ?: return@TextButton
+                    scope.launch {
+                        accountBusy = true
+                        update(current, next)
+                            .onSuccess { changePassword = false; accountMessage = "密码已更新" }
+                            .onFailure { accountMessage = it.message ?: "密码更新失败" }
+                        accountBusy = false
+                    }
+                }, enabled = !accountBusy && current.isNotBlank() && next.isNotBlank()) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { changePassword = false }) { Text("取消") } },
         )
     }
 }
