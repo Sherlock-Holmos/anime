@@ -11,11 +11,11 @@ struct ContentView: View {
 
     var body: some View {
         ComposeRootView(onRootSelectionChanged: { index in
-            selectedRootIndex = Int(index)
+            selectedRootIndex = index.intValue
         }, onNativeGlassStateChanged: { enabled in
-            nativeGlassEnabled = enabled
+            nativeGlassEnabled = enabled.boolValue
         }, onNativeRootNavigationVisibilityChanged: { visible in
-            nativeRootNavigationVisible = visible
+            nativeRootNavigationVisible = visible.boolValue
         })
             .ignoresSafeArea()
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -36,9 +36,9 @@ struct ContentView: View {
 }
 
 private struct ComposeRootView: UIViewControllerRepresentable {
-    let onRootSelectionChanged: (Int32) -> Void
-    let onNativeGlassStateChanged: (Bool) -> Void
-    let onNativeRootNavigationVisibilityChanged: (Bool) -> Void
+    let onRootSelectionChanged: (KotlinInt) -> Void
+    let onNativeGlassStateChanged: (KotlinBoolean) -> Void
+    let onNativeRootNavigationVisibilityChanged: (KotlinBoolean) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
         IosBridge.shared.mainViewController(
