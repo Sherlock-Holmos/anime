@@ -1,6 +1,7 @@
 import groovy.json.JsonSlurper
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.attributes.Bundling
+import org.gradle.api.tasks.testing.AbstractTestTask
 import java.security.MessageDigest
 
 plugins {
@@ -16,6 +17,27 @@ plugins {
 
 group = "site.jokersh.anime"
 version = "0.1.0-SNAPSHOT"
+
+// Kotlin/Wasm browser tests need a locally installed browser and are not part
+// of the Windows or iOS verification path. They are opt-in so the regular
+// check remains usable on a Windows workstation, while JVM, Android-host,
+// Desktop, and Native tests stay strict. To run them explicitly, use
+// `-PenableWasmBrowserTests=true`; a discovered test failure still fails.
+subprojects {
+    val enableWasmBrowserTests =
+        providers
+            .gradleProperty("enableWasmBrowserTests")
+            .map(String::toBoolean)
+            .orElse(false)
+
+    tasks.withType<AbstractTestTask>().configureEach {
+        if (name == "wasmJsBrowserTest") {
+            onlyIf {
+                enableWasmBrowserTests.get()
+            }
+        }
+    }
+}
 
 val ktlint by configurations.creating {
     attributes.attribute(

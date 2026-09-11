@@ -34,6 +34,7 @@ import kotlin.time.Instant
 /** iOS host entry exported by AnimeShared.framework. */
 public object IosBridge {
     private val pendingAuthCallback = MutableStateFlow<AuthCallback?>(null)
+    private var rootSelectionHandler: (Int) -> Unit = {}
 
     @OptIn(ExperimentalComposeUiApi::class)
     public fun mainViewController(
@@ -41,14 +42,15 @@ public object IosBridge {
         readSecret: (String) -> String?,
         writeSecret: (String, String) -> Unit,
         removeSecret: (String) -> Unit,
+        onRootSelectionChanged: (Int) -> Unit,
+        onNativeGlassStateChanged: (Boolean) -> Unit,
+        onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit,
     ): UIViewController {
         val appContainer = createIosContainer(readSecret, writeSecret, removeSecret)
         return ComposeUIViewController(
             configure = {
-                // Backdrop's runtime shaders can be expensive during the first frames.
-                // Keep composition/layout on the main thread while moving Metal drawing
-                // to Compose's dedicated render thread so scrolling and tab gestures stay
-                // responsive while the pipeline warms up.
+                // Keep Compose page composition responsive while the native SwiftUI
+                // Liquid Glass shell handles root navigation independently.
                 parallelRendering = true
             },
         ) {
@@ -56,6 +58,11 @@ public object IosBridge {
             AnimeApp(
                 appContainer = appContainer,
                 openExternalUrl = openExternalUrl,
+                nativeRootNavigation = true,
+                bindRootSelectionHandler = { handler -> rootSelectionHandler = handler },
+                onRootSelectionChanged = onRootSelectionChanged,
+                onNativeGlassStateChanged = onNativeGlassStateChanged,
+                onNativeRootNavigationVisibilityChanged = onNativeRootNavigationVisibilityChanged,
             )
             LaunchedEffect(callback) {
                 val current = callback ?: return@LaunchedEffect
@@ -63,6 +70,11 @@ public object IosBridge {
                 if (pendingAuthCallback.value == current) pendingAuthCallback.value = null
             }
         }
+    }
+
+    /** Called by the native SwiftUI Liquid Glass root tab bar. */
+    public fun requestRootSelection(index: Int) {
+        rootSelectionHandler(index)
     }
 
     /** Handles both ASWebAuthenticationSession callbacks and app URL callbacks. */

@@ -15,11 +15,12 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    // Kotlin/Wasm registers version-pinned Ivy repositories for browser
-    // toolchains such as Binaryen. They are not Maven application dependencies.
-    // Keep dependency resolution deterministic and prevent host-level Gradle init
-    // scripts from shadowing Maven Central with incomplete mirrors (notably iOS
-    // Kotlin/Native variants).
+    // Kotlin/Wasm registers the version-pinned Binaryen Ivy repository at project
+    // level. PREFER_SETTINGS intentionally ignores project repositories, so keep
+    // the official distribution repository here as well. The content filter keeps
+    // it isolated from normal Maven dependency resolution.
+    // The settings-owned repositories also prevent host-level Gradle init scripts
+    // from shadowing Maven Central with incomplete mirrors (notably iOS variants).
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
@@ -31,6 +32,19 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        ivy {
+            name = "KotlinWasmBinaryen"
+            url = uri("https://github.com/WebAssembly/binaryen/releases/download")
+            patternLayout {
+                artifact("version_[revision]/binaryen-version_[revision]-[classifier].[ext]")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("com.github.webassembly", "binaryen")
+            }
+        }
     }
 }
 

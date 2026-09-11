@@ -1,19 +1,10 @@
 package site.jokersh.anime.core.designsystem
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @Composable
 internal actual fun PlatformAnimeBackdropHost(
@@ -23,34 +14,15 @@ internal actual fun PlatformAnimeBackdropHost(
     glassEnabled: Boolean,
     reduceMotion: Boolean,
 ) {
-    val backdrop = if (glassEnabled) rememberLayerBackdrop() else null
-    var liquidGlassReady by remember { mutableStateOf(false) }
-    var liquidGlassWarmup by remember { mutableStateOf(false) }
-    LaunchedEffect(glassEnabled) {
-        liquidGlassReady = false
-        liquidGlassWarmup = false
-        if (!glassEnabled) return@LaunchedEffect
-        // Let the first content frame commit before creating the expensive liquid pipeline.
-        withFrameNanos { }
-        liquidGlassWarmup = true
-        // The hidden warmup component draws once on the dedicated render thread.
-        withFrameNanos { }
-        liquidGlassWarmup = false
-        liquidGlassReady = true
-    }
+    // iOS uses the native SwiftUI Liquid Glass shell. Compose content deliberately stays
+    // free of the Skia Backdrop pipeline so the iOS surface is not a second glass renderer.
     Box(modifier) {
-        if (backdrop != null) {
-            Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
-                background()
-            }
-        } else {
-            background()
-        }
+        background()
         CompositionLocalProvider(
-            LocalAnimeBackdrop provides backdrop,
+            LocalAnimeBackdrop provides null,
             LocalAnimeGlassEnabled provides glassEnabled,
-            LocalAnimeLiquidGlassEnabled provides liquidGlassReady,
-            LocalAnimeLiquidGlassWarmup provides liquidGlassWarmup,
+            LocalAnimeLiquidGlassEnabled provides false,
+            LocalAnimeLiquidGlassWarmup provides false,
             LocalAnimeReduceMotion provides reduceMotion,
         ) {
             content()
@@ -59,7 +31,8 @@ internal actual fun PlatformAnimeBackdropHost(
 }
 
 @Composable
-internal actual fun platformGlassCapabilities(): GlassCapabilities = GlassCapabilities(maximumTier = GlassTier.Liquid)
+internal actual fun platformGlassCapabilities(): GlassCapabilities =
+    GlassCapabilities(maximumTier = GlassTier.Translucent)
 
 @Composable
 internal actual fun Modifier.platformGlassEffect(

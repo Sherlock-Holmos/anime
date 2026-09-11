@@ -84,11 +84,11 @@ Coil 配置统一在 AppContainer：内存缓存 25% 可用内存上限，磁盘
 
 ## 8. 玻璃、降级和动态效果
 
-`AnimeGlassPanel` 是普通玻璃表面的统一入口；根底栏是唯一例外，由 `AnimeLiquidTabBar` 通过隔离的 Vendor 模块调用 Kyant 官方 `LiquidBottomTabs`。Feature 仍不得直接依赖第三方 API 或 Vendor 模块。
+`AnimeGlassPanel` 是 Compose 平台（Android/Desktop/Web）普通玻璃表面的统一入口；iOS 26+ 根底栏由 SwiftUI 宿主提供官方 Liquid Glass。Android/Desktop/Web 的根底栏由 `AnimeLiquidTabBar` 通过隔离的 Vendor 模块调用 Kyant 官方 `LiquidBottomTabs`。Feature 仍不得直接依赖第三方 API 或 Vendor 模块。
 
 - AUTO 偏好由能力适配器解析为 `Liquid`、`Blur`、`Translucent` 或 `None`；Feature 不判断设备等级。
 - `Liquid`：模糊、受限折射和高光；Compact 根 Tab Bar 是每屏主要 Liquid 区域，存在时 StaticHero 降为 Blur，避免玻璃嵌套与争抢层级。
-- `AnimeLiquidTabBar` 只桥接官方 `LiquidBottomTabs` 的 `selectedTabIndex`、`onTabSelected`、Backdrop、图标和标签。拖动、速度形变、吸附、折射、高光与阴影完全由上游组件负责；Anime 代码禁止复制这些实现。
+- `AnimeLiquidTabBar` 只在 Android/Desktop/Web 桌面与移动目标桥接官方 `LiquidBottomTabs` 的 `selectedTabIndex`、`onTabSelected`、Backdrop、图标和标签；iOS 26+ 由 `ContentView.swift` 的 SwiftUI `GlassEffectContainer` 与 `.buttonStyle(.glass(.regular))` 提供根导航。拖动、速度形变、吸附、折射、高光与阴影完全由对应平台实现负责；Anime 代码禁止复制 Kyant 的算法。
 - `Blur`：实时背景模糊；每屏最多 2 处，不进入 Lazy item。
 - `Translucent`：半透明 surface + 1dp outline，无实时模糊。
 - `None`：不透明 surface；对比度必须独立达标。

@@ -17,7 +17,7 @@
 
 Android Application 位于 `app/android`，Windows Desktop Application 位于 `app/desktop`，WebAssembly Application 位于 `app/web`，共享 Compose UI 位于 `shared/app`；领域模型与 Repository 接口位于 `core/model` 和 `data/*`，确定性 Demo 数据位于 `fixtures/v1`。三端复用相同的导航、页面、设计系统与 Remote Repository；`demoDebug` 单独保留 Fixture，浏览器端对不支持的液态玻璃能力降级为半透明表面。
 
-App Shell 已采用 iOS 26-inspired 的内容层与悬浮 Liquid Glass 功能层，不直接呈现 Material 3 默认顶部栏、底部栏、选中指示器或 Ripple；F1 组件目录已可演示海报卡、紧凑卡片、Bangumi 评分、按钮、状态面板与玻璃降级。Android 已通过统一适配层接入 Kyant Backdrop 2.0.0：API 26–30 使用半透明表面，API 31–32 使用实时模糊，API 33+ 使用受限液态折射。所有用户可见文案和根导航图标均来自 `commonMain` 资源。`AppContainer` 在 Android 壳层创建后注入共享 UI，Feature 模块之间由构建任务阻止直接依赖。
+App Shell 已采用 iOS 26-inspired 的内容层与悬浮 Liquid Glass 功能层，不直接呈现 Material 3 默认顶部栏、底部栏、选中指示器或 Ripple；iOS 26+ 根导航由 SwiftUI 官方 Liquid Glass 渲染，Android/Desktop/Web 继续通过统一适配层接入 Kyant Backdrop 2.0.0。Android API 26–30 使用半透明表面，API 31–32 使用实时模糊，API 33+ 使用受限液态折射。所有用户可见文案和共享导航状态仍来自 `commonMain`，`AppContainer` 在 Android 壳层创建后注入共享 UI，Feature 模块之间由构建任务阻止直接依赖。
 
 要求：JDK 17、Android SDK 37、Gradle Wrapper 9.5.0；构建 Web 时还需安装 Node.js 并加入 `PATH`，也可通过 `NODE_BINARY` 指定可执行文件。首次使用前在未提交的 `local.properties` 中配置 Android SDK 路径。
 
@@ -30,6 +30,8 @@ App Shell 已采用 iOS 26-inspired 的内容层与悬浮 Liquid Glass 功能层
 .\gradlew.bat :app:desktop:createDistributable
 .\gradlew.bat :app:desktop:packageExe
 .\gradlew.bat animeCheck
+# Windows 没有浏览器时默认跳过 Kotlin/Wasm 浏览器测试；安装 Chrome/Chromium/Edge 后显式执行：
+.\gradlew.bat -PenableWasmBrowserTests=true :app:web:wasmJsBrowserTest
 ```
 
 Demo APK 输出到 `app/android/build/outputs/apk/demo/debug/android-demo-debug.apk`，真实数据 Dev APK 输出到 `app/android/build/outputs/apk/dev/debug/android-dev-debug.apk`。Android 模拟器中的 Dev 版本默认访问宿主机 `http://10.0.2.2:8080`；真机或远程环境应使用 `-PANIME_API_BASE_URL=https://你的API域名` 构建。Android 已声明网络权限、接收 `anime://bangumi-auth` OAuth 回调，并使用 Android Keystore + AES-GCM 保护本地 Session。

@@ -5,13 +5,41 @@ import UIKit
 import AnimeShared
 
 struct ContentView: View {
+    @State private var selectedRootIndex = 0
+    @State private var nativeGlassEnabled = true
+    @State private var nativeRootNavigationVisible = true
+
     var body: some View {
-        ComposeRootView()
+        ComposeRootView(onRootSelectionChanged: { index in
+            selectedRootIndex = Int(index)
+        }, onNativeGlassStateChanged: { enabled in
+            nativeGlassEnabled = enabled
+        }, onNativeRootNavigationVisibilityChanged: { visible in
+            nativeRootNavigationVisible = visible
+        })
             .ignoresSafeArea()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if nativeRootNavigationVisible {
+                    NativeLiquidGlassTabBar(
+                        selectedIndex: $selectedRootIndex,
+                        glassEnabled: nativeGlassEnabled,
+                        onSelect: { index in
+                            IosBridge.shared.requestRootSelection(index: Int32(index))
+                        },
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
+                    .padding(.bottom, 6)
+                }
+            }
     }
 }
 
 private struct ComposeRootView: UIViewControllerRepresentable {
+    let onRootSelectionChanged: (Int32) -> Void
+    let onNativeGlassStateChanged: (Bool) -> Void
+    let onNativeRootNavigationVisibilityChanged: (Bool) -> Void
+
     func makeUIViewController(context: Context) -> UIViewController {
         IosBridge.shared.mainViewController(
             openExternalUrl: { rawUrl in
@@ -25,11 +53,87 @@ private struct ComposeRootView: UIViewControllerRepresentable {
             },
             removeSecret: { account in
                 IosKeychain.shared.remove(account: account)
-            }
+            },
+            onRootSelectionChanged: onRootSelectionChanged,
+            onNativeGlassStateChanged: onNativeGlassStateChanged,
+            onNativeRootNavigationVisibilityChanged: onNativeRootNavigationVisibilityChanged,
         )
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+}
+
+private struct NativeLiquidGlassTabBar: View {
+    @Binding var selectedIndex: Int
+    let glassEnabled: Bool
+    let onSelect: (Int) -> Void
+
+    private let tabs: [(title: String, systemImage: String)] = [
+        ("发现", "sparkles.magnifyingglass"),
+        ("资料库", "books.vertical"),
+        ("动态", "bubble.left.and.bubble.right"),
+        ("我的", "person.crop.circle"),
+    ]
+
+    var body: some View {
+        Group {
+            if glassEnabled {
+                glassTabBar
+            } else {
+                fallbackTabBar
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("根导航")
+    }
+
+    private var glassTabBar: some View {
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                    tabButton(index: index, tab: tab, glass: true)
+                }
+            }
+            .padding(8)
+        }
+    }
+
+    private var fallbackTabBar: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                tabButton(index: index, tab: tab, glass: false)
+            }
+        }
+        .padding(12)
+        .background(.bar, in: Capsule())
+    }
+
+    @ViewBuilder
+    private func tabButton(
+        index: Int,
+        tab: (title: String, systemImage: String),
+        glass: Bool,
+    ) -> some View {
+        let button = Button {
+            selectedIndex = index
+            onSelect(index)
+        } label: {
+            Label(tab.title, systemImage: tab.systemImage)
+                .font(.caption2.weight(index == selectedIndex ? .semibold : .medium))
+                .labelStyle(.titleAndIcon)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+        }
+        if glass {
+            button
+                .buttonStyle(.glass(.regular))
+                .tint(index == selectedIndex ? .accentColor : .secondary)
+        } else {
+            button
+                .buttonStyle(.bordered)
+                .tint(index == selectedIndex ? .accentColor : .secondary)
+        }
+    }
 }
 
 private final class IosKeychain {

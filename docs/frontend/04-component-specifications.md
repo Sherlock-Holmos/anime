@@ -42,7 +42,7 @@ Loading 按钮保持原宽度，文字替换为 18dp 进度指示；不得因状
 - 根 Tab Bar 直接复用 Kyant `AndroidLiquidGlass` 2.0.0 官方示例中的 `LiquidBottomTabs` 与 `LiquidBottomTab`，同时复用其 `DampedDragAnimation`、`InteractiveHighlight` 和手势检查器；项目不得自行重写其拖动、吸附、形变、折射、高光或阴影算法。
 - 选中胶囊是横向拖动命中区：拖动、速度形变、边界阻尼、最近目的地吸附和实际内容 Backdrop 采样均遵循上游实现；其余 Tab 仍可点击直接跳转，普通根导航不触发系统 Ripple。
 - Anime 适配层只允许提供图标、标签、选中语义、外层位置/阴影和 `selectedIndex`/`onSelected` 桥接。上游源码固定到已审阅提交并隔离在 `core/vendor/kyant-liquid-tabs`，更新时整体替换并重新执行真机回归，禁止在 Vendor 文件内做项目定制。
-- iOS 冷启动先显示同尺寸的半透明降级态；首帧提交后在屏外预热 Kyant Backdrop，下一帧再切换到可拖动 Liquid 实现。iOS 宿主启用 Compose 并行渲染，保证 shader 预热与 Metal 绘制不阻塞主线程；此策略不改变 Android/Desktop 的即时 Liquid 路径。
+- iOS 26+ 根导航由 SwiftUI 官方 Liquid Glass 宿主渲染，Compose 页面不创建 Kyant Backdrop 管线；iOS 宿主通过 `IosBridge` 与共享 `selectedIndex` 同步。Android/Desktop/Web 继续使用 Kyant 的跨平台实现。
 
 ## 3. 条目展示组件
 

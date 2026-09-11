@@ -24,7 +24,7 @@
 | FED-016 | 中文简体为首发唯一完整语言 | 控制首发验收变量，同时保留资源化 | 禁止硬编码用户文案 |
 | FED-017 | 普通设置持久化使用 SQLDelight，不额外引入 DataStore | 保持 CMP 存储统一并允许设置与缓存事务化迁移 | Token 仍只能进入 SecureStorage |
 | FED-018 | 成品采用 iOS 26-inspired Liquid Glass 设计语言，Android 不以 Material 3 为视觉目标 | 用户要求 Android 优先但跨端视觉统一、强调高质量液态玻璃与内容沉浸 | Material 只作底层；导航、顶部层、图标、动效和表面必须由 Anime Design System 定义 |
-| FED-019 | 根底栏固定复用 Kyant 官方 `LiquidBottomTabs` 示例源码 | 官方 Maven 库明确不包含高层组件；隔离 Vendor 可保留 CMP 官方交互并避免 Anime 自行实现 | 固定 `bebb11a9...`；Vendor 文件不做定制，携带 Apache-2.0 License，更新必须整体替换和真机回归 |
+| FED-019 | Android/Desktop/Web 根底栏复用 Kyant `LiquidBottomTabs`，iOS 26+ 根底栏使用 SwiftUI 官方 Liquid Glass | iOS 不需要兼容低版本系统，原生 API 能提供系统级 Liquid Glass；其他平台继续共享 CMP 渲染实现 | iOS 使用 `ContentView.swift` 的官方玻璃导航并通过 `IosBridge` 同步共享导航；Kyant Vendor 仍固定 `bebb11a9...`，仅服务非 iOS 目标 |
 | FED-020 | Maven Central 受 Cloudflare 403 阻断时使用带 Content Filter 的阿里云 Central 镜像 | Kotlin 编译插件和 CMP AndroidX 属于可重复构建必需依赖，当前开发网络无法直接取得；镜像内容与 Central 坐标一致 | 镜像只允许 `org.jetbrains.kotlin*`、`org.jetbrains.androidx*`，仍保留固定版本与依赖校验；不得借此引入额外仓库或扩大依赖面 |
 | FED-021 | 产品升级为“资料库 + 兴趣档案 + 社区发现”的二次元豆瓣模型 | 单纯资料浏览无法形成记录、表达与再发现闭环 | 正式建设 Anime 评分、评价、片单、关注和动态领域 |
 | FED-022 | 一级导航固定为发现、资料库、动态、我的 | 一级入口分别承担内容发现、主动检索、关系流和个人归档 | 收藏不再占用一级入口，归入“我的” |

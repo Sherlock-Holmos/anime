@@ -6,7 +6,7 @@
 
 ## 1. 交付边界
 
-`app/iosApp` 是薄 SwiftUI 宿主，页面、导航、状态机、Repository 和领域模型继续由 `shared/app` 与 `commonMain` 提供。共享框架名固定为 `AnimeShared`，目标固定为 `iosArm64` 和 `iosSimulatorArm64`，最低系统版本为 iOS 17。
+`app/iosApp` 是 SwiftUI 宿主，业务页面、导航状态机、Repository 和领域模型继续由 `shared/app` 与 `commonMain` 提供；根导航栏由宿主使用 iOS 26+ 官方 SwiftUI Liquid Glass 渲染，并通过 `IosBridge` 与共享导航状态同步。共享框架名固定为 `AnimeShared`，目标固定为 `iosArm64` 和 `iosSimulatorArm64`，最低系统版本为 iOS 26。
 
 Windows 上“完成”仅指依赖可解析、iOS metadata 可编译、公共跨端质量门通过。以下门禁只能在 macOS 完成：Kotlin/Native framework 链接、Swift/Xcode 编译、代码签名、模拟器启动、真机 Keychain/授权回调验证和 App Store Archive。
 

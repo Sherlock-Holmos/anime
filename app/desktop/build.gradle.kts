@@ -44,7 +44,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Exe, TargetFormat.Msi)
             packageName = "Anime"
-            packageVersion = "0.1.6"
+            packageVersion = "0.1.0"
             description = "Anime discovery and collection client"
             vendor = "Jokersh"
 

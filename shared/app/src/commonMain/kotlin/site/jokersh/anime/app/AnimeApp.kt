@@ -185,6 +185,11 @@ fun AnimeApp(
     initialSearchQuery: String? = null,
     deepLinkRoute: AppRoute? = null,
     openExternalUrl: (String) -> Unit = {},
+    nativeRootNavigation: Boolean = false,
+    bindRootSelectionHandler: (((Int) -> Unit) -> Unit)? = null,
+    onRootSelectionChanged: (Int) -> Unit = {},
+    onNativeGlassStateChanged: (Boolean) -> Unit = {},
+    onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val sessionState by appContainer.sessionRepository.observeSession().collectAsState(SessionState.Guest)
     val settings by appContainer.settingsRepository.observeSettings().collectAsState(
@@ -242,8 +247,24 @@ fun AnimeApp(
                 stackFor = backStacks::getValue,
             )
         }
+    DisposableEffect(navigator) {
+        bindRootSelectionHandler?.invoke { index ->
+            RootDestination.entries.getOrNull(index)?.let { destination ->
+                navigator.selectRoot(destination.root)
+            }
+        }
+        onDispose {
+            bindRootSelectionHandler?.invoke {}
+        }
+    }
+    LaunchedEffect(selectedIndex) {
+        onRootSelectionChanged(selectedIndex)
+    }
     val activeBackStack = backStacks.getValue(selectedDestination.root)
     val showRootNavigation = (activeBackStack.lastOrNull() as? AppRoute)?.root != null
+    LaunchedEffect(showRootNavigation) {
+        onNativeRootNavigationVisibilityChanged(showRootNavigation)
+    }
     var pendingAuthAction by remember { mutableStateOf<PendingAuthAction?>(null) }
     var showAccountCenter by rememberSaveable { mutableStateOf(false) }
     var transientMessage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -317,6 +338,9 @@ fun AnimeApp(
 
     val systemDark = isSystemInDarkTheme()
     val reduceMotionEnabled = settings.reduceMotion == ReduceMotionPreference.On
+    LaunchedEffect(settings.glass, reduceMotionEnabled) {
+        onNativeGlassStateChanged(settings.glass != GlassPreference.Off && !reduceMotionEnabled)
+    }
     AnimeTheme(
         darkTheme =
             when (settings.theme) {
@@ -402,7 +426,7 @@ fun AnimeApp(
                 },
                 content = {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        if (showRootNavigation && !useDesktopSidebar) {
+                        if (showRootNavigation && !useDesktopSidebar && !nativeRootNavigation) {
                             AnimeLiquidTabBar(
                                 labels = labels,
                                 selectedIndex = selectedIndex,

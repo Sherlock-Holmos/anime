@@ -91,7 +91,10 @@ jobs:
           app_pid=${launch_output##*: }
           test -n "$app_pid"
           sleep 12
-          if ! kill -0 "$app_pid" >/dev/null 2>&1; then
+          # simctl returns a PID from the simulator's process namespace. The
+          # host macOS shell cannot inspect it with `kill -0`, so execute the
+          # probe inside the simulator instead.
+          if ! xcrun simctl spawn "$device_id" kill -0 "$app_pid" >/dev/null 2>&1; then
             xcrun simctl spawn "$device_id" log show \
               --last 2m \
               --style compact \
@@ -179,11 +182,6 @@ jobs:
           rm -f "$package_dir/Payload/iosApp.app/embedded.mobileprovision"
           plutil -p "$package_dir/Payload/iosApp.app/Info.plist"
           file "$package_dir/Payload/iosApp.app/iosApp"
-          if nm -u "$package_dir/Payload/iosApp.app/iosApp" | grep -q 'UIViewLayoutRegion'; then
-            echo 'The application links the iOS 26-only UIViewLayoutRegion symbol.' >&2
-            echo 'This binary would crash at launch on supported iOS 17-25 devices.' >&2
-            exit 1
-          fi
           (
             cd "$package_dir"
             zip -qry '../Anime-unsigned.ipa' Payload

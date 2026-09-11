@@ -9,7 +9,7 @@ import com.kyant.backdrop.Backdrop
 internal val LocalAnimeBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 internal val LocalAnimeGlassEnabled = staticCompositionLocalOf { true }
 
-/** iOS exposes liquid components only after the Backdrop pipeline has been warmed up. */
+/** iOS owns Liquid Glass in the native SwiftUI shell; Compose platforms opt into this local. */
 internal val LocalAnimeLiquidGlassEnabled = staticCompositionLocalOf { true }
 internal val LocalAnimeLiquidGlassWarmup = staticCompositionLocalOf { false }
 internal val LocalAnimeReduceMotion = staticCompositionLocalOf { false }

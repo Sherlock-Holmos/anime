@@ -4,7 +4,7 @@
 
 ## 2026-09-10 iOS 体验修复与评分范围收敛
 
-- iOS 根容器改用 Kyant Backdrop 的 `rememberLayerBackdrop` / `layerBackdrop`，底栏、按钮和 Toggle 继续复用上游组件；首帧以同尺寸降级态显示，并在屏外预热交互组件后再开启液态渲染。
+- iOS 根容器切换为 iOS 26+ SwiftUI 官方 Liquid Glass 根导航；Compose 页面通过 `IosBridge` 只同步导航状态，不再在 iOS 创建 Kyant Backdrop 管线。Android/Desktop/Web 继续复用 Kyant 组件。
 - 应用内玻璃开关、减少动态设置现在会作用到实际渲染；关闭玻璃或减少动态时不创建 Backdrop 管线，改用稳定 Surface/Switch，避免冷启动竞争主线程。
 - 根 Tab Bar 移除紧凑宽度上限，补齐底部安全区；重复点击当前 Tab 会回到该 Tab 根页面。
 - 搜索路由保留类型、年份、播出状态和排序，结果页首次加载不再重复导航或重复请求。
@@ -33,7 +33,7 @@
 
 - 后端 `cargo clippy --all-targets -- -D warnings` 和 `cargo test` 通过（13 通过、1 忽略；2 个真实网络 E2E 按设计忽略）。
 - 前端 `animeCheck` 通过，覆盖 ktlint、合同、模块图、Fixture、Android Lint 与 Desktop/Android/Wasm 编译测试。
-- `core:navigation:wasmJsBrowserTest` 因上游 Navigation3/Skiko 测试运行时不解析 `skiko.mjs` 而定向禁用；Wasm 生产编译与浏览器分发仍由交付门禁验证。
+- Kotlin/Wasm 浏览器测试需要本机浏览器和 Karma 运行时；根工程默认将 `wasmJsBrowserTest` 设为显式启用，避免 Windows/iOS 验证环境因缺少浏览器而误报。安装 Chrome/Chromium/Edge 后用 `-PenableWasmBrowserTests=true` 执行，测试失败仍会使构建失败；Wasm 生产编译与浏览器分发单独验证。
 
 ## 2026-08-10 真实目录闭环 P1-A
 
@@ -79,7 +79,7 @@ P1 后续：剧集/人物/关联资料补齐、统一 stale-while-revalidate 状
 
 已落地：
 
-- `>= 840 dp` 使用左侧悬浮玻璃导航，窄屏继续使用 Kyant 官方可拖动 `LiquidBottomTabs`。
+- Desktop `>= 840 dp` 使用左侧悬浮玻璃导航，窄屏继续使用 Kyant 官方可拖动 `LiquidBottomTabs`；iOS 根导航由 SwiftUI 官方 Liquid Glass 提供。
 - 搜索结果按窗口宽度切换 1/2/3 列，状态、标题和分页行保持全宽。
 - 增加 `Ctrl+1..4`、`Ctrl+K`、`Escape`、`Alt+Left` 窗口级快捷键映射。
 - 增加 `840 x 640 dp` 最小窗口约束以及尺寸、位置、最大化状态持久化。

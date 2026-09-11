@@ -1,11 +1,9 @@
 [versions]
 agp = "9.3.0"
 kotlin = "2.4.10"
-# Compose 1.11.x unconditionally links UIViewLayoutRegion on iOS. That API is
-# only available on iOS 26, so an app built with Xcode 26 crashes at launch on
-# devices that still satisfy our iOS 17 deployment target. Stay on the latest
-# 1.10 patch until JetBrains ships a guarded implementation (CMP-10200).
-compose = "1.10.3"
+# iOS is intentionally deployed from iOS 26 onward, so the Compose release that
+# links the iOS 26 layout APIs is safe for the native Liquid Glass host.
+compose = "1.11.1"
 composeMaterial3 = "1.10.0-alpha05"
 lifecycle = "2.11.0"
 navigation3 = "1.1.1"

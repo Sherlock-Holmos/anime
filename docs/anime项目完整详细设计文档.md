@@ -864,21 +864,21 @@ interface GlassCapabilityProvider {
 enum class GlassRole { TopBar, BottomBar, FloatingPanel, Dialog, StaticHero }
 ```
 
-Design System 根据角色、设备能力、滚动状态和用户设置决定实际 Backdrop pipeline。业务 Feature 不允许直接调用 `blur(radius)` 或 `lens(...)`，从而避免全项目出现无法统一调优的魔法参数。
+Design System 根据角色、设备能力、滚动状态和用户设置决定 Android/Desktop/Web 的实际 Backdrop pipeline。iOS 26+ 根导航由 SwiftUI 官方 Liquid Glass 宿主负责；业务 Feature 不允许直接调用 `blur(radius)` 或 `lens(...)`，从而避免全项目出现无法统一调优的魔法参数。
 
 ### 8.7.2 平台实现
 
 - Android API 26–30：`Translucent`；
 - Android API 31–32：最高 `Blur`；
 - Android API 33+：允许 `Liquid`，但只用于白名单组件；
-- iOS：先通过 Phase 0/未来 Mac 验证 Backdrop 当前 iOS 产物；如果不能满足性能或 API 能力，则 `iosMain` 在同一 `AnimeGlassSurface` 契约下桥接 `UIVisualEffectView`，业务页面无须修改；
+- iOS 26+：SwiftUI 宿主使用官方 `GlassEffectContainer` 与 `.buttonStyle(.glass(.regular))` 渲染根导航；Compose 页面不创建 Kyant Backdrop pipeline，页面表面按半透明策略降级；
 - 所有平台都必须支持用户主动关闭玻璃和减少动态效果。
 
 ### 8.7.3 性能预算
 
 - 同屏复杂 Liquid 区域最多 2 个；
 - Lazy 列表 item 禁止使用独立 Lens；
-- 背景层尽量共享 `LayerBackdrop`；
+- Android/Desktop/Web 背景层尽量共享 `LayerBackdrop`；
 - 滚动时将复杂效果降为 Blur/Translucent，滚动停止 150 ms 后再恢复；
 - 动画不同时改变大面积模糊半径、尺寸和位置；
 - Android 使用 Macrobenchmark/JankStats 或等价工具记录真实帧数据；
