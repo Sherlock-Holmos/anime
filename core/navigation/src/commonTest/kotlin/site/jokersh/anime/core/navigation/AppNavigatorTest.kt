@@ -16,14 +16,14 @@ class AppNavigatorTest {
         val navigator = AppNavigator({ selectedRoot }, { selectedRoot = it }, stacks::getValue)
 
         navigator.push(AppRoute.Subject(1001, RouteOrigin.Discover))
-        assertTrue(navigator.selectRoot(AppRoot.Library))
+        assertEquals(RootSelectionResult.Switched, navigator.selectRoot(AppRoot.Library))
         navigator.push(AppRoute.SearchResults(SearchRouteRequest("星海")))
 
         assertEquals(
             AppRoute.SearchResults(SearchRouteRequest("星海")),
             stacks.getValue(AppRoot.Library).last(),
         )
-        assertTrue(navigator.selectRoot(AppRoot.Discover))
+        assertEquals(RootSelectionResult.Switched, navigator.selectRoot(AppRoot.Discover))
         assertEquals(AppRoute.Subject(1001, RouteOrigin.Discover), stacks.getValue(AppRoot.Discover).last())
     }
 
@@ -61,11 +61,11 @@ class AppNavigatorTest {
         val stack = mutableListOf<NavKey>(AppRoute.Discover, AppRoute.Subject(1001))
         val navigator = AppNavigator({ selectedRoot }, { selectedRoot = it }, { stack })
 
-        assertTrue(navigator.selectRoot(AppRoot.Discover))
+        assertEquals(RootSelectionResult.ReturnedToRoot, navigator.selectRoot(AppRoot.Discover))
 
         assertEquals(listOf<NavKey>(AppRoute.Discover), stack)
         assertEquals(AppRoot.Discover, selectedRoot)
-        assertFalse(navigator.selectRoot(AppRoot.Discover))
+        assertEquals(RootSelectionResult.Unchanged, navigator.selectRoot(AppRoot.Discover))
     }
 
     @Test

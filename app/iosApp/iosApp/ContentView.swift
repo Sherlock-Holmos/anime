@@ -127,10 +127,16 @@ private struct NativeLiquidGlassTabBar: View {
             button
                 .buttonStyle(.glass(.regular))
                 .tint(index == selectedIndex ? .accentColor : .secondary)
+                .accessibilityIdentifier("root-tab-\(index)")
+                .accessibilityValue(index == selectedIndex ? "已选中" : "")
+                .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
         } else {
             button
                 .buttonStyle(.bordered)
                 .tint(index == selectedIndex ? .accentColor : .secondary)
+                .accessibilityIdentifier("root-tab-\(index)")
+                .accessibilityValue(index == selectedIndex ? "已选中" : "")
+                .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
         }
     }
 }

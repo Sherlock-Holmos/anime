@@ -20,13 +20,11 @@ import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.data.catalog.CatalogRepository
 import site.jokersh.anime.data.comment.CommunityRepository
-import site.jokersh.anime.data.session.SessionRepository
 
 public class SubjectViewModel(
     private val subjectId: SubjectId,
     private val repository: CatalogRepository,
     private val communityRepository: CommunityRepository,
-    private val sessionRepository: SessionRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SubjectUiState())
     private var refreshJob: Job? = null
@@ -66,18 +64,6 @@ public class SubjectViewModel(
     public fun retry() {
         refresh(RefreshPolicy.Force)
         refreshCommunity()
-    }
-
-    public fun collect() {
-        viewModelScope.launch {
-            mutableState.update { it.copy(actionMessage = "正在同步收藏…") }
-            communityRepository
-                .setCollection(subjectId.value, "wish")
-                .onSuccess {
-                    sessionRepository.refresh()
-                    mutableState.update { it.copy(collectionStatus = "wish", actionMessage = "已加入想看") }
-                }.onFailure { error -> mutableState.update { it.copy(actionMessage = error.message ?: "收藏失败") } }
-        }
     }
 
     private fun refreshCommunity() {

@@ -8,14 +8,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.data.catalog.CatalogRepository
 import site.jokersh.anime.data.comment.CommunityRepository
-import site.jokersh.anime.data.session.SessionRepository
 
 @Composable
 public fun SubjectRoute(
     subjectId: Long,
     repository: CatalogRepository,
     communityRepository: CommunityRepository,
-    sessionRepository: SessionRepository,
     onBack: () -> Unit,
     onCollect: (Long) -> Unit,
     onEpisodesClick: (Long) -> Unit,
@@ -29,7 +27,7 @@ public fun SubjectRoute(
 ) {
     val viewModel =
         viewModel(key = "subject-$subjectId") {
-            SubjectViewModel(SubjectId(subjectId), repository, communityRepository, sessionRepository)
+            SubjectViewModel(SubjectId(subjectId), repository, communityRepository)
         }
     val state by viewModel.state.collectAsState()
 

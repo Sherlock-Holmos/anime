@@ -128,6 +128,7 @@ import site.jokersh.anime.core.navigation.AppRoute
 import site.jokersh.anime.core.navigation.AuthGateDecision
 import site.jokersh.anime.core.navigation.CommentRouteSort
 import site.jokersh.anime.core.navigation.PendingAuthAction
+import site.jokersh.anime.core.navigation.RootSelectionResult
 import site.jokersh.anime.core.navigation.RouteOrigin
 import site.jokersh.anime.core.navigation.SearchRouteAiringStatus
 import site.jokersh.anime.core.navigation.SearchRouteSort
@@ -250,10 +251,18 @@ fun AnimeApp(
     var suppressNextNavigationTransition by remember { mutableStateOf(false) }
 
     fun selectRoot(root: AppRoot) {
-        if (navigator.selectRoot(root)) {
-            // Root-tab changes and returning to the active tab's root must not be
-            // interpreted as child-page navigation by NavDisplay.
-            suppressNextNavigationTransition = true
+        when (navigator.selectRoot(root)) {
+            RootSelectionResult.Switched,
+            RootSelectionResult.ReturnedToRoot,
+            -> {
+                // Root-tab changes and returning to the active tab's root must not be
+                // interpreted as child-page navigation by NavDisplay.
+                suppressNextNavigationTransition = true
+            }
+
+            RootSelectionResult.Unchanged -> {
+                // Keep the current child-page transition state for a true no-op.
+            }
         }
     }
 
@@ -324,7 +333,7 @@ fun AnimeApp(
     LaunchedEffect(deepLinkRoute) {
         val route = deepLinkRoute ?: return@LaunchedEffect
         if (route is AppRoute.Subject) {
-            navigator.selectRoot(AppRoot.Discover)
+            selectRoot(AppRoot.Discover)
             if (discoverBackStack.lastOrNull() != route) navigator.push(route)
         }
     }
@@ -346,7 +355,7 @@ fun AnimeApp(
     }
 
     DisposableEffect(shortcutDispatcher, navigator) {
-        shortcutDispatcher?.connect { event -> handleAppShortcut(event, navigator) }
+        shortcutDispatcher?.connect { event -> handleAppShortcut(event, navigator, ::selectRoot) }
         onDispose {
             shortcutDispatcher?.disconnect()
         }
@@ -393,6 +402,7 @@ fun AnimeApp(
                             backStack = activeBackStack,
                             suppressTransition = suppressNextNavigationTransition,
                             navigator = navigator,
+                            onAppRootSelected = { root -> selectRoot(root) },
                             appContainer = appContainer,
                             sessionState = sessionState,
                             onAnimeLogin = { username, password ->
@@ -662,6 +672,7 @@ private fun AppNavigationLayer(
     backStack: NavBackStack<NavKey>,
     suppressTransition: Boolean,
     navigator: AppNavigator,
+    onAppRootSelected: (AppRoot) -> Unit,
     appContainer: AppContainer,
     sessionState: SessionState,
     onAnimeLogin: (String, String) -> Unit,
@@ -888,7 +899,7 @@ private fun AppNavigationLayer(
                                         ),
                                     )
                                 },
-                                onDiscoverClick = { navigator.selectRoot(AppRoot.Discover) },
+                                onDiscoverClick = { onAppRootSelected(AppRoot.Discover) },
                                 onBack = { navigator.pop() },
                                 modifier = Modifier.statusBarsPadding(),
                             )
@@ -915,7 +926,6 @@ private fun AppNavigationLayer(
                                 subjectId = route.subjectId,
                                 repository = appContainer.catalogRepository,
                                 communityRepository = appContainer.communityRepository,
-                                sessionRepository = appContainer.sessionRepository,
                                 onBack = { navigator.pop() },
                                 onCollect = { onProtectedAction(PendingAuthAction.SetCollection(it)) },
                                 onEpisodesClick = { navigator.push(AppRoute.Episodes(it)) },
@@ -1027,12 +1037,13 @@ private fun rootTabTransitionMetadata(): Map<String, Any> =
 private fun handleAppShortcut(
     event: KeyEvent,
     navigator: AppNavigator,
+    onRootSelected: (AppRoot) -> Unit,
 ): Boolean {
     if (event.type != KeyEventType.KeyDown) return false
 
     val targetRoot = shortcutRoot(event.key, event.isCtrlPressed)
     if (targetRoot != null) {
-        navigator.selectRoot(targetRoot)
+        onRootSelected(targetRoot)
         return true
     }
 
