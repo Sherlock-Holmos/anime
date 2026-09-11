@@ -25,6 +25,12 @@ public interface SessionRepository {
 
     public suspend fun logout(): Result<Unit>
 
+    public suspend fun exportMyData(): Result<String> =
+        Result.failure(IllegalStateException("Export service is unavailable"))
+
+    public suspend fun deleteAccount(): Result<Unit> =
+        Result.failure(IllegalStateException("Account service is unavailable"))
+
     public suspend fun syncStatus(): Result<BangumiSyncStatus> =
         Result.failure(IllegalStateException("Sync service is unavailable"))
 

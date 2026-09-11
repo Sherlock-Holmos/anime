@@ -1,6 +1,7 @@
 package site.jokersh.anime.feature.activity
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,9 +39,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
 import site.jokersh.anime.data.comment.CommunityActivity
 import site.jokersh.anime.data.comment.CommunityListSummary
+import site.jokersh.anime.data.comment.CommunityNotification
 import site.jokersh.anime.data.comment.CommunityRepository
 
 @Composable
@@ -51,16 +55,22 @@ public fun ActivityScreen(
     modifier: Modifier = Modifier,
 ) {
     var selectedFeed by rememberSaveable { mutableStateOf("全站") }
+    var selectedMode by rememberSaveable { mutableStateOf("动态") }
     var loading by rememberSaveable { mutableStateOf(true) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var feed by remember { mutableStateOf(emptyList<CommunityActivity>()) }
     var lists by remember { mutableStateOf(emptyList<CommunityListSummary>()) }
+    var notifications by remember { mutableStateOf(emptyList<CommunityNotification>()) }
     var reload by rememberSaveable { mutableStateOf(0) }
-    LaunchedEffect(repository, selectedFeed, reload) {
+    LaunchedEffect(repository, selectedMode, selectedFeed, reload) {
         loading = true
         error = null
-        repository.feed().onSuccess { feed = it }.onFailure { error = it.message }
-        repository.lists(5).onSuccess { lists = it }
+        if (selectedMode == "通知") {
+            repository.notifications().onSuccess { notifications = it }.onFailure { error = it.message }
+        } else {
+            repository.feed().onSuccess { feed = it }.onFailure { error = it.message }
+            repository.lists(5).onSuccess { lists = it }
+        }
         loading = false
     }
     val visibleFeed = if (selectedFeed == "讨论") feed.filter { it.kind == "commented" } else feed
@@ -93,32 +103,35 @@ public fun ActivityScreen(
                             Text("动态", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
                             Text("来自 Anime 社区的真实评分、评价、片单与讨论。", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("全站", "讨论").forEach { label ->
-                                Surface(
-                                    onClick = { selectedFeed = label },
-                                    shape = CircleShape,
-                                    color =
-                                        if (label ==
-                                            selectedFeed
-                                        ) {
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                                        } else {
-                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                        },
-                                ) {
-                                    Text(
-                                        label,
-                                        Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
+                        ActivityModeFilters(selectedMode) { selectedMode = it }
+                        if (selectedMode == "动态") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("全站", "讨论").forEach { label ->
+                                    Surface(
+                                        onClick = { selectedFeed = label },
+                                        shape = CircleShape,
                                         color =
                                             if (label ==
                                                 selectedFeed
                                             ) {
-                                                MaterialTheme.colorScheme.primary
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
                                             } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                                             },
-                                    )
+                                    ) {
+                                        Text(
+                                            label,
+                                            Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
+                                            color =
+                                                if (label ==
+                                                    selectedFeed
+                                                ) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -135,32 +148,37 @@ public fun ActivityScreen(
                             Text("动态", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
                             Text("来自 Anime 社区的真实评分、评价、片单与讨论。", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("全站", "讨论").forEach { label ->
-                                Surface(
-                                    onClick = { selectedFeed = label },
-                                    shape = CircleShape,
-                                    color =
-                                        if (label ==
-                                            selectedFeed
+                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActivityModeFilters(selectedMode) { selectedMode = it }
+                            if (selectedMode == "动态") {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    listOf("全站", "讨论").forEach { label ->
+                                        Surface(
+                                            onClick = { selectedFeed = label },
+                                            shape = CircleShape,
+                                            color =
+                                                if (label ==
+                                                    selectedFeed
+                                                ) {
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                                },
                                         ) {
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                                        } else {
-                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                        },
-                                ) {
-                                    Text(
-                                        label,
-                                        Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
-                                        color =
-                                            if (label ==
-                                                selectedFeed
-                                            ) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            },
-                                    )
+                                            Text(
+                                                label,
+                                                Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
+                                                color =
+                                                    if (label ==
+                                                        selectedFeed
+                                                    ) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                    },
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -175,7 +193,21 @@ public fun ActivityScreen(
                     ) { CircularProgressIndicator() }
                 }
             } else if (error != null) {
-                item { EmptyPanel("暂时无法加载社区动态", error.orEmpty(), "重试") { reload++ } }
+                item {
+                    EmptyPanel(
+                        if (selectedMode ==
+                            "通知"
+                        ) {
+                            "暂时无法加载通知"
+                        } else {
+                            "暂时无法加载社区动态"
+                        },
+                        error.orEmpty(),
+                        "重试",
+                    ) { reload++ }
+                }
+            } else if (selectedMode == "通知") {
+                item { NotificationPanel(notifications, repository, onSubjectClick, onListClick) }
             } else if (visibleFeed.isEmpty()) {
                 item { EmptyPanel("这里还没有内容", "完成一次评分、评价或讨论后，动态会出现在这里。", null, {}) }
             } else if (wide) {
@@ -186,7 +218,7 @@ public fun ActivityScreen(
                         verticalAlignment = Alignment.Top,
                     ) {
                         Column(Modifier.weight(1.55f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            visibleFeed.forEach { FeedCard(it, onSubjectClick, onReviewClick, onListClick) }
+                            visibleFeed.forEach { FeedCard(it, repository, onSubjectClick, onReviewClick, onListClick) }
                         }
                         Column(Modifier.weight(0.85f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             DiscussionPanel(feed, onSubjectClick)
@@ -195,7 +227,9 @@ public fun ActivityScreen(
                     }
                 }
             } else {
-                items(visibleFeed.size) { FeedCard(visibleFeed[it], onSubjectClick, onReviewClick, onListClick) }
+                items(
+                    visibleFeed.size,
+                ) { FeedCard(visibleFeed[it], repository, onSubjectClick, onReviewClick, onListClick) }
                 item { DiscussionPanel(feed, onSubjectClick) }
                 item { ListPanel(lists, onListClick) }
             }
@@ -206,10 +240,14 @@ public fun ActivityScreen(
 @Composable
 private fun FeedCard(
     item: CommunityActivity,
+    repository: CommunityRepository,
     onSubjectClick: (Long) -> Unit,
     onReviewClick: (String) -> Unit,
     onListClick: (String) -> Unit,
 ) {
+    var following by remember(item.actorId) { mutableStateOf(false) }
+    var followMessage by remember(item.actorId) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -249,10 +287,35 @@ private fun FeedCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                item.actorId?.let { actorId ->
+                    AnimeSecondaryButton(
+                        if (following) "已关注" else "关注",
+                        onClick = {
+                            scope.launch {
+                                val result =
+                                    if (following) {
+                                        repository.unfollowUser(
+                                            actorId,
+                                        )
+                                    } else {
+                                        repository.followUser(actorId)
+                                    }
+                                result.onSuccess { following = it }.onFailure { followMessage = "操作失败" }
+                            }
+                        },
+                    )
+                }
                 Text(
                     item.occurredAt.take(16).replace('T', ' '),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            followMessage?.let {
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelSmall,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -288,6 +351,118 @@ private fun FeedCard(
         }
     }
 }
+
+@Composable
+private fun ActivityModeFilters(
+    selected: String,
+    onSelected: (String) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("动态", "通知").forEach { label ->
+            Surface(
+                onClick = { onSelected(label) },
+                shape = CircleShape,
+                color =
+                    if (label ==
+                        selected
+                    ) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f)
+                    },
+                contentColor =
+                    if (label ==
+                        selected
+                    ) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            ) {
+                Text(label, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationPanel(
+    notifications: List<CommunityNotification>,
+    repository: CommunityRepository,
+    onSubjectClick: (Long) -> Unit,
+    onListClick: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    if (notifications.isEmpty()) {
+        EmptyPanel("还没有通知", "新的回复和关注会显示在这里。", null, {})
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        notifications.forEach { notification ->
+            val unread = notification.readAt == null
+            Surface(
+                onClick = {
+                    if (unread) {
+                        // Fire-and-forget is intentional: navigation should not wait for a best-effort read receipt.
+                        scope.launch { repository.markNotificationRead(notification.id) }
+                    }
+                    notification.subjectId?.let(onSubjectClick)
+                    notification.listId?.let(onListClick)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                color =
+                    if (unread) {
+                        MaterialTheme.colorScheme.primary.copy(
+                            alpha = .08f,
+                        )
+                    } else {
+                        MaterialTheme
+                            .colorScheme
+                            .surface
+                    },
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .24f)),
+            ) {
+                Row(
+                    Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment =
+                        Alignment.Top,
+                ) {
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (unread) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
+                                },
+                            ),
+                    )
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(notificationLabel(notification), fontWeight = FontWeight.SemiBold)
+                        notification.actorName?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        Text(
+                            notification.createdAt.take(16).replace('T', ' '),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun notificationLabel(notification: CommunityNotification): String =
+    when (notification.kind) {
+        "comment_reply" -> "有人回复了你的讨论"
+        "user_follow" -> "有人关注了你"
+        "list_follow" -> "有人关注了你的片单"
+        else -> "社区有一条新通知"
+    }
 
 private fun actionLabel(kind: String): String =
     when (kind) {

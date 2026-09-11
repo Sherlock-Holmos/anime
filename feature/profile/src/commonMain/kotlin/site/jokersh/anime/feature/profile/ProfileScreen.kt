@@ -20,12 +20,14 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -97,6 +99,8 @@ public fun ProfileScreen(
             onBangumiLogin = onBangumiLogin,
             onLogout = onLogout,
             onBrowseCollection = onBrowseCollection,
+            onExportData = sessionRepository::exportMyData,
+            onDeleteAccount = sessionRepository::deleteAccount,
         )
     }
 
@@ -677,12 +681,18 @@ public fun AnimeAccountCenter(
     onBangumiLogin: () -> Unit,
     onLogout: () -> Unit,
     onBrowseCollection: () -> Unit,
+    onExportData: (suspend () -> Result<String>)? = null,
+    onDeleteAccount: (suspend () -> Result<Unit>)? = null,
 ) {
     var registering by rememberSaveable { mutableStateOf(false) }
     var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var displayName by rememberSaveable { mutableStateOf("") }
     var authorizationStarted by rememberSaveable { mutableStateOf(false) }
+    var accountBusy by remember { mutableStateOf(false) }
+    var accountMessage by remember { mutableStateOf<String?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val loading = sessionState is SessionState.Restoring
     val error = (sessionState as? SessionState.Failed)?.message
     val authenticated = sessionState as? SessionState.Authenticated
@@ -798,21 +808,72 @@ public fun AnimeAccountCenter(
             )
 
             if (authenticated != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
-                ) {
-                    AnimeSecondaryButton(
-                        label = "查看我的收藏",
-                        onClick = {
-                            onBrowseCollection()
-                            onDismiss()
-                        },
-                    )
-                    AnimeSecondaryButton(label = "退出登录", onClick = onLogout)
+                Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+                    ) {
+                        AnimeSecondaryButton(
+                            label = "查看我的收藏",
+                            onClick = {
+                                onBrowseCollection()
+                                onDismiss()
+                            },
+                        )
+                        AnimeSecondaryButton(label = "退出登录", onClick = onLogout)
+                    }
+                    onExportData?.let { export ->
+                        AnimeSecondaryButton(
+                            label = if (accountBusy) "导出中…" else "导出我的数据",
+                            onClick = {
+                                if (!accountBusy) {
+                                    scope.launch {
+                                        accountBusy = true
+                                        export()
+                                            .onSuccess { accountMessage = "数据导出完成（${it.length} 个字符）" }
+                                            .onFailure { accountMessage = it.message ?: "导出失败" }
+                                        accountBusy = false
+                                    }
+                                }
+                            },
+                            enabled = !accountBusy,
+                        )
+                    }
+                    onDeleteAccount?.let { delete ->
+                        TextButton(onClick = { confirmDelete = true }, enabled = !accountBusy) {
+                            Text("注销账户", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    accountMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { if (!accountBusy) confirmDelete = false },
+            title = { Text("注销 Anime 账户？") },
+            text = { Text("这会删除账户数据并清理当前设备会话，操作不可撤销。建议先导出数据。") },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }, enabled = !accountBusy) { Text("取消") } },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val delete = onDeleteAccount ?: return@TextButton
+                        scope.launch {
+                            accountBusy = true
+                            delete()
+                                .onSuccess {
+                                    confirmDelete = false
+                                    onDismiss()
+                                }.onFailure { accountMessage = it.message ?: "注销失败" }
+                            accountBusy = false
+                        }
+                    },
+                    enabled = !accountBusy,
+                ) { Text("确认注销", color = MaterialTheme.colorScheme.error) }
+            },
+        )
     }
 }
 

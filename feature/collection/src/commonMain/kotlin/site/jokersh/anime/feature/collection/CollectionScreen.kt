@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeRadius
+import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.GlassRole
@@ -58,12 +59,14 @@ import site.jokersh.anime.core.model.CollectionStatus
 import site.jokersh.anime.core.model.SessionState
 import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.core.model.UserCollectionSummary
+import site.jokersh.anime.data.comment.CommunityRepository
 import site.jokersh.anime.data.session.SessionRepository
 
 @Composable
 public fun CollectionScreen(
     sessionState: SessionState,
     sessionRepository: SessionRepository,
+    communityRepository: CommunityRepository,
     onSubjectClick: (SubjectId) -> Unit,
     onDiscoverClick: () -> Unit,
     onBack: () -> Unit,
@@ -169,6 +172,18 @@ public fun CollectionScreen(
                     CollectionCard(
                         item = item,
                         onClick = { onSubjectClick(item.subjectId) },
+                        onRemove = {
+                            scope.launch {
+                                loading = true
+                                communityRepository
+                                    .deleteCollection(item.subjectId.value)
+                                    .onSuccess {
+                                        collection = collection.filterNot { it.subjectId == item.subjectId }
+                                        message = "已移出收藏"
+                                    }.onFailure { message = it.message ?: "移除收藏失败" }
+                                loading = false
+                            }
+                        },
                     )
                 }
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -349,6 +364,7 @@ private fun CollectionFilters(
 private fun CollectionCard(
     item: UserCollectionSummary,
     onClick: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
@@ -452,6 +468,7 @@ private fun CollectionCard(
                             trackColor = MaterialTheme.colorScheme.surfaceVariant,
                         )
                     }
+                    AnimeSecondaryButton("移除收藏", onRemove)
                 }
             }
         }

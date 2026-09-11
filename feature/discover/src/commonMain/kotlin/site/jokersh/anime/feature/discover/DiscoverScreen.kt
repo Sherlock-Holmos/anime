@@ -54,6 +54,7 @@ import site.jokersh.anime.core.designsystem.AnimePosterArtwork
 import site.jokersh.anime.core.designsystem.AnimePosterCard
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeRadius
+import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
 import site.jokersh.anime.core.designsystem.AnimeSectionHeader
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.GlassRole
@@ -83,6 +84,7 @@ public fun DiscoverScreen(
     onRetry: () -> Unit,
     onSubjectClick: (SubjectId) -> Unit,
     onSeeAll: (String) -> Unit,
+    onCalendarClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -103,6 +105,7 @@ public fun DiscoverScreen(
                 DiscoverHeader(
                     isRefreshing = state.isRefreshing,
                     onRefresh = onRefresh,
+                    onCalendarClick = onCalendarClick,
                     desktopLayout = desktopLayout,
                 )
             }
@@ -171,6 +174,7 @@ public fun DiscoverScreen(
 private fun DiscoverHeader(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
+    onCalendarClick: () -> Unit,
     desktopLayout: Boolean,
 ) {
     Column(
@@ -198,13 +202,16 @@ private fun DiscoverHeader(
                     },
                 fontWeight = FontWeight.Bold,
             )
-            AnimePrimaryButton(
-                label = stringResource(Res.string.discover_refresh),
-                onClick = onRefresh,
-                loading = isRefreshing,
-                enabled = !isRefreshing,
-                modifier = Modifier.testTag("discover.refresh"),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+                AnimeSecondaryButton(label = "播出日历", onClick = onCalendarClick)
+                AnimePrimaryButton(
+                    label = stringResource(Res.string.discover_refresh),
+                    onClick = onRefresh,
+                    loading = isRefreshing,
+                    enabled = !isRefreshing,
+                    modifier = Modifier.testTag("discover.refresh"),
+                )
+            }
         }
     }
 }

@@ -19,6 +19,9 @@ public sealed interface AppRoute : NavKey {
     ) : AppRoute
 
     @Serializable
+    public data object Calendar : AppRoute
+
+    @Serializable
     public data class Library(
         val query: String? = null,
     ) : AppRoute
@@ -215,6 +218,7 @@ public val AppNavigationSavedStateConfiguration: SavedStateConfiguration =
                 polymorphic(NavKey::class) {
                     subclass(AppRoute.Discover.serializer())
                     subclass(AppRoute.DiscoverSection.serializer())
+                    subclass(AppRoute.Calendar.serializer())
                     subclass(AppRoute.Library.serializer())
                     subclass(AppRoute.Activity.serializer())
                     subclass(AppRoute.Collection.serializer())

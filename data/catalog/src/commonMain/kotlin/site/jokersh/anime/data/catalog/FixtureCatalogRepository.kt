@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.datetime.LocalDate
 import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.BangumiRating
@@ -64,6 +65,9 @@ public class FixtureCatalogRepository(
     }
 
     override fun observeDiscovery(): Flow<ResourceState<DiscoveryFeed>> = mutableDiscovery.asStateFlow()
+
+    override suspend fun calendar(date: LocalDate): Result<CalendarPage> =
+        Result.success(CalendarPage(date, emptyList(), FIXTURE_NOW))
 
     override fun observeSubject(id: SubjectId): Flow<ResourceState<SubjectDetail>> =
         MutableStateFlow(

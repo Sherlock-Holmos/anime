@@ -144,6 +144,16 @@ public class RemoteCommentRepository(
             onFailure = { MutationResult.Failed(AppError.Offline) },
         )
 
+    override suspend fun report(
+        id: CommentId,
+        reasonCode: String,
+        details: String?,
+    ): MutationResult =
+        community.reportComment(id.value, reasonCode, details).fold(
+            onSuccess = { MutationResult.Accepted(MutationId("report-${id.value}"), SyncState(SyncPhase.Synced)) },
+            onFailure = { MutationResult.Failed(AppError.Offline) },
+        )
+
     private fun state(
         id: SubjectId,
         sort: CommentSort,

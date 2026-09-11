@@ -1,6 +1,7 @@
 package site.jokersh.anime.data.session
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -198,6 +199,31 @@ public class RemoteSessionRepository(
                     header(HttpHeaders.Authorization, "Bearer ${stored.token}")
                 }
             }
+            tokenStore.clear()
+            state.value = SessionState.Guest
+        }
+
+    override suspend fun exportMyData(): Result<String> =
+        runCatching {
+            val stored = tokenStore.load() ?: error("请先登录 Anime")
+            val response =
+                client.get("$baseUrl/api/v1/me/export") {
+                    header(HttpHeaders.Authorization, "Bearer ${stored.token}")
+                }
+            val text = response.bodyAsText()
+            check(response.status.value in 200..299) { text.ifBlank { "导出失败：${response.status.value}" } }
+            text
+        }
+
+    override suspend fun deleteAccount(): Result<Unit> =
+        runCatching {
+            val stored = tokenStore.load() ?: error("请先登录 Anime")
+            val response =
+                client.delete("$baseUrl/api/v1/me") {
+                    header(HttpHeaders.Authorization, "Bearer ${stored.token}")
+                }
+            val text = response.bodyAsText()
+            check(response.status.value in 200..299) { text.ifBlank { "账户注销失败：${response.status.value}" } }
             tokenStore.clear()
             state.value = SessionState.Guest
         }

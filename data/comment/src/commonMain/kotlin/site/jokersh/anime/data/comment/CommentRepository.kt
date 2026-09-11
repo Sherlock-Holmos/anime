@@ -1,6 +1,7 @@
 package site.jokersh.anime.data.comment
 
 import kotlinx.coroutines.flow.Flow
+import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.Comment
 import site.jokersh.anime.core.model.CommentDraft
 import site.jokersh.anime.core.model.CommentId
@@ -40,4 +41,10 @@ public interface CommentRepository {
     ): MutationResult
 
     public suspend fun delete(id: CommentId): MutationResult
+
+    public suspend fun report(
+        id: CommentId,
+        reasonCode: String,
+        details: String? = null,
+    ): MutationResult = MutationResult.Failed(AppError.Offline)
 }

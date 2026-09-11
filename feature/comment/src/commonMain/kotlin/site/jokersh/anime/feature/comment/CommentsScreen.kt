@@ -40,6 +40,9 @@ public fun CommentsScreen(
     var spoiler by remember(draft) { mutableStateOf(draft?.spoiler ?: false) }
     var parentId by remember(draft) { mutableStateOf(draft?.parentId) }
     var message by remember { mutableStateOf<String?>(null) }
+    var reportTarget by remember { mutableStateOf<Comment?>(null) }
+    var reportReason by remember { mutableStateOf<String?>(null) }
+    var reportDetails by remember { mutableStateOf("") }
     var hasMore by remember(id, sort) { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
@@ -186,9 +189,16 @@ public fun CommentsScreen(
             }
         } else {
             items(state.value.orEmpty(), key = { it.id.value }) { comment ->
-                CommentCard(comment, onReply = { parentId = comment.id }, onDelete = {
-                    scope.launch { repository.delete(comment.id) }
-                })
+                CommentCard(
+                    comment,
+                    onReply = { parentId = comment.id },
+                    onDelete = { scope.launch { repository.delete(comment.id) } },
+                    onReport = {
+                        reportTarget = comment
+                        reportReason = null
+                        reportDetails = ""
+                    },
+                )
             }
             if (hasMore) {
                 item {
@@ -202,6 +212,86 @@ public fun CommentsScreen(
                 }
             }
         }
+    }
+
+    reportTarget?.let { comment ->
+        AlertDialog(
+            onDismissRequest = { reportTarget = null },
+            title = { Text("举报这条讨论") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("请选择举报原因，提交后会交给审核队列处理。")
+                    listOf(
+                        "spam" to "垃圾信息",
+                        "harassment" to "骚扰或人身攻击",
+                        "spoiler" to "未标记剧透",
+                        "illegal" to "违法内容",
+                        "other" to "其他",
+                    ).forEach { (code, label) ->
+                        TextButton(
+                            onClick = { reportReason = code },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                if (reportReason == code) "✓ $label" else label,
+                                color =
+                                    if (reportReason == code) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                            )
+                        }
+                    }
+                    if (reportReason != null) {
+                        BasicTextField(
+                            value = reportDetails,
+                            onValueChange = { reportDetails = it.take(300) },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
+                            textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            decorationBox = { inner ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                ) {
+                                    Box(Modifier.padding(12.dp)) {
+                                        if (reportDetails.isBlank()) {
+                                            Text(
+                                                "补充说明（可选，最多 300 字）",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        inner()
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { reportTarget = null }) { Text("取消") } },
+            dismissButton = {
+                TextButton(
+                    enabled = reportReason != null,
+                    onClick = {
+                        val reason = reportReason ?: return@TextButton
+                        reportTarget = null
+                        reportReason = null
+                        val details = reportDetails.trim().takeIf(String::isNotBlank)
+                        reportDetails = ""
+                        scope.launch {
+                            message =
+                                if (repository.report(comment.id, reason, details) is MutationResult.Accepted) {
+                                    "举报已提交"
+                                } else {
+                                    "举报失败，请稍后重试"
+                                }
+                        }
+                    },
+                ) { Text("提交举报") }
+            },
+        )
     }
 }
 
@@ -238,6 +328,7 @@ private fun CommentCard(
     comment: Comment,
     onReply: () -> Unit,
     onDelete: () -> Unit,
+    onReport: () -> Unit,
 ) {
     var revealSpoiler by remember(comment.id) { mutableStateOf(false) }
     Surface(
@@ -272,6 +363,7 @@ private fun CommentCard(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AnimeSecondaryButton("回复", onReply)
                 if (comment.ownership == Ownership.Self) AnimeSecondaryButton("删除", onDelete)
+                if (comment.ownership == Ownership.Other) AnimeSecondaryButton("举报", onReport)
             }
         }
     }

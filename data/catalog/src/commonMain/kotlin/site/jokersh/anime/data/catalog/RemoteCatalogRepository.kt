@@ -73,6 +73,22 @@ public class RemoteCatalogRepository(
 
     override fun observeDiscovery(): Flow<ResourceState<DiscoveryFeed>> = discovery.asStateFlow()
 
+    override suspend fun calendar(date: LocalDate): Result<CalendarPage> =
+        runCatching {
+            val response =
+                client.get("$baseUrl/api/v1/calendar") {
+                    parameter("date", date.toString())
+                }
+            val text = response.bodyAsText()
+            check(response.status.value in 200..299) { "Calendar request failed with ${response.status.value}" }
+            val body = json.decodeFromString<RemoteCalendarPage>(text)
+            CalendarPage(
+                date = LocalDate.parse(body.date),
+                items = body.items.map { it.toSummary(baseUrl) },
+                generatedAt = Instant.fromEpochSeconds(body.generatedAt),
+            )
+        }
+
     override fun observeSubject(id: SubjectId): Flow<ResourceState<SubjectDetail>> = subjectState(id).asStateFlow()
 
     override fun observeEpisodes(id: SubjectId): Flow<ResourceState<List<Episode>>> = episodeState(id).asStateFlow()
@@ -486,6 +502,13 @@ private data class RemoteSubjectList(
 @Serializable
 private data class RemoteHome(
     val sections: List<RemoteHomeSection>,
+    @SerialName("generated_at") val generatedAt: Long,
+)
+
+@Serializable
+private data class RemoteCalendarPage(
+    val date: String,
+    val items: List<RemoteSubject> = emptyList(),
     @SerialName("generated_at") val generatedAt: Long,
 )
 

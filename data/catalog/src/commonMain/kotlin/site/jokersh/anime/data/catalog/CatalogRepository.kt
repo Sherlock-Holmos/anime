@@ -1,6 +1,7 @@
 package site.jokersh.anime.data.catalog
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.datetime.LocalDate
 import site.jokersh.anime.core.model.Cursor
 import site.jokersh.anime.core.model.DiscoveryFeed
 import site.jokersh.anime.core.model.Episode
@@ -17,9 +18,19 @@ import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.core.model.SubjectRelation
 import site.jokersh.anime.core.model.SubjectSection
 import site.jokersh.anime.core.model.SubjectSummary
+import kotlin.time.Instant
+
+public data class CalendarPage(
+    public val date: LocalDate,
+    public val items: List<SubjectSummary>,
+    public val generatedAt: Instant,
+)
 
 public interface CatalogRepository {
     public fun observeDiscovery(): Flow<ResourceState<DiscoveryFeed>>
+
+    public suspend fun calendar(date: LocalDate): Result<CalendarPage> =
+        Result.failure(IllegalStateException("Calendar service is unavailable"))
 
     public fun observeSubject(id: SubjectId): Flow<ResourceState<SubjectDetail>>
 

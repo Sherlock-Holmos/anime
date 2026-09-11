@@ -2,6 +2,7 @@ package site.jokersh.anime.data.comment
 
 public data class CommunityActivity(
     val id: String,
+    val actorId: String?,
     val actorName: String,
     val actorAvatarUrl: String?,
     val kind: String,
@@ -12,6 +13,18 @@ public data class CommunityActivity(
     val listId: String?,
     val summary: String,
     val occurredAt: String,
+)
+
+public data class CommunityNotification(
+    val id: String,
+    val kind: String,
+    val actorId: String?,
+    val actorName: String?,
+    val subjectId: Long?,
+    val commentId: String?,
+    val listId: String?,
+    val readAt: String?,
+    val createdAt: String,
 )
 
 public data class CommunityReview(
@@ -75,6 +88,23 @@ public data class CommunityRating(
 public interface CommunityRepository {
     public suspend fun feed(limit: Int = 20): Result<List<CommunityActivity>>
 
+    public suspend fun notifications(limit: Int = 20): Result<List<CommunityNotification>> = Result.success(emptyList())
+
+    public suspend fun markNotificationRead(id: String): Result<Unit> =
+        Result.failure(IllegalStateException("Notification service is unavailable"))
+
+    public suspend fun followUser(id: String): Result<Boolean> =
+        Result.failure(IllegalStateException("Social service is unavailable"))
+
+    public suspend fun unfollowUser(id: String): Result<Boolean> =
+        Result.failure(IllegalStateException("Social service is unavailable"))
+
+    public suspend fun followList(id: String): Result<Boolean> =
+        Result.failure(IllegalStateException("Social service is unavailable"))
+
+    public suspend fun unfollowList(id: String): Result<Boolean> =
+        Result.failure(IllegalStateException("Social service is unavailable"))
+
     public suspend fun reviews(
         subjectId: Long,
         limit: Int = 20,
@@ -130,11 +160,20 @@ public interface CommunityRepository {
 
     public suspend fun deleteComment(id: String): Result<Unit>
 
+    public suspend fun reportComment(
+        id: String,
+        reasonCode: String,
+        details: String? = null,
+    ): Result<Unit> = Result.failure(IllegalStateException("Report service is unavailable"))
+
     public suspend fun setCollection(
         subjectId: Long,
         status: String,
         episodeProgress: Int? = null,
     ): Result<Unit>
+
+    public suspend fun deleteCollection(subjectId: Long): Result<Unit> =
+        Result.failure(IllegalStateException("Collection service is unavailable"))
 
     public suspend fun createList(
         title: String,

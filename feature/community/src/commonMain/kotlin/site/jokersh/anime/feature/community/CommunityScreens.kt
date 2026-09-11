@@ -398,6 +398,8 @@ public fun CuratedListScreen(
     }
     var detail by remember { mutableStateOf<CommunityListDetail?>(null) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var following by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(repository, listId) {
         repository.list(listId).onSuccess { detail = it }.onFailure {
             error =
@@ -435,6 +437,31 @@ public fun CuratedListScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(detail!!.summary.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AnimeSecondaryButton(
+                                if (following) "已关注片单" else "关注片单",
+                                onClick = {
+                                    scope.launch {
+                                        val result =
+                                            if (following) {
+                                                repository.unfollowList(
+                                                    listId,
+                                                )
+                                            } else {
+                                                repository.followList(listId)
+                                            }
+                                        result.onSuccess { following = it }
+                                    }
+                                },
+                            )
+                            Text(
+                                "${detail!!.summary.followerCount} 人关注",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }

@@ -14,6 +14,7 @@ public fun DiscoverRoute(
     repository: CatalogRepository,
     onSubjectClick: (SubjectId) -> Unit,
     onSeeAll: (String) -> Unit,
+    onCalendarClick: () -> Unit,
     onMessage: (DiscoverMessageUi) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -37,6 +38,7 @@ public fun DiscoverRoute(
         onRetry = { viewModel.accept(DiscoverIntent.Retry) },
         onSubjectClick = { viewModel.accept(DiscoverIntent.SubjectClicked(it)) },
         onSeeAll = { viewModel.accept(DiscoverIntent.SectionMoreClicked(it)) },
+        onCalendarClick = onCalendarClick,
         modifier = modifier,
     )
 }

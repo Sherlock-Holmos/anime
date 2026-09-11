@@ -140,6 +140,7 @@ import site.jokersh.anime.feature.comment.CommentsScreen
 import site.jokersh.anime.feature.community.CuratedListScreen
 import site.jokersh.anime.feature.community.RatingEditorScreen
 import site.jokersh.anime.feature.community.ReviewDetailScreen
+import site.jokersh.anime.feature.discover.CalendarRoute
 import site.jokersh.anime.feature.discover.DiscoverRoute
 import site.jokersh.anime.feature.discover.DiscoverSectionRoute
 import site.jokersh.anime.feature.profile.AnimeAccountCenter
@@ -771,6 +772,7 @@ private fun AppNavigationLayer(
                                     )
                                 },
                                 onSeeAll = { sectionId -> navigator.push(AppRoute.DiscoverSection(sectionId)) },
+                                onCalendarClick = { navigator.push(AppRoute.Calendar) },
                                 onMessage = { message ->
                                     onMessage(
                                         when (message) {
@@ -789,6 +791,14 @@ private fun AppNavigationLayer(
                                 repository = appContainer.catalogRepository,
                                 onBack = { navigator.pop() },
                                 onSubjectClick = { navigator.push(AppRoute.Subject(it.value, RouteOrigin.Discover)) },
+                                modifier = Modifier.statusBarsPadding(),
+                            )
+                        }
+                        entry<AppRoute.Calendar> {
+                            CalendarRoute(
+                                repository = appContainer.catalogRepository,
+                                onBack = { navigator.pop() },
+                                onSubjectClick = { navigator.push(AppRoute.Subject(it, RouteOrigin.Discover)) },
                                 modifier = Modifier.statusBarsPadding(),
                             )
                         }
@@ -852,6 +862,7 @@ private fun AppNavigationLayer(
                             CollectionScreen(
                                 sessionState = sessionState,
                                 sessionRepository = appContainer.sessionRepository,
+                                communityRepository = appContainer.communityRepository,
                                 onSubjectClick = { subjectId ->
                                     navigator.push(
                                         AppRoute.Subject(
