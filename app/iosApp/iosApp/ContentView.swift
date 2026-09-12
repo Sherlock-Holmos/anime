@@ -9,25 +9,31 @@ struct ContentView: View {
     @State private var nativeGlassEnabled = true
 
     var body: some View {
-        TabView(selection: $selectedRootIndex) {
-            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                ComposeTabView(
-                    rootIndex: index,
-                    handlesAuthCallback: index == 0,
-                    onNativeGlassStateChanged: { enabled in
-                        if index == 0 {
-                            nativeGlassEnabled = enabled.boolValue
-                        }
-                    },
-                )
-                // Keep the Compose scene full-bleed so the native bars can float over page
-                // content. NativeChromeViewController protects only the status-bar region.
-                .ignoresSafeArea(.container, edges: [.top, .bottom])
-                .tabItem {
-                    Label(tab.title, systemImage: tab.systemImage)
+        ZStack(alignment: .top) {
+            TabView(selection: $selectedRootIndex) {
+                ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                    ComposeTabView(
+                        rootIndex: index,
+                        handlesAuthCallback: index == 0,
+                        onNativeGlassStateChanged: { enabled in
+                            if index == 0 {
+                                nativeGlassEnabled = enabled.boolValue
+                            }
+                        },
+                    )
+                    // Let the system tab bar and status-bar material float over the Compose page.
+                    .ignoresSafeArea(.container, edges: [.top, .bottom])
+                    .tabItem {
+                        Label(tab.title, systemImage: tab.systemImage)
+                    }
+                    .tag(index)
                 }
-                .tag(index)
             }
+
+            // Use Apple's semantic bar material instead of a hand-tuned UIKit blur. This is the
+            // same material family used by native reading/navigation surfaces and automatically
+            // adapts to light/dark mode, contrast settings, and future iOS releases.
+            NativeStatusBarMaterial()
         }
         .tint(.accentColor)
         .toolbarBackground(nativeGlassEnabled ? .visible : .hidden, for: .tabBar)
@@ -45,88 +51,16 @@ struct ContentView: View {
     ]
 }
 
-private final class NativeChromeViewController: UIViewController {
-    private let contentViewController: UIViewController
-    private let statusBarMaterialView =
-        UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
-    private var statusBarChromeHeightConstraint: NSLayoutConstraint?
-    private let statusBarFadeMask = CAGradientLayer()
-
-    init(contentViewController: UIViewController) {
-        self.contentViewController = contentViewController
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .clear
-        view.isOpaque = false
-
-        addChild(contentViewController)
-        let contentView = contentViewController.view!
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.backgroundColor = .clear
-        contentView.isOpaque = false
-        view.addSubview(contentView)
-        NSLayoutConstraint.activate([
-            contentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: view.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-        contentViewController.didMove(toParent: self)
-
-        statusBarMaterialView.translatesAutoresizingMaskIntoConstraints = false
-        statusBarMaterialView.isUserInteractionEnabled = false
-        statusBarMaterialView.clipsToBounds = true
-        // Books uses a low-contrast system material that lets the page remain the visual source.
-        // A stronger alpha reads as a separate dark/white rectangle on a flat Compose background.
-        statusBarMaterialView.alpha = 0.42
-        statusBarFadeMask.startPoint = CGPoint(x: 0.5, y: 0)
-        statusBarFadeMask.endPoint = CGPoint(x: 0.5, y: 1)
-        statusBarFadeMask.colors = [
-            UIColor.white.cgColor,
-            UIColor.white.cgColor,
-            UIColor.clear.cgColor,
-        ]
-        statusBarFadeMask.locations = [0.0, 0.68, 1.0]
-        statusBarMaterialView.layer.mask = statusBarFadeMask
-        view.addSubview(statusBarMaterialView)
-        statusBarChromeHeightConstraint = statusBarMaterialView.heightAnchor.constraint(equalToConstant: 0)
-        NSLayoutConstraint.activate([
-            statusBarMaterialView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            statusBarMaterialView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            statusBarMaterialView.topAnchor.constraint(equalTo: view.topAnchor),
-            statusBarChromeHeightConstraint!,
-        ])
-        updateStatusBarMaterialHeight()
-    }
-
-    override func viewSafeAreaInsetsDidChange() {
-        super.viewSafeAreaInsetsDidChange()
-        updateStatusBarMaterialHeight()
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        statusBarFadeMask.frame = statusBarMaterialView.bounds
-        updateStatusBarMaterialHeight()
-    }
-
-    private func updateStatusBarMaterialHeight() {
-        let localTopInset = view.safeAreaInsets.top
-        let windowTopInset = view.window?.safeAreaInsets.top ?? 0
-        let statusBarFrameHeight =
-            view.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
-        let topInset = max(localTopInset, windowTopInset, statusBarFrameHeight)
-        // Extend slightly below the system status area and fade out instead of ending with a
-        // hard horizontal line. This is the same visual transition used by native reading apps.
-        statusBarChromeHeightConstraint?.constant = topInset + 24
+private struct NativeStatusBarMaterial: View {
+    var body: some View {
+        GeometryReader { proxy in
+            Rectangle()
+                .fill(.bar)
+                .frame(width: proxy.size.width, height: proxy.safeAreaInsets.top)
+                .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .ignoresSafeArea(.container, edges: .top)
+        .allowsHitTesting(false)
     }
 }
 
@@ -136,7 +70,7 @@ private struct ComposeTabView: UIViewControllerRepresentable {
     let onNativeGlassStateChanged: (KotlinBoolean) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
-        let composeViewController = IosBridge.shared.rootViewController(
+        IosBridge.shared.rootViewController(
             rootIndex: Int32(rootIndex),
             openExternalUrl: { rawUrl in
                 IosAuthSessionCoordinator.shared.start(rawUrl: rawUrl)
@@ -153,7 +87,6 @@ private struct ComposeTabView: UIViewControllerRepresentable {
             onNativeGlassStateChanged: onNativeGlassStateChanged,
             handlesAuthCallback: handlesAuthCallback,
         )
-        return NativeChromeViewController(contentViewController: composeViewController)
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
