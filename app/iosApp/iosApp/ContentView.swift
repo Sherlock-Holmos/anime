@@ -9,33 +9,25 @@ struct ContentView: View {
     @State private var nativeGlassEnabled = true
 
     var body: some View {
-        ZStack(alignment: .top) {
-            TabView(selection: $selectedRootIndex) {
-                ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                    ComposeTabView(
-                        rootIndex: index,
-                        handlesAuthCallback: index == 0,
-                        onNativeGlassStateChanged: { enabled in
-                            if index == 0 {
-                                nativeGlassEnabled = enabled.boolValue
-                            }
-                        },
-                    )
-                    // Keep the Compose scene full-bleed so the native tab bar can float over the
-                    // page instead of leaving an opaque safe-area strip behind it. Root Compose
-                    // screens still apply statusBarsPadding to keep their content readable.
-                    .ignoresSafeArea(.container, edges: [.top, .bottom])
-                    .tabItem {
-                        Label(tab.title, systemImage: tab.systemImage)
-                    }
-                    .tag(index)
+        TabView(selection: $selectedRootIndex) {
+            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                ComposeTabView(
+                    rootIndex: index,
+                    handlesAuthCallback: index == 0,
+                    onNativeGlassStateChanged: { enabled in
+                        if index == 0 {
+                            nativeGlassEnabled = enabled.boolValue
+                        }
+                    },
+                )
+                // Keep the Compose scene full-bleed so the native bars can float over page
+                // content. NativeChromeViewController protects only the status-bar region.
+                .ignoresSafeArea(.container, edges: [.top, .bottom])
+                .tabItem {
+                    Label(tab.title, systemImage: tab.systemImage)
                 }
+                .tag(index)
             }
-
-            // The Compose scene reaches behind the status bar, so cover only that system
-            // region with native material. This keeps the page visible through a soft blur
-            // instead of creating a full-screen opaque white layer.
-            NativeStatusBarMaterial()
         }
         .tint(.accentColor)
         .toolbarBackground(nativeGlassEnabled ? .visible : .hidden, for: .tabBar)
@@ -52,16 +44,71 @@ struct ContentView: View {
     ]
 }
 
-private struct NativeStatusBarMaterial: View {
-    var body: some View {
-        GeometryReader { proxy in
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .frame(width: proxy.size.width, height: proxy.safeAreaInsets.top)
-                .frame(maxHeight: .infinity, alignment: .top)
-        }
-        .ignoresSafeArea(.container, edges: .top)
-        .allowsHitTesting(false)
+private final class NativeChromeViewController: UIViewController {
+    private let contentViewController: UIViewController
+    private let statusBarMaterialView =
+        UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+    private var statusBarHeightConstraint: NSLayoutConstraint?
+
+    init(contentViewController: UIViewController) {
+        self.contentViewController = contentViewController
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .clear
+
+        addChild(contentViewController)
+        let contentView = contentViewController.view!
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.backgroundColor = .clear
+        contentView.isOpaque = false
+        view.addSubview(contentView)
+        NSLayoutConstraint.activate([
+            contentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            contentView.topAnchor.constraint(equalTo: view.topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        contentViewController.didMove(toParent: self)
+
+        statusBarMaterialView.translatesAutoresizingMaskIntoConstraints = false
+        statusBarMaterialView.isUserInteractionEnabled = false
+        statusBarMaterialView.clipsToBounds = true
+        view.addSubview(statusBarMaterialView)
+        statusBarHeightConstraint = statusBarMaterialView.heightAnchor.constraint(equalToConstant: 0)
+        NSLayoutConstraint.activate([
+            statusBarMaterialView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            statusBarMaterialView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            statusBarMaterialView.topAnchor.constraint(equalTo: view.topAnchor),
+            statusBarHeightConstraint!,
+        ])
+        updateStatusBarMaterialHeight()
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateStatusBarMaterialHeight()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateStatusBarMaterialHeight()
+    }
+
+    private func updateStatusBarMaterialHeight() {
+        let localTopInset = view.safeAreaInsets.top
+        let windowTopInset = view.window?.safeAreaInsets.top ?? 0
+        let statusBarFrameHeight =
+            view.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
+        let topInset = max(localTopInset, windowTopInset, statusBarFrameHeight)
+        statusBarHeightConstraint?.constant = topInset
     }
 }
 
@@ -71,7 +118,7 @@ private struct ComposeTabView: UIViewControllerRepresentable {
     let onNativeGlassStateChanged: (KotlinBoolean) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
-        IosBridge.shared.rootViewController(
+        let composeViewController = IosBridge.shared.rootViewController(
             rootIndex: Int32(rootIndex),
             openExternalUrl: { rawUrl in
                 IosAuthSessionCoordinator.shared.start(rawUrl: rawUrl)
@@ -88,6 +135,7 @@ private struct ComposeTabView: UIViewControllerRepresentable {
             onNativeGlassStateChanged: onNativeGlassStateChanged,
             handlesAuthCallback: handlesAuthCallback,
         )
+        return NativeChromeViewController(contentViewController: composeViewController)
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
