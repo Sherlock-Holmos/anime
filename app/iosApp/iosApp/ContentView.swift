@@ -20,19 +20,15 @@ struct ContentView: View {
                         }
                     },
                 )
+                // Keep the Compose scene full-bleed so the native tab bar can float over the
+                // page instead of leaving an opaque safe-area strip behind it. Root Compose
+                // screens still apply statusBarsPadding to keep their content readable.
+                .ignoresSafeArea(.container, edges: [.top, .bottom])
                 .tabItem {
                     Label(tab.title, systemImage: tab.systemImage)
                 }
                 .tag(index)
             }
-        }
-        // Let SwiftUI own the system safe area. The Compose child controllers must start below
-        // the status bar, while this material background keeps the transition into the native
-        // chrome soft and consistent with Apple Books.
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea()
         }
         .tint(.accentColor)
         .toolbarBackground(nativeGlassEnabled ? .visible : .hidden, for: .tabBar)

@@ -454,7 +454,6 @@ fun AnimeApp(
                                         )
                                 }
                             },
-                            nativeRootNavigation = nativeRootNavigation,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -694,7 +693,6 @@ private fun AppNavigationLayer(
     onThemeChange: (site.jokersh.anime.core.model.ThemePreference) -> Unit,
     onGlassChange: (site.jokersh.anime.core.model.GlassPreference) -> Unit,
     onReduceMotionChange: (site.jokersh.anime.core.model.ReduceMotionPreference) -> Unit,
-    nativeRootNavigation: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val navigationScope = rememberCoroutineScope()
@@ -767,9 +765,9 @@ private fun AppNavigationLayer(
     // Root tabs stay mounted in independent back stacks. A full-screen fade while the Backdrop
     // graph is also updating exposes a blank frame on iOS, so root selection is instantaneous.
     val rootTabMetadata = remember { rootTabTransitionMetadata() }
-    // Native iOS TabView already lays its child controller inside the safe area. Applying
-    // statusBarsPadding to root tabs in that configuration creates a second top inset.
-    val rootScreenModifier = if (nativeRootNavigation) Modifier else Modifier.statusBarsPadding()
+    // The iOS host is full-bleed so the native Liquid Glass tab bar can float over page content.
+    // Keep the page content itself below the status bar on every platform.
+    val rootScreenModifier = Modifier.statusBarsPadding()
     Box(
         modifier =
             modifier
