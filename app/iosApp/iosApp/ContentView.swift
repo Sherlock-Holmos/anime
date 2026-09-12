@@ -7,41 +7,46 @@ import AnimeShared
 struct ContentView: View {
     @State private var selectedRootIndex = 0
     @State private var nativeGlassEnabled = true
-    @State private var nativeRootNavigationVisible = true
 
     var body: some View {
-        ComposeRootView(onRootSelectionChanged: { index in
-            selectedRootIndex = index.intValue
-        }, onNativeGlassStateChanged: { enabled in
-            nativeGlassEnabled = enabled.boolValue
-        }, onNativeRootNavigationVisibilityChanged: { visible in
-            nativeRootNavigationVisible = visible.boolValue
-        })
-            .ignoresSafeArea()
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if nativeRootNavigationVisible {
-                    NativeLiquidGlassTabBar(
-                        selectedIndex: $selectedRootIndex,
-                        glassEnabled: nativeGlassEnabled,
-                        onSelect: { index in
-                            IosBridge.shared.requestRootSelection(index: Int32(index))
-                        },
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.top, 6)
-                    .padding(.bottom, 6)
+        TabView(selection: $selectedRootIndex) {
+            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                ComposeTabView(
+                    rootIndex: index,
+                    handlesAuthCallback: index == 0,
+                    onNativeGlassStateChanged: { enabled in
+                        if index == 0 {
+                            nativeGlassEnabled = enabled.boolValue
+                        }
+                    },
+                )
+                .ignoresSafeArea()
+                .tabItem {
+                    Label(tab.title, systemImage: tab.systemImage)
                 }
+                .tag(index)
             }
+        }
+        .tint(.accentColor)
+        .toolbarBackground(nativeGlassEnabled ? .visible : .hidden, for: .tabBar)
     }
+
+    private let tabs: [(title: String, systemImage: String)] = [
+        ("发现", "sparkles.magnifyingglass"),
+        ("资料库", "books.vertical"),
+        ("动态", "bubble.left.and.bubble.right"),
+        ("我的", "person.crop.circle"),
+    ]
 }
 
-private struct ComposeRootView: UIViewControllerRepresentable {
-    let onRootSelectionChanged: (KotlinInt) -> Void
+private struct ComposeTabView: UIViewControllerRepresentable {
+    let rootIndex: Int
+    let handlesAuthCallback: Bool
     let onNativeGlassStateChanged: (KotlinBoolean) -> Void
-    let onNativeRootNavigationVisibilityChanged: (KotlinBoolean) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
-        IosBridge.shared.mainViewController(
+        IosBridge.shared.rootViewController(
+            rootIndex: Int32(rootIndex),
             openExternalUrl: { rawUrl in
                 IosAuthSessionCoordinator.shared.start(rawUrl: rawUrl)
             },
@@ -54,91 +59,12 @@ private struct ComposeRootView: UIViewControllerRepresentable {
             removeSecret: { account in
                 IosKeychain.shared.remove(account: account)
             },
-            onRootSelectionChanged: onRootSelectionChanged,
             onNativeGlassStateChanged: onNativeGlassStateChanged,
-            onNativeRootNavigationVisibilityChanged: onNativeRootNavigationVisibilityChanged,
+            handlesAuthCallback: handlesAuthCallback,
         )
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-}
-
-private struct NativeLiquidGlassTabBar: View {
-    @Binding var selectedIndex: Int
-    let glassEnabled: Bool
-    let onSelect: (Int) -> Void
-
-    private let tabs: [(title: String, systemImage: String)] = [
-        ("发现", "sparkles.magnifyingglass"),
-        ("资料库", "books.vertical"),
-        ("动态", "bubble.left.and.bubble.right"),
-        ("我的", "person.crop.circle"),
-    ]
-
-    var body: some View {
-        Group {
-            if glassEnabled {
-                glassTabBar
-            } else {
-                fallbackTabBar
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("根导航")
-    }
-
-    private var glassTabBar: some View {
-        GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 8) {
-                ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                    tabButton(index: index, tab: tab, glass: true)
-                }
-            }
-            .padding(8)
-        }
-    }
-
-    private var fallbackTabBar: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                tabButton(index: index, tab: tab, glass: false)
-            }
-        }
-        .padding(12)
-        .background(.bar, in: Capsule())
-    }
-
-    @ViewBuilder
-    private func tabButton(
-        index: Int,
-        tab: (title: String, systemImage: String),
-        glass: Bool,
-    ) -> some View {
-        let button = Button {
-            onSelect(index)
-        } label: {
-            Label(tab.title, systemImage: tab.systemImage)
-                .font(.caption2.weight(index == selectedIndex ? .semibold : .medium))
-                .labelStyle(.titleAndIcon)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-        }
-        if glass {
-            button
-                .buttonStyle(.glass(.regular))
-                .tint(index == selectedIndex ? .accentColor : .secondary)
-                .accessibilityIdentifier("root-tab-\(index)")
-                .accessibilityValue(index == selectedIndex ? "已选中" : "")
-                .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
-        } else {
-            button
-                .buttonStyle(.bordered)
-                .tint(index == selectedIndex ? .accentColor : .secondary)
-                .accessibilityIdentifier("root-tab-\(index)")
-                .accessibilityValue(index == selectedIndex ? "已选中" : "")
-                .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
-        }
-    }
 }
 
 private final class IosKeychain {

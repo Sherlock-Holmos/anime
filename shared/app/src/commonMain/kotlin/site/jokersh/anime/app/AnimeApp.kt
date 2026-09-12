@@ -193,6 +193,7 @@ fun AnimeApp(
     onRootSelectionChanged: (Int) -> Unit = {},
     onNativeGlassStateChanged: (Boolean) -> Unit = {},
     onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit = {},
+    lifecycleOwner: Boolean = true,
 ) {
     val sessionState by appContainer.sessionRepository.observeSession().collectAsState(SessionState.Guest)
     val settings by appContainer.settingsRepository.observeSettings().collectAsState(
@@ -205,10 +206,12 @@ fun AnimeApp(
         ),
     )
     val sessionScope = rememberCoroutineScope()
-    LaunchedEffect(appContainer.sessionRepository) {
-        appContainer.sessionRepository.refresh()
-        appContainer.collectionRepository.requestSync()
-        appContainer.communityRepository.retryPendingRatings()
+    if (lifecycleOwner) {
+        LaunchedEffect(appContainer.sessionRepository) {
+            appContainer.sessionRepository.refresh()
+            appContainer.collectionRepository.requestSync()
+            appContainer.communityRepository.retryPendingRatings()
+        }
     }
     var selectedIndex by
         rememberSaveable {
@@ -341,8 +344,10 @@ fun AnimeApp(
     }
     LaunchedEffect(sessionState, pendingAuthAction) {
         if (sessionState is SessionState.Authenticated) {
-            appContainer.collectionRepository.requestSync()
-            appContainer.communityRepository.retryPendingRatings()
+            if (lifecycleOwner) {
+                appContainer.collectionRepository.requestSync()
+                appContainer.communityRepository.retryPendingRatings()
+            }
             val action = pendingAuthAction ?: return@LaunchedEffect
             pendingAuthAction = null
             showAccountCenter = false

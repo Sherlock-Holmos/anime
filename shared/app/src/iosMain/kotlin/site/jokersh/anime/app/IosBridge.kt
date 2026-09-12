@@ -34,44 +34,40 @@ import kotlin.time.Instant
 /** iOS host entry exported by AnimeShared.framework. */
 public object IosBridge {
     private val pendingAuthCallback = MutableStateFlow<AuthCallback?>(null)
-    private var rootSelectionHandler: (Int) -> Unit = {}
+    private var sharedAppContainer: AppContainer? = null
 
     @OptIn(ExperimentalComposeUiApi::class)
-    public fun mainViewController(
+    public fun rootViewController(
+        rootIndex: Int,
         openExternalUrl: (String) -> Unit,
         readSecret: (String) -> String?,
         writeSecret: (String, String) -> Unit,
         removeSecret: (String) -> Unit,
-        onRootSelectionChanged: (Int) -> Unit,
         onNativeGlassStateChanged: (Boolean) -> Unit,
-        onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit,
+        handlesAuthCallback: Boolean,
     ): UIViewController {
-        val appContainer = createIosContainer(readSecret, writeSecret, removeSecret)
-        // Compose Multiplatform 1.11 enables concurrent rendering by default. Avoid an
-        // app-specific rendering override here; navigation stability is handled by the
-        // Compose navigation layer and the native SwiftUI shell remains independent.
+        val appContainer =
+            sharedAppContainer
+                ?: createIosContainer(readSecret, writeSecret, removeSecret).also { sharedAppContainer = it }
+        val initialRoot = rootIndex.toAppRoot()
         return ComposeUIViewController {
-            val callback by pendingAuthCallback.collectAsState()
+            if (handlesAuthCallback) {
+                val callback by pendingAuthCallback.collectAsState()
+                LaunchedEffect(callback) {
+                    val current = callback ?: return@LaunchedEffect
+                    appContainer.sessionRepository.completeLogin(current)
+                    if (pendingAuthCallback.value == current) pendingAuthCallback.value = null
+                }
+            }
             AnimeApp(
                 appContainer = appContainer,
+                initialRoot = initialRoot,
                 openExternalUrl = openExternalUrl,
                 nativeRootNavigation = true,
-                bindRootSelectionHandler = { handler -> rootSelectionHandler = handler },
-                onRootSelectionChanged = onRootSelectionChanged,
                 onNativeGlassStateChanged = onNativeGlassStateChanged,
-                onNativeRootNavigationVisibilityChanged = onNativeRootNavigationVisibilityChanged,
+                lifecycleOwner = rootIndex == 0,
             )
-            LaunchedEffect(callback) {
-                val current = callback ?: return@LaunchedEffect
-                appContainer.sessionRepository.completeLogin(current)
-                if (pendingAuthCallback.value == current) pendingAuthCallback.value = null
-            }
         }
-    }
-
-    /** Called by the native SwiftUI Liquid Glass root tab bar. */
-    public fun requestRootSelection(index: Int) {
-        rootSelectionHandler(index)
     }
 
     /** Handles both ASWebAuthenticationSession callbacks and app URL callbacks. */
@@ -90,6 +86,14 @@ public object IosBridge {
         return true
     }
 }
+
+private fun Int.toAppRoot(): AppRoot =
+    when (this) {
+        1 -> AppRoot.Library
+        2 -> AppRoot.Activity
+        3 -> AppRoot.Profile
+        else -> AppRoot.Discover
+    }
 
 private fun createIosContainer(
     readSecret: (String) -> String?,
