@@ -86,7 +86,9 @@ jobs:
             exit 1
           fi
           xcrun simctl install "$device_id" "$app_path"
-          launch_output=$(xcrun simctl launch "$device_id" site.jokersh.anime)
+          # Scroll the discover page after data arrives so the artifact captures the real
+          # system soft-edge blur instead of only the untouched launch position.
+          launch_output=$(xcrun simctl launch "$device_id" site.jokersh.anime --args --ci-scroll-edge-preview)
           echo "$launch_output" | tee build/ios-simulator-launch.log
           test -n "$launch_output"
           sleep 12

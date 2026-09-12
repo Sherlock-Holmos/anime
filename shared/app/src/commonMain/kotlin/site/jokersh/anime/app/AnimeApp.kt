@@ -193,6 +193,7 @@ fun AnimeApp(
     onRootSelectionChanged: (Int) -> Unit = {},
     onNativeGlassStateChanged: (Boolean) -> Unit = {},
     onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit = {},
+    onNativeContentHeightChanged: (Double) -> Unit = {},
     lifecycleOwner: Boolean = true,
 ) {
     val sessionState by appContainer.sessionRepository.observeSession().collectAsState(SessionState.Guest)
@@ -455,6 +456,7 @@ fun AnimeApp(
                                 }
                             },
                             nativeRootNavigation = nativeRootNavigation,
+                            onNativeContentHeightChanged = onNativeContentHeightChanged,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -695,6 +697,7 @@ private fun AppNavigationLayer(
     onGlassChange: (site.jokersh.anime.core.model.GlassPreference) -> Unit,
     onReduceMotionChange: (site.jokersh.anime.core.model.ReduceMotionPreference) -> Unit,
     nativeRootNavigation: Boolean,
+    onNativeContentHeightChanged: (Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navigationScope = rememberCoroutineScope()
@@ -823,6 +826,8 @@ private fun AppNavigationLayer(
                                     )
                                 },
                                 contentUnderSystemBars = nativeRootNavigation,
+                                nativeScrollHost = nativeRootNavigation,
+                                onNativeContentHeightChanged = onNativeContentHeightChanged,
                                 modifier = rootScreenModifier,
                             )
                         }

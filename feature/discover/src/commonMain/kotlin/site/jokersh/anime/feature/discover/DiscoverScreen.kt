@@ -38,6 +38,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -45,6 +47,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -88,9 +91,24 @@ public fun DiscoverScreen(
     onCalendarClick: () -> Unit,
     modifier: Modifier = Modifier,
     contentUnderSystemBars: Boolean = false,
+    nativeScrollHost: Boolean = false,
+    onNativeContentHeightChanged: (Double) -> Unit = {},
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val desktopLayout = maxWidth >= 560.dp
+        if (nativeScrollHost) {
+            NativeDiscoverContent(
+                state = state,
+                onRetry = onRetry,
+                onSubjectClick = onSubjectClick,
+                onSeeAll = onSeeAll,
+                onRefresh = onRefresh,
+                onCalendarClick = onCalendarClick,
+                desktopLayout = desktopLayout,
+                onNativeContentHeightChanged = onNativeContentHeightChanged,
+            )
+            return@BoxWithConstraints
+        }
         LazyColumn(
             modifier = Modifier.fillMaxSize().testTag("discover.list"),
             contentPadding =
@@ -169,6 +187,122 @@ public fun DiscoverScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Renders the discover root as one intrinsically measured surface. On iOS the surrounding
+ * UIScrollView owns vertical movement, so UIKit can apply its real soft scroll-edge effect.
+ * Horizontal carousels remain Compose gestures and all navigation callbacks stay shared.
+ */
+@Composable
+private fun NativeDiscoverContent(
+    state: DiscoverUiState,
+    onRetry: () -> Unit,
+    onSubjectClick: (SubjectId) -> Unit,
+    onSeeAll: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onCalendarClick: () -> Unit,
+    desktopLayout: Boolean,
+    onNativeContentHeightChanged: (Double) -> Unit,
+) {
+    NativeContentHeightReporter(onNativeContentHeightChanged) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        top = AnimeSpacing.lg,
+                        bottom = if (desktopLayout) AnimeSpacing.giant else 132.dp,
+                    ).testTag("discover.list"),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    if (desktopLayout) AnimeSpacing.xl else AnimeSpacing.xxl,
+                ),
+        ) {
+            DiscoverHeader(
+                isRefreshing = state.isRefreshing,
+                onRefresh = onRefresh,
+                onCalendarClick = onCalendarClick,
+                desktopLayout = desktopLayout,
+                // The native UIScrollView's adjusted content inset owns the safe area.
+                contentUnderSystemBars = false,
+            )
+            if (state.isOffline) {
+                OfflineBanner(lastUpdatedLabel = state.lastUpdatedLabel)
+            }
+            when (val content = state.content) {
+                AsyncContent.Initial,
+                AsyncContent.Loading,
+                -> {
+                    DiscoverLoading()
+                }
+
+                AsyncContent.Empty -> {
+                    DiscoverStatusPanel(
+                        title = stringResource(Res.string.discover_empty_title),
+                        body = stringResource(Res.string.discover_empty_body),
+                        action = stringResource(Res.string.discover_empty_action),
+                        onAction = onRetry,
+                        tag = "discover.empty",
+                    )
+                }
+
+                is AsyncContent.Failure -> {
+                    DiscoverStatusPanel(
+                        title = errorTitle(content.error),
+                        body = stringResource(Res.string.discover_error_unknown),
+                        action = stringResource(Res.string.discover_error_action),
+                        onAction = onRetry,
+                        tag = "discover.error",
+                    )
+                }
+
+                is AsyncContent.Content -> {
+                    DiscoverHeroCarousel(
+                        subjects = content.value.heroes,
+                        onSubjectClick = onSubjectClick,
+                        desktopLayout = desktopLayout,
+                    )
+                    content.value.sections.forEach { section ->
+                        DiscoverSection(
+                            section = section,
+                            onSubjectClick = onSubjectClick,
+                            onSeeAll = { onSeeAll(section.id) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Measures the Compose content without a vertical ceiling even while UIKit is still using the
+ * viewport-height bootstrap constraint. The host applies the reported point height on the next
+ * main-loop turn, after which this layout and the native scroll view have matching content sizes.
+ */
+@Composable
+private fun NativeContentHeightReporter(
+    onHeightChanged: (Double) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current.density
+    Layout(
+        content = content,
+        modifier = Modifier.fillMaxWidth(),
+    ) { measurables, constraints ->
+        val placeable =
+            measurables.single().measure(
+                constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity),
+            )
+        onHeightChanged(placeable.height.toDouble() / density.toDouble())
+        layout(
+            width = placeable.width.coerceIn(constraints.minWidth, constraints.maxWidth),
+            height = placeable.height.coerceIn(constraints.minHeight, constraints.maxHeight),
+        ) {
+            placeable.place(0, 0)
         }
     }
 }

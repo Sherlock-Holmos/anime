@@ -45,6 +45,8 @@ public object IosBridge {
         writeSecret: (String, String) -> Unit,
         removeSecret: (String) -> Unit,
         onNativeGlassStateChanged: (Boolean) -> Unit,
+        onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit,
+        onNativeContentHeightChanged: (Double) -> Unit,
         handlesAuthCallback: Boolean,
     ): UIViewController {
         val appContainer =
@@ -66,6 +68,8 @@ public object IosBridge {
                 openExternalUrl = openExternalUrl,
                 nativeRootNavigation = true,
                 onNativeGlassStateChanged = onNativeGlassStateChanged,
+                onNativeRootNavigationVisibilityChanged = onNativeRootNavigationVisibilityChanged,
+                onNativeContentHeightChanged = onNativeContentHeightChanged,
                 lifecycleOwner = rootIndex == 0,
             )
         }
@@ -135,7 +139,13 @@ private fun createIosContainer(
         collectionRepository =
             OfflineFirstCollectionRepository(
                 store = IosCollectionStore(),
-                pushStatus = { subjectId, status, progress -> remoteCommunity.setCollection(subjectId, status, progress) },
+                pushStatus = {
+                    subjectId,
+                    status,
+                    progress,
+                    ->
+                    remoteCommunity.setCollection(subjectId, status, progress)
+                },
                 pullCollections = { remoteSession.loadAllCollectionItems() },
             ),
         commentRepository =

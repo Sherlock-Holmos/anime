@@ -44,9 +44,17 @@ struct ContentView: View {
     ]
 }
 
-private final class NativeChromeViewController: UIViewController, UIScrollViewDelegate {
+/// Hosts a Compose root inside the UIScrollView that actually owns vertical movement.
+/// This is the key difference from the previous stationary wrapper: iOS now receives real
+/// content offsets and can render the same progressive `.soft` edge used by Apple Books.
+private final class NativeRootScrollViewController: UIViewController {
     private let contentViewController: UIViewController
-    private let edgeEffectScrollView = UIScrollView()
+    private let scrollView = UIScrollView()
+    private var contentHeightConstraint: NSLayoutConstraint?
+    private var reportedContentHeight: CGFloat = 0
+    private var rootPageVisible = true
+    private var savedRootOffsetY: CGFloat?
+    private var didScheduleCIScrollPreview = false
 
     init(contentViewController: UIViewController) {
         self.contentViewController = contentViewController
@@ -63,35 +71,28 @@ private final class NativeChromeViewController: UIViewController, UIScrollViewDe
         view.backgroundColor = .clear
         view.isOpaque = false
 
-        edgeEffectScrollView.translatesAutoresizingMaskIntoConstraints = false
-        edgeEffectScrollView.backgroundColor = .clear
-        edgeEffectScrollView.isOpaque = false
-        edgeEffectScrollView.contentInsetAdjustmentBehavior = .never
-        edgeEffectScrollView.showsVerticalScrollIndicator = false
-        edgeEffectScrollView.showsHorizontalScrollIndicator = false
-        // Keep a real vertical scroll edge so iOS creates the soft effect even though Compose
-        // owns the visible scroll position inside this stationary native container.
-        edgeEffectScrollView.alwaysBounceVertical = true
-        edgeEffectScrollView.alwaysBounceHorizontal = false
-        edgeEffectScrollView.delaysContentTouches = false
-        edgeEffectScrollView.canCancelContentTouches = false
-        edgeEffectScrollView.delegate = self
-        // UIScrollEdgeEffect is disabled when the scroll view's pan recognizer is disabled.
-        // Keep UIKit scrolling active for the renderer, while reserving single-finger gestures
-        // for Compose and accepting only an inert two-finger pan in this outer container.
-        edgeEffectScrollView.panGestureRecognizer.minimumNumberOfTouches = 2
-        edgeEffectScrollView.panGestureRecognizer.maximumNumberOfTouches = 2
-        edgeEffectScrollView.topEdgeEffect.isHidden = false
-        edgeEffectScrollView.topEdgeEffect.style = .soft
-        edgeEffectScrollView.bottomEdgeEffect.isHidden = true
-        edgeEffectScrollView.leftEdgeEffect.isHidden = true
-        edgeEffectScrollView.rightEdgeEffect.isHidden = true
-        view.addSubview(edgeEffectScrollView)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.backgroundColor = .clear
+        scrollView.isOpaque = false
+        scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.showsVerticalScrollIndicator = true
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.alwaysBounceVertical = true
+        scrollView.alwaysBounceHorizontal = false
+        scrollView.isDirectionalLockEnabled = true
+        scrollView.delaysContentTouches = false
+        scrollView.canCancelContentTouches = true
+        scrollView.topEdgeEffect.isHidden = false
+        scrollView.topEdgeEffect.style = .soft
+        scrollView.bottomEdgeEffect.isHidden = true
+        scrollView.leftEdgeEffect.isHidden = true
+        scrollView.rightEdgeEffect.isHidden = true
+        view.addSubview(scrollView)
         NSLayoutConstraint.activate([
-            edgeEffectScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            edgeEffectScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            edgeEffectScrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            edgeEffectScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
         addChild(contentViewController)
@@ -99,56 +100,112 @@ private final class NativeChromeViewController: UIViewController, UIScrollViewDe
         contentView.translatesAutoresizingMaskIntoConstraints = false
         contentView.backgroundColor = .clear
         contentView.isOpaque = false
-        edgeEffectScrollView.addSubview(contentView)
+        scrollView.addSubview(contentView)
+        let heightConstraint = contentView.heightAnchor.constraint(equalToConstant: 1)
+        contentHeightConstraint = heightConstraint
         NSLayoutConstraint.activate([
-            contentView.leadingAnchor.constraint(equalTo: edgeEffectScrollView.contentLayoutGuide.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: edgeEffectScrollView.contentLayoutGuide.trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: edgeEffectScrollView.contentLayoutGuide.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: edgeEffectScrollView.contentLayoutGuide.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: edgeEffectScrollView.frameLayoutGuide.widthAnchor),
-            contentView.heightAnchor.constraint(equalTo: edgeEffectScrollView.frameLayoutGuide.heightAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+            heightConstraint,
         ])
         contentViewController.didMove(toParent: self)
-        updateScrollEdgeInsets()
+        updateNativeScrollGeometry(preserveOffset: false)
     }
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
-        updateScrollEdgeInsets()
+        updateNativeScrollGeometry(preserveOffset: true)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        updateScrollEdgeInsets()
+        updateNativeScrollGeometry(preserveOffset: true)
     }
 
-    private func updateScrollEdgeInsets() {
+    func setRootPageVisible(_ visible: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.rootPageVisible != visible else { return }
+            if !visible {
+                self.savedRootOffsetY = self.scrollView.contentOffset.y
+            }
+            self.rootPageVisible = visible
+            self.updateNativeScrollGeometry(preserveOffset: false)
+        }
+    }
+
+    func setReportedContentHeight(_ height: CGFloat) {
+        guard height.isFinite, height > 0 else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, abs(self.reportedContentHeight - height) > 0.5 else { return }
+            self.reportedContentHeight = height
+            if self.rootPageVisible {
+                self.updateNativeScrollGeometry(preserveOffset: true)
+                self.scheduleCIScrollPreviewIfNeeded()
+            }
+        }
+    }
+
+    private func scheduleCIScrollPreviewIfNeeded() {
+        guard ProcessInfo.processInfo.arguments.contains("--ci-scroll-edge-preview"),
+              !didScheduleCIScrollPreview,
+              reportedContentHeight > view.bounds.height + 160 else { return }
+        didScheduleCIScrollPreview = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self, self.rootPageVisible else { return }
+            let topInset = self.scrollView.contentInset.top
+            let maximumOffset = max(-topInset, self.reportedContentHeight - self.view.bounds.height)
+            self.scrollView.setContentOffset(
+                CGPoint(x: 0, y: min(140, maximumOffset)),
+                animated: false
+            )
+        }
+    }
+
+    private func updateNativeScrollGeometry(preserveOffset: Bool) {
+        guard isViewLoaded else { return }
         let localTopInset = view.safeAreaInsets.top
         let windowTopInset = view.window?.safeAreaInsets.top ?? 0
         let statusBarFrameHeight =
             view.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
         let topInset = max(localTopInset, windowTopInset, statusBarFrameHeight)
-        guard topInset > 0 else { return }
+        let viewportHeight = max(view.bounds.height, 1)
 
-        if edgeEffectScrollView.contentInset.top != topInset {
-            edgeEffectScrollView.contentInset = UIEdgeInsets(
-                top: topInset,
-                left: 0,
-                bottom: 0,
-                right: 0,
+        scrollView.isScrollEnabled = rootPageVisible
+        scrollView.alwaysBounceVertical = rootPageVisible
+        scrollView.topEdgeEffect.isHidden = !rootPageVisible
+        contentHeightConstraint?.constant =
+            rootPageVisible ? max(reportedContentHeight, viewportHeight - topInset) : viewportHeight
+
+        if rootPageVisible {
+            let oldOffset = scrollView.contentOffset.y
+            scrollView.contentInset = UIEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
+            scrollView.verticalScrollIndicatorInsets = UIEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
+            let desiredOffset = preserveOffset ? oldOffset : (savedRootOffsetY ?? -topInset)
+            let maximumOffset = max(-topInset, (contentHeightConstraint?.constant ?? 0) - viewportHeight)
+            scrollView.setContentOffset(
+                CGPoint(x: 0, y: min(max(desiredOffset, -topInset), maximumOffset)),
+                animated: false
             )
-        }
-        // A non-zero inset defines the native soft-edge region. Keeping offset at zero leaves
-        // the Compose pixels underneath it so UIScrollEdgeEffect can sample and blur them.
-        if edgeEffectScrollView.contentOffset != .zero {
-            edgeEffectScrollView.contentOffset = .zero
+        } else {
+            scrollView.contentInset = .zero
+            scrollView.verticalScrollIndicatorInsets = .zero
+            scrollView.setContentOffset(.zero, animated: false)
         }
     }
+}
 
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.contentOffset != .zero {
-            scrollView.contentOffset = .zero
-        }
+private final class NativeRootScrollCoordinator {
+    weak var host: NativeRootScrollViewController?
+
+    func rootVisibilityChanged(_ visible: KotlinBoolean) {
+        host?.setRootPageVisible(visible.boolValue)
+    }
+
+    func contentHeightChanged(_ height: KotlinDouble) {
+        host?.setReportedContentHeight(CGFloat(height.doubleValue))
     }
 }
 
@@ -158,6 +215,7 @@ private struct ComposeTabView: UIViewControllerRepresentable {
     let onNativeGlassStateChanged: (KotlinBoolean) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
+        let nativeScrollCoordinator = NativeRootScrollCoordinator()
         let composeViewController = IosBridge.shared.rootViewController(
             rootIndex: Int32(rootIndex),
             openExternalUrl: { rawUrl in
@@ -173,9 +231,18 @@ private struct ComposeTabView: UIViewControllerRepresentable {
                 IosKeychain.shared.remove(account: account)
             },
             onNativeGlassStateChanged: onNativeGlassStateChanged,
+            onNativeRootNavigationVisibilityChanged: { visible in
+                nativeScrollCoordinator.rootVisibilityChanged(visible)
+            },
+            onNativeContentHeightChanged: { height in
+                nativeScrollCoordinator.contentHeightChanged(height)
+            },
             handlesAuthCallback: handlesAuthCallback,
         )
-        return NativeChromeViewController(contentViewController: composeViewController)
+        guard rootIndex == 0 else { return composeViewController }
+        let host = NativeRootScrollViewController(contentViewController: composeViewController)
+        nativeScrollCoordinator.host = host
+        return host
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}

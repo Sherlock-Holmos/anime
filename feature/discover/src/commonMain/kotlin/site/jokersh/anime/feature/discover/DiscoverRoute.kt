@@ -18,6 +18,8 @@ public fun DiscoverRoute(
     onMessage: (DiscoverMessageUi) -> Unit,
     modifier: Modifier = Modifier,
     contentUnderSystemBars: Boolean = false,
+    nativeScrollHost: Boolean = false,
+    onNativeContentHeightChanged: (Double) -> Unit = {},
 ) {
     val viewModel = viewModel(key = "discover") { DiscoverViewModel(repository) }
     val state by viewModel.state.collectAsState()
@@ -41,6 +43,8 @@ public fun DiscoverRoute(
         onSeeAll = { viewModel.accept(DiscoverIntent.SectionMoreClicked(it)) },
         onCalendarClick = onCalendarClick,
         contentUnderSystemBars = contentUnderSystemBars,
+        nativeScrollHost = nativeScrollHost,
+        onNativeContentHeightChanged = onNativeContentHeightChanged,
         modifier = modifier,
     )
 }
