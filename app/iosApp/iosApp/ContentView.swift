@@ -9,26 +9,33 @@ struct ContentView: View {
     @State private var nativeGlassEnabled = true
 
     var body: some View {
-        TabView(selection: $selectedRootIndex) {
-            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                ComposeTabView(
-                    rootIndex: index,
-                    handlesAuthCallback: index == 0,
-                    onNativeGlassStateChanged: { enabled in
-                        if index == 0 {
-                            nativeGlassEnabled = enabled.boolValue
-                        }
-                    },
-                )
-                // Keep the Compose scene full-bleed so the native tab bar can float over the
-                // page instead of leaving an opaque safe-area strip behind it. Root Compose
-                // screens still apply statusBarsPadding to keep their content readable.
-                .ignoresSafeArea(.container, edges: [.top, .bottom])
-                .tabItem {
-                    Label(tab.title, systemImage: tab.systemImage)
+        ZStack(alignment: .top) {
+            TabView(selection: $selectedRootIndex) {
+                ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                    ComposeTabView(
+                        rootIndex: index,
+                        handlesAuthCallback: index == 0,
+                        onNativeGlassStateChanged: { enabled in
+                            if index == 0 {
+                                nativeGlassEnabled = enabled.boolValue
+                            }
+                        },
+                    )
+                    // Keep the Compose scene full-bleed so the native tab bar can float over the
+                    // page instead of leaving an opaque safe-area strip behind it. Root Compose
+                    // screens still apply statusBarsPadding to keep their content readable.
+                    .ignoresSafeArea(.container, edges: [.top, .bottom])
+                    .tabItem {
+                        Label(tab.title, systemImage: tab.systemImage)
+                    }
+                    .tag(index)
                 }
-                .tag(index)
             }
+
+            // The Compose scene reaches behind the status bar, so cover only that system
+            // region with native material. This keeps the page visible through a soft blur
+            // instead of creating a full-screen opaque white layer.
+            NativeStatusBarMaterial()
         }
         .tint(.accentColor)
         .toolbarBackground(nativeGlassEnabled ? .visible : .hidden, for: .tabBar)
@@ -43,6 +50,19 @@ struct ContentView: View {
         ("动态", "bubble.left.and.bubble.right"),
         ("我的", "person.crop.circle"),
     ]
+}
+
+private struct NativeStatusBarMaterial: View {
+    var body: some View {
+        GeometryReader { proxy in
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .frame(width: proxy.size.width, height: proxy.safeAreaInsets.top)
+                .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .ignoresSafeArea(.container, edges: .top)
+        .allowsHitTesting(false)
+    }
 }
 
 private struct ComposeTabView: UIViewControllerRepresentable {
