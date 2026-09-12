@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -86,6 +87,7 @@ public fun DiscoverScreen(
     onSeeAll: (String) -> Unit,
     onCalendarClick: () -> Unit,
     modifier: Modifier = Modifier,
+    contentUnderSystemBars: Boolean = false,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val desktopLayout = maxWidth >= 560.dp
@@ -107,6 +109,7 @@ public fun DiscoverScreen(
                     onRefresh = onRefresh,
                     onCalendarClick = onCalendarClick,
                     desktopLayout = desktopLayout,
+                    contentUnderSystemBars = contentUnderSystemBars,
                 )
             }
             if (state.isOffline) {
@@ -176,9 +179,13 @@ private fun DiscoverHeader(
     onRefresh: () -> Unit,
     onCalendarClick: () -> Unit,
     desktopLayout: Boolean,
+    contentUnderSystemBars: Boolean,
 ) {
     Column(
-        modifier = Modifier.padding(horizontal = AnimeSpacing.lg),
+        modifier =
+            Modifier
+                .then(if (contentUnderSystemBars) Modifier.statusBarsPadding() else Modifier)
+                .padding(horizontal = AnimeSpacing.lg),
         verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),
     ) {
         Text(

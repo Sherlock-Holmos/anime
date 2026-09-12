@@ -454,6 +454,7 @@ fun AnimeApp(
                                         )
                                 }
                             },
+                            nativeRootNavigation = nativeRootNavigation,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -693,6 +694,7 @@ private fun AppNavigationLayer(
     onThemeChange: (site.jokersh.anime.core.model.ThemePreference) -> Unit,
     onGlassChange: (site.jokersh.anime.core.model.GlassPreference) -> Unit,
     onReduceMotionChange: (site.jokersh.anime.core.model.ReduceMotionPreference) -> Unit,
+    nativeRootNavigation: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val navigationScope = rememberCoroutineScope()
@@ -765,9 +767,9 @@ private fun AppNavigationLayer(
     // Root tabs stay mounted in independent back stacks. A full-screen fade while the Backdrop
     // graph is also updating exposes a blank frame on iOS, so root selection is instantaneous.
     val rootTabMetadata = remember { rootTabTransitionMetadata() }
-    // The iOS host is full-bleed so the native Liquid Glass tab bar can float over page content.
-    // Keep the page content itself below the status bar on every platform.
-    val rootScreenModifier = Modifier.statusBarsPadding()
+    // Native iOS chrome is full-bleed. Root screens move only their top controls below the
+    // status bar so the scrollable page can continue behind the native material layer.
+    val rootScreenModifier = if (nativeRootNavigation) Modifier else Modifier.statusBarsPadding()
     Box(
         modifier =
             modifier
@@ -820,6 +822,7 @@ private fun AppNavigationLayer(
                                         },
                                     )
                                 },
+                                contentUnderSystemBars = nativeRootNavigation,
                                 modifier = rootScreenModifier,
                             )
                         }
@@ -856,6 +859,7 @@ private fun AppNavigationLayer(
                                         ),
                                     )
                                 },
+                                contentUnderSystemBars = nativeRootNavigation,
                                 modifier = rootScreenModifier,
                             )
                         }
@@ -901,6 +905,7 @@ private fun AppNavigationLayer(
                                 onCommentsClick = { subjectId -> navigator.push(AppRoute.Comments(subjectId)) },
                                 onUserClick = { navigator.push(AppRoute.User(it)) },
                                 onCreateList = { navigator.push(AppRoute.CuratedList("new")) },
+                                contentUnderSystemBars = nativeRootNavigation,
                                 modifier = rootScreenModifier,
                             )
                         }
@@ -936,6 +941,7 @@ private fun AppNavigationLayer(
                                 onGlassChange = onGlassChange,
                                 onReduceMotionChange = onReduceMotionChange,
                                 onDiagnostics = { navigator.push(AppRoute.Diagnostics) },
+                                contentUnderSystemBars = nativeRootNavigation,
                                 modifier = rootScreenModifier,
                             )
                         }

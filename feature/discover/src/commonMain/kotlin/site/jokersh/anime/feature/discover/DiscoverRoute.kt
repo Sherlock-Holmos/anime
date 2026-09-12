@@ -17,6 +17,7 @@ public fun DiscoverRoute(
     onCalendarClick: () -> Unit,
     onMessage: (DiscoverMessageUi) -> Unit,
     modifier: Modifier = Modifier,
+    contentUnderSystemBars: Boolean = false,
 ) {
     val viewModel = viewModel(key = "discover") { DiscoverViewModel(repository) }
     val state by viewModel.state.collectAsState()
@@ -39,6 +40,7 @@ public fun DiscoverRoute(
         onSubjectClick = { viewModel.accept(DiscoverIntent.SubjectClicked(it)) },
         onSeeAll = { viewModel.accept(DiscoverIntent.SectionMoreClicked(it)) },
         onCalendarClick = onCalendarClick,
+        contentUnderSystemBars = contentUnderSystemBars,
         modifier = modifier,
     )
 }

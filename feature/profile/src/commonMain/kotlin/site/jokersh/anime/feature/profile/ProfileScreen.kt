@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -85,6 +86,7 @@ public fun ProfileScreen(
     onReduceMotionChange: (ReduceMotionPreference) -> Unit,
     onDiagnostics: () -> Unit = {},
     modifier: Modifier = Modifier,
+    contentUnderSystemBars: Boolean = false,
 ) {
     var showAccountDialog by rememberSaveable { mutableStateOf(false) }
     val theme = settings.theme.label()
@@ -121,7 +123,7 @@ public fun ProfileScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
         ) {
-            item { ProfileHeader(environmentLabel) }
+            item { ProfileHeader(environmentLabel, contentUnderSystemBars) }
             item {
                 AccountHero(
                     wide = wide,
@@ -371,9 +373,15 @@ private fun ArchiveCard(
 }
 
 @Composable
-private fun ProfileHeader(environmentLabel: String) {
+private fun ProfileHeader(
+    environmentLabel: String,
+    contentUnderSystemBars: Boolean,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .then(if (contentUnderSystemBars) Modifier.statusBarsPadding() else Modifier)
+                .fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom,
     ) {

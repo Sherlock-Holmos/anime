@@ -31,6 +31,7 @@ struct ContentView: View {
         }
         .tint(.accentColor)
         .toolbarBackground(nativeGlassEnabled ? .visible : .hidden, for: .tabBar)
+        .background(Color.clear)
     }
 
     private let tabs: [(title: String, systemImage: String)] = [
@@ -63,6 +64,7 @@ private final class NativeChromeViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
+        view.isOpaque = false
 
         addChild(contentViewController)
         let contentView = contentViewController.view!
@@ -81,6 +83,9 @@ private final class NativeChromeViewController: UIViewController {
         statusBarMaterialView.translatesAutoresizingMaskIntoConstraints = false
         statusBarMaterialView.isUserInteractionEnabled = false
         statusBarMaterialView.clipsToBounds = true
+        // Keep the effect subtle like Books' chrome. A fully opaque system material creates a
+        // visible rectangle whenever the page behind it is a dark/flat color.
+        statusBarMaterialView.alpha = 0.72
         view.addSubview(statusBarMaterialView)
         statusBarHeightConstraint = statusBarMaterialView.heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -58,6 +59,7 @@ public fun ActivityScreen(
     onUserClick: (String) -> Unit = {},
     onCreateList: () -> Unit = {},
     modifier: Modifier = Modifier,
+    contentUnderSystemBars: Boolean = false,
 ) {
     var selectedFeed by rememberSaveable { mutableStateOf(initialFeedLabel(initialFeed)) }
     var selectedMode by rememberSaveable { mutableStateOf("动态") }
@@ -103,7 +105,10 @@ public fun ActivityScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item {
-                if (compact) {
+                Column(
+                    modifier = if (contentUnderSystemBars) Modifier.statusBarsPadding() else Modifier,
+                ) {
+                    if (compact) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
@@ -148,7 +153,7 @@ public fun ActivityScreen(
                             }
                         }
                     }
-                } else {
+                    } else {
                     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Bottom) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
@@ -194,6 +199,7 @@ public fun ActivityScreen(
                                 }
                             }
                         }
+                    }
                     }
                 }
             }

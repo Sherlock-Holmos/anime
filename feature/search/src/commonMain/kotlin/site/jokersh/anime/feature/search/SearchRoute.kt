@@ -24,6 +24,7 @@ public fun SearchRoute(
     onResultsRequested: (SearchEffect.NavigateToResults) -> Unit,
     onSubjectClick: (SubjectId) -> Unit,
     modifier: Modifier = Modifier,
+    contentUnderSystemBars: Boolean = false,
 ) {
     val viewModel =
         viewModel(key = "search-${initialQuery.orEmpty()}-$initialTypes-$initialYears-$initialAiring") {
@@ -51,6 +52,7 @@ public fun SearchRoute(
     SearchScreen(
         state = state,
         onIntent = viewModel::accept,
+        contentUnderSystemBars = contentUnderSystemBars,
         modifier = modifier,
     )
 }

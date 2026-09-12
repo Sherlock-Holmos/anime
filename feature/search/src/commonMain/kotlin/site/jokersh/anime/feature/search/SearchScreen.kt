@@ -63,6 +63,7 @@ public fun SearchScreen(
     state: SearchUiState,
     onIntent: (SearchIntent) -> Unit,
     modifier: Modifier = Modifier,
+    contentUnderSystemBars: Boolean = false,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val columns =
@@ -74,7 +75,11 @@ public fun SearchScreen(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
-            modifier = Modifier.fillMaxSize().statusBarsPadding().testTag("search.list"),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .then(if (contentUnderSystemBars) Modifier else Modifier.statusBarsPadding())
+                    .testTag("search.list"),
             contentPadding =
                 PaddingValues(
                     start = AnimeSpacing.lg,
@@ -95,6 +100,7 @@ public fun SearchScreen(
                     onQueryChanged = { onIntent(SearchIntent.QueryChanged(it)) },
                     onSubmit = { onIntent(SearchIntent.Submit(state.query)) },
                     onClear = { onIntent(SearchIntent.ClearQuery) },
+                    contentUnderSystemBars = contentUnderSystemBars,
                 )
             }
 
@@ -497,8 +503,12 @@ private fun SearchHeader(
     onQueryChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     onClear: () -> Unit,
+    contentUnderSystemBars: Boolean,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
+    Column(
+        modifier = if (contentUnderSystemBars) Modifier.statusBarsPadding() else Modifier,
+        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+    ) {
         Text(
             text = "Anime",
             style = MaterialTheme.typography.labelLarge,
