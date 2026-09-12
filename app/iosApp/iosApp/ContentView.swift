@@ -46,11 +46,7 @@ struct ContentView: View {
 
 private final class NativeChromeViewController: UIViewController {
     private let contentViewController: UIViewController
-    private let statusBarMaterialView =
-        UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
-    private let statusBarFadeMask = CAGradientLayer()
-    private var chromeHeightConstraint: NSLayoutConstraint?
-    private let fadeDistance: CGFloat = 44
+    private let edgeEffectScrollView = UIScrollView()
 
     init(contentViewController: UIViewController) {
         self.contentViewController = contentViewController
@@ -67,72 +63,44 @@ private final class NativeChromeViewController: UIViewController {
         view.backgroundColor = .clear
         view.isOpaque = false
 
+        edgeEffectScrollView.translatesAutoresizingMaskIntoConstraints = false
+        edgeEffectScrollView.backgroundColor = .clear
+        edgeEffectScrollView.isOpaque = false
+        edgeEffectScrollView.contentInsetAdjustmentBehavior = .never
+        edgeEffectScrollView.showsVerticalScrollIndicator = false
+        edgeEffectScrollView.showsHorizontalScrollIndicator = false
+        edgeEffectScrollView.alwaysBounceVertical = false
+        edgeEffectScrollView.alwaysBounceHorizontal = false
+        // Compose owns scrolling. Keep UIKit's scroll view stationary and use it only as the
+        // native iOS 26 rendering host for Apple's progressive soft scroll-edge effect.
+        edgeEffectScrollView.panGestureRecognizer.isEnabled = false
+        edgeEffectScrollView.topEdgeEffect.style = .soft
+        edgeEffectScrollView.bottomEdgeEffect.isHidden = true
+        edgeEffectScrollView.leftEdgeEffect.isHidden = true
+        edgeEffectScrollView.rightEdgeEffect.isHidden = true
+        view.addSubview(edgeEffectScrollView)
+        NSLayoutConstraint.activate([
+            edgeEffectScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            edgeEffectScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            edgeEffectScrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            edgeEffectScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         addChild(contentViewController)
         let contentView = contentViewController.view!
         contentView.translatesAutoresizingMaskIntoConstraints = false
         contentView.backgroundColor = .clear
         contentView.isOpaque = false
-        view.addSubview(contentView)
+        edgeEffectScrollView.addSubview(contentView)
         NSLayoutConstraint.activate([
-            contentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: view.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            contentView.leadingAnchor.constraint(equalTo: edgeEffectScrollView.contentLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: edgeEffectScrollView.contentLayoutGuide.trailingAnchor),
+            contentView.topAnchor.constraint(equalTo: edgeEffectScrollView.contentLayoutGuide.topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: edgeEffectScrollView.contentLayoutGuide.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: edgeEffectScrollView.frameLayoutGuide.widthAnchor),
+            contentView.heightAnchor.constraint(equalTo: edgeEffectScrollView.frameLayoutGuide.heightAnchor),
         ])
         contentViewController.didMove(toParent: self)
-
-        statusBarMaterialView.translatesAutoresizingMaskIntoConstraints = false
-        statusBarMaterialView.isUserInteractionEnabled = false
-        statusBarMaterialView.isOpaque = false
-        statusBarMaterialView.clipsToBounds = true
-        statusBarFadeMask.startPoint = CGPoint(x: 0.5, y: 0)
-        statusBarFadeMask.endPoint = CGPoint(x: 0.5, y: 1)
-        statusBarFadeMask.colors = [
-            UIColor.white.cgColor,
-            UIColor.white.cgColor,
-            UIColor.clear.cgColor,
-        ]
-        statusBarMaterialView.layer.mask = statusBarFadeMask
-        view.addSubview(statusBarMaterialView)
-        chromeHeightConstraint = statusBarMaterialView.heightAnchor.constraint(equalToConstant: 0)
-        NSLayoutConstraint.activate([
-            statusBarMaterialView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            statusBarMaterialView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            statusBarMaterialView.topAnchor.constraint(equalTo: view.topAnchor),
-            chromeHeightConstraint!,
-        ])
-        updateChromeMetrics()
-    }
-
-    override func viewSafeAreaInsetsDidChange() {
-        super.viewSafeAreaInsetsDidChange()
-        updateChromeMetrics()
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        updateChromeMetrics()
-    }
-
-    private func updateChromeMetrics() {
-        let localTopInset = view.safeAreaInsets.top
-        let windowTopInset = view.window?.safeAreaInsets.top ?? 0
-        let statusBarFrameHeight =
-            view.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
-        let topInset = max(localTopInset, windowTopInset, statusBarFrameHeight)
-        let materialHeight = topInset + fadeDistance
-        chromeHeightConstraint?.constant = materialHeight
-        statusBarFadeMask.frame = CGRect(
-            x: 0,
-            y: 0,
-            width: statusBarMaterialView.bounds.width,
-            height: materialHeight,
-        )
-        statusBarFadeMask.locations = [
-            0,
-            NSNumber(value: Double(topInset / max(materialHeight, 1))),
-            1,
-        ]
     }
 }
 
