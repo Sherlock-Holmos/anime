@@ -69,7 +69,9 @@ private final class NativeChromeViewController: UIViewController {
         edgeEffectScrollView.contentInsetAdjustmentBehavior = .never
         edgeEffectScrollView.showsVerticalScrollIndicator = false
         edgeEffectScrollView.showsHorizontalScrollIndicator = false
-        edgeEffectScrollView.alwaysBounceVertical = false
+        // Keep a real vertical scroll edge so iOS creates the soft effect even though Compose
+        // owns the visible scroll position inside this stationary native container.
+        edgeEffectScrollView.alwaysBounceVertical = true
         edgeEffectScrollView.alwaysBounceHorizontal = false
         // Compose owns scrolling. Keep UIKit's scroll view stationary and use it only as the
         // native iOS 26 rendering host for Apple's progressive soft scroll-edge effect.
@@ -101,6 +103,40 @@ private final class NativeChromeViewController: UIViewController {
             contentView.heightAnchor.constraint(equalTo: edgeEffectScrollView.frameLayoutGuide.heightAnchor),
         ])
         contentViewController.didMove(toParent: self)
+        updateScrollEdgeInsets()
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateScrollEdgeInsets()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateScrollEdgeInsets()
+    }
+
+    private func updateScrollEdgeInsets() {
+        let localTopInset = view.safeAreaInsets.top
+        let windowTopInset = view.window?.safeAreaInsets.top ?? 0
+        let statusBarFrameHeight =
+            view.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
+        let topInset = max(localTopInset, windowTopInset, statusBarFrameHeight)
+        guard topInset > 0 else { return }
+
+        if edgeEffectScrollView.contentInset.top != topInset {
+            edgeEffectScrollView.contentInset = UIEdgeInsets(
+                top: topInset,
+                left: 0,
+                bottom: 0,
+                right: 0,
+            )
+        }
+        // A non-zero inset defines the native soft-edge region. Keeping offset at zero leaves
+        // the Compose pixels underneath it so UIScrollEdgeEffect can sample and blur them.
+        if edgeEffectScrollView.contentOffset != .zero {
+            edgeEffectScrollView.contentOffset = .zero
+        }
     }
 }
 
