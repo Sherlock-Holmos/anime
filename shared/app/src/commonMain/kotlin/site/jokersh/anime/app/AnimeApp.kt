@@ -454,6 +454,7 @@ fun AnimeApp(
                                         )
                                 }
                             },
+                            nativeRootNavigation = nativeRootNavigation,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -693,6 +694,7 @@ private fun AppNavigationLayer(
     onThemeChange: (site.jokersh.anime.core.model.ThemePreference) -> Unit,
     onGlassChange: (site.jokersh.anime.core.model.GlassPreference) -> Unit,
     onReduceMotionChange: (site.jokersh.anime.core.model.ReduceMotionPreference) -> Unit,
+    nativeRootNavigation: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val navigationScope = rememberCoroutineScope()
@@ -765,6 +767,9 @@ private fun AppNavigationLayer(
     // Root tabs stay mounted in independent back stacks. A full-screen fade while the Backdrop
     // graph is also updating exposes a blank frame on iOS, so root selection is instantaneous.
     val rootTabMetadata = remember { rootTabTransitionMetadata() }
+    // Native iOS TabView already lays its child controller inside the safe area. Applying
+    // statusBarsPadding to root tabs in that configuration creates a second top inset.
+    val rootScreenModifier = if (nativeRootNavigation) Modifier else Modifier.statusBarsPadding()
     Box(
         modifier =
             modifier
@@ -817,7 +822,7 @@ private fun AppNavigationLayer(
                                         },
                                     )
                                 },
-                                modifier = Modifier.statusBarsPadding(),
+                                modifier = rootScreenModifier,
                             )
                         }
                         entry<AppRoute.DiscoverSection> { route ->
@@ -853,7 +858,7 @@ private fun AppNavigationLayer(
                                         ),
                                     )
                                 },
-                                modifier = Modifier.statusBarsPadding(),
+                                modifier = rootScreenModifier,
                             )
                         }
                         entry<AppRoute.SearchResults> { route ->
@@ -898,7 +903,7 @@ private fun AppNavigationLayer(
                                 onCommentsClick = { subjectId -> navigator.push(AppRoute.Comments(subjectId)) },
                                 onUserClick = { navigator.push(AppRoute.User(it)) },
                                 onCreateList = { navigator.push(AppRoute.CuratedList("new")) },
-                                modifier = Modifier.statusBarsPadding(),
+                                modifier = rootScreenModifier,
                             )
                         }
                         entry<AppRoute.Collection> {
@@ -933,7 +938,7 @@ private fun AppNavigationLayer(
                                 onGlassChange = onGlassChange,
                                 onReduceMotionChange = onReduceMotionChange,
                                 onDiagnostics = { navigator.push(AppRoute.Diagnostics) },
-                                modifier = Modifier.statusBarsPadding(),
+                                modifier = rootScreenModifier,
                             )
                         }
                         entry<AppRoute.Subject> { route ->

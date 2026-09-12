@@ -20,12 +20,19 @@ struct ContentView: View {
                         }
                     },
                 )
-                .ignoresSafeArea()
                 .tabItem {
                     Label(tab.title, systemImage: tab.systemImage)
                 }
                 .tag(index)
             }
+        }
+        // Let SwiftUI own the system safe area. The Compose child controllers must start below
+        // the status bar, while this material background keeps the transition into the native
+        // chrome soft and consistent with Apple Books.
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
         }
         .tint(.accentColor)
         .toolbarBackground(nativeGlassEnabled ? .visible : .hidden, for: .tabBar)
