@@ -49,7 +49,8 @@ private final class NativeChromeViewController: UIViewController {
     private let contentViewController: UIViewController
     private let statusBarMaterialView =
         UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
-    private var statusBarHeightConstraint: NSLayoutConstraint?
+    private var statusBarChromeHeightConstraint: NSLayoutConstraint?
+    private let statusBarFadeMask = CAGradientLayer()
 
     init(contentViewController: UIViewController) {
         self.contentViewController = contentViewController
@@ -83,16 +84,25 @@ private final class NativeChromeViewController: UIViewController {
         statusBarMaterialView.translatesAutoresizingMaskIntoConstraints = false
         statusBarMaterialView.isUserInteractionEnabled = false
         statusBarMaterialView.clipsToBounds = true
-        // Keep the effect subtle like Books' chrome. A fully opaque system material creates a
-        // visible rectangle whenever the page behind it is a dark/flat color.
-        statusBarMaterialView.alpha = 0.72
+        // Books uses a low-contrast system material that lets the page remain the visual source.
+        // A stronger alpha reads as a separate dark/white rectangle on a flat Compose background.
+        statusBarMaterialView.alpha = 0.42
+        statusBarFadeMask.startPoint = CGPoint(x: 0.5, y: 0)
+        statusBarFadeMask.endPoint = CGPoint(x: 0.5, y: 1)
+        statusBarFadeMask.colors = [
+            UIColor.white.cgColor,
+            UIColor.white.cgColor,
+            UIColor.clear.cgColor,
+        ]
+        statusBarFadeMask.locations = [0.0, 0.68, 1.0]
+        statusBarMaterialView.layer.mask = statusBarFadeMask
         view.addSubview(statusBarMaterialView)
-        statusBarHeightConstraint = statusBarMaterialView.heightAnchor.constraint(equalToConstant: 0)
+        statusBarChromeHeightConstraint = statusBarMaterialView.heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
             statusBarMaterialView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             statusBarMaterialView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             statusBarMaterialView.topAnchor.constraint(equalTo: view.topAnchor),
-            statusBarHeightConstraint!,
+            statusBarChromeHeightConstraint!,
         ])
         updateStatusBarMaterialHeight()
     }
@@ -104,6 +114,7 @@ private final class NativeChromeViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        statusBarFadeMask.frame = statusBarMaterialView.bounds
         updateStatusBarMaterialHeight()
     }
 
@@ -113,7 +124,9 @@ private final class NativeChromeViewController: UIViewController {
         let statusBarFrameHeight =
             view.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
         let topInset = max(localTopInset, windowTopInset, statusBarFrameHeight)
-        statusBarHeightConstraint?.constant = topInset
+        // Extend slightly below the system status area and fade out instead of ending with a
+        // hard horizontal line. This is the same visual transition used by native reading apps.
+        statusBarChromeHeightConstraint?.constant = topInset + 24
     }
 }
 
