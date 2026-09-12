@@ -32,7 +32,10 @@ struct ContentView: View {
     }
 
     private let tabs: [(title: String, systemImage: String)] = [
-        ("发现", "sparkles.magnifyingglass"),
+        // `sparkles.magnifyingglass` is not rendered consistently by every SF Symbols
+        // catalog shipped with Xcode. Use the stable discovery symbol so the first tab
+        // always has a visible native icon.
+        ("发现", "sparkles"),
         ("资料库", "books.vertical"),
         ("动态", "bubble.left.and.bubble.right"),
         ("我的", "person.crop.circle"),

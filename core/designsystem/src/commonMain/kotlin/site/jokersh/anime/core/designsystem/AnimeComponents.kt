@@ -1,6 +1,7 @@
 package site.jokersh.anime.core.designsystem
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -245,6 +246,9 @@ public fun AnimePosterCard(
         modifier =
             modifier
                 .width(size.width)
+                // Keep every card in a horizontal shelf the same height. Without this,
+                // one-line titles and two-line titles produce visibly uneven shelves.
+                .height(size.height + 82.dp)
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
                     contentDescription = model.accessibilityLabel
@@ -252,11 +256,12 @@ public fun AnimePosterCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 1.dp),
         shape = RoundedCornerShape(AnimeRadius.card),
+        border = BorderStroke(AnimeSize.border, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
     ) {
         Poster(model = model, width = size.width, height = size.height)
         Column(
-            modifier = Modifier.padding(AnimeSpacing.md),
-            verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),
+            modifier = Modifier.fillMaxWidth().height(82.dp).padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.sm),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 text = model.title,
@@ -264,13 +269,34 @@ public fun AnimePosterCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = model.rating ?: model.metadata,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = model.rating ?: model.metadata,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                model.collectionLabel?.let { label ->
+                    Surface(
+                        shape = RoundedCornerShape(AnimeRadius.round),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    ) {
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(horizontal = AnimeSpacing.sm, vertical = AnimeSpacing.xxs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
         }
     }
 }

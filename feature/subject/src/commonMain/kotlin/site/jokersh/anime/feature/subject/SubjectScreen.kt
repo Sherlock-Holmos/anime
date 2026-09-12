@@ -1,5 +1,6 @@
 package site.jokersh.anime.feature.subject
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,12 +22,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -39,6 +46,7 @@ import org.jetbrains.compose.resources.stringResource
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
 import site.jokersh.anime.core.designsystem.AnimePosterArtwork
+import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeRatingBadge
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
@@ -154,88 +162,27 @@ private fun SubjectContent(
                     .padding(top = AnimeSpacing.lg, bottom = AnimeSpacing.huge),
             verticalArrangement = Arrangement.spacedBy(if (compact) AnimeSpacing.xl else AnimeSpacing.xxl),
         ) {
-            BackButton(onBack)
-            Row(
-                modifier = Modifier.fillMaxWidth().testTag("subject.hero"),
-                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.xl),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                AnimePosterArtwork(
-                    poster = content.poster,
-                    title = content.title,
-                    id = SubjectId(content.id),
-                    modifier =
-                        Modifier
-                            .width(if (wide) 156.dp else 112.dp)
-                            .height(if (wide) 220.dp else 158.dp)
-                            .clip(RoundedCornerShape(AnimeRadius.card)),
-                )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
-                ) {
-                    Text(
-                        text = content.title,
-                        style =
-                            if (wide) {
-                                MaterialTheme.typography.headlineLarge
-                            } else {
-                                MaterialTheme.typography.headlineLarge
-                            },
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    content.originalTitle?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Text(
-                        text = content.metadata,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (content.score != null) {
-                        AnimeRatingBadge(
-                            rating = content.ratingUi(),
-                            modifier = Modifier.testTag("subject.rating"),
-                        )
-                    }
-                    TagRow(content.tags)
-                    Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-                        AnimeSecondaryButton(
-                            label = state.collectionStatus.collectionLabel(),
-                            onClick = onCollect,
-                        )
-                    }
-                    state.actionMessage?.let {
-                        Text(
-                            it,
-                            color =
-                                if (it.contains(
-                                        "失败",
-                                    )
-                                ) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.primary
-                                },
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-            }
-            RatingOverview(content, compact)
-            Text(
-                content.dataStatusLabel,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium,
+            SubjectHero(
+                state = state,
+                content = content,
+                wide = wide,
+                compact = compact,
+                onBack = onBack,
+                onCollect = onCollect,
             )
+            RatingOverview(content, compact)
+            Surface(
+                shape = RoundedCornerShape(AnimeRadius.round),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+            ) {
+                Text(
+                    content.dataStatusLabel,
+                    modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.xs),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            TagRow(content.tags)
             if (wide) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -264,6 +211,132 @@ private fun SubjectContent(
                 }
             }
             CommunityPreview(state, onCommentsClick, onReviewsClick, onReviewClick, onListClick, wide)
+        }
+    }
+}
+
+@Composable
+private fun SubjectHero(
+    state: SubjectUiState,
+    content: SubjectContentUi,
+    wide: Boolean,
+    compact: Boolean,
+    onBack: () -> Unit,
+    onCollect: () -> Unit,
+) {
+    val heroHeight = when {
+        wide -> 326.dp
+        compact -> 360.dp
+        else -> 342.dp
+    }
+    AnimeGlassPanel(
+        role = GlassRole.StaticHero,
+        modifier = Modifier.fillMaxWidth().testTag("subject.hero"),
+        shape = RoundedCornerShape(AnimeRadius.panel),
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Box(Modifier.fillMaxWidth().height(heroHeight)) {
+            AnimePosterArtwork(
+                poster = content.poster,
+                title = content.title,
+                id = SubjectId(content.id),
+                modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.16f; scaleY = 1.16f }.blur(26.dp),
+                contentScale = ContentScale.Crop,
+            )
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(0xFF08111F).copy(alpha = 0.28f),
+                            Color(0xFF08111F).copy(alpha = 0.5f),
+                            Color(0xFF08111F).copy(alpha = 0.96f),
+                        ),
+                    ),
+                ),
+            )
+            BackButton(
+                onBack = onBack,
+                modifier = Modifier.align(Alignment.TopStart).padding(AnimeSpacing.lg),
+                darkContent = true,
+            )
+            Row(
+                modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(AnimeSpacing.xl),
+                horizontalArrangement = Arrangement.spacedBy(if (compact) AnimeSpacing.md else AnimeSpacing.xl),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                AnimePosterArtwork(
+                    poster = content.poster,
+                    title = content.title,
+                    id = SubjectId(content.id),
+                    modifier =
+                        Modifier
+                            .width(if (wide) 150.dp else 108.dp)
+                            .height(if (wide) 216.dp else 156.dp)
+                            .clip(RoundedCornerShape(AnimeRadius.control)),
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+                ) {
+                    Text(
+                        text = content.title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = if (compact) 3 else 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    content.originalTitle?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.78f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Text(
+                        text = content.metadata,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.84f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                        content.score?.let { score ->
+                            Surface(shape = RoundedCornerShape(AnimeRadius.round), color = Color.White.copy(alpha = 0.18f)) {
+                                Text(
+                                    text = "评分 $score",
+                                    modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.xs),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                        Surface(shape = RoundedCornerShape(AnimeRadius.round), color = Color.White.copy(alpha = 0.14f)) {
+                            Text(
+                                text = content.status,
+                                modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.xs),
+                                color = Color.White.copy(alpha = 0.9f),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
+                    AnimePrimaryButton(
+                        label = state.collectionStatus.collectionLabel(),
+                        onClick = onCollect,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    state.actionMessage?.let { message ->
+                        Text(
+                            text = message,
+                            color = if (message.contains("失败")) Color(0xFFFFB4AB) else Color.White.copy(alpha = 0.86f),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -496,12 +569,18 @@ private fun SubjectInformation(
         stringResource(Res.string.subject_episodes),
         content.episodeCount?.toString() ?: stringResource(Res.string.subject_episode_unknown),
     )
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
     InformationRow(stringResource(Res.string.subject_status), content.status)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
     InformationRow(
         stringResource(Res.string.subject_source),
         stringResource(Res.string.subject_bangumi),
     )
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+    ) {
         AnimeSecondaryButton("分集", onEpisodesClick)
         AnimeSecondaryButton("角色", onCharactersClick)
         AnimeSecondaryButton("关联", onRelationsClick)
@@ -509,14 +588,19 @@ private fun SubjectInformation(
 }
 
 @Composable
-private fun BackButton(onBack: () -> Unit) {
+private fun BackButton(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    darkContent: Boolean = false,
+) {
     val label = stringResource(Res.string.subject_back)
     Surface(
         onClick = onBack,
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        color = if (darkContent) Color.Black.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
         modifier =
             Modifier
+                .then(modifier)
                 .size(48.dp)
                 .semantics {
                     role = Role.Button
@@ -525,7 +609,7 @@ private fun BackButton(onBack: () -> Unit) {
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             AnimeBackIcon(
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (darkContent) Color.White else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -560,11 +644,21 @@ private fun DetailSection(
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+            Box(
+                Modifier
+                    .width(4.dp)
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(AnimeRadius.round))
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        }
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(AnimeRadius.card),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+            tonalElevation = 1.dp,
         ) {
             Box(Modifier.padding(AnimeSpacing.xl)) {
                 Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) { content() }

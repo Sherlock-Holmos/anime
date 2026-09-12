@@ -349,6 +349,7 @@ private fun ArchiveCard(
         shape = RoundedCornerShape(AnimeRadius.card),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(AnimeSize.border, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
+        tonalElevation = 1.dp,
     ) {
         Column(Modifier.padding(AnimeSpacing.lg), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
@@ -413,7 +414,7 @@ private fun AccountHero(
         role = GlassRole.StaticHero,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(AnimeRadius.panel),
-        contentPadding = PaddingValues(AnimeSpacing.xl),
+        contentPadding = PaddingValues(0.dp),
     ) {
         val avatar: @Composable () -> Unit = {
             Box(
@@ -506,27 +507,69 @@ private fun AccountHero(
                 }
             }
         }
-        if (wide) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.xl),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                avatar()
-                identity(Modifier.weight(1f))
-                actions()
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg)) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
+                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.09f),
+                                Color.Transparent,
+                            ),
+                        ),
+                    ),
+        ) {
+            if (wide) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+                    modifier = Modifier.fillMaxWidth().padding(AnimeSpacing.xl),
+                    horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.xl),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     avatar()
                     identity(Modifier.weight(1f))
+                    actions()
                 }
-                actions()
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(AnimeSpacing.xl),
+                    verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        avatar()
+                        identity(Modifier.weight(1f))
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
+                    ) {
+                        if (authenticated != null) {
+                            AnimeSecondaryButton(
+                                label = "查看片库",
+                                onClick = onBrowseCollection,
+                                modifier = Modifier.weight(1f),
+                            )
+                            AnimePrimaryButton(
+                                label = "管理账户",
+                                onClick = onManageAccount,
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else {
+                            AnimePrimaryButton(
+                                label = "登录或创建账户",
+                                onClick = onManageAccount,
+                                enabled = !restoring,
+                                loading = restoring,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -571,6 +614,7 @@ private fun MetricCard(
         shape = RoundedCornerShape(AnimeRadius.card),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
         border = BorderStroke(AnimeSize.border, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
+        tonalElevation = 1.dp,
     ) {
         Row(
             modifier = Modifier.padding(AnimeSpacing.lg),

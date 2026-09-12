@@ -539,29 +539,16 @@ private fun ContinueWatchingCard(
             horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
+            AnimePosterArtwork(
+                poster = subject.poster,
+                title = subject.title,
+                id = subject.id,
                 modifier =
                     Modifier
                         .width(62.dp)
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(AnimeRadius.control))
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.78f),
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.58f),
-                                ),
-                            ),
-                        ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = subject.title.take(1),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(AnimeRadius.control)),
+            )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs),

@@ -3,11 +3,8 @@
     android:height="22dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- A filled, deliberately simple mark is reliable in Compose Resources on every target. -->
     <path
-        android:fillColor="#00000000"
-        android:pathData="M12,2.75A9.25,9.25 0,1 1,12 21.25A9.25,9.25 0,1 1,12 2.75M15.7,8.3L13.35,13.35L8.3,15.7L10.65,10.65Z"
-        android:strokeColor="#FF000000"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeWidth="1.8" />
+        android:fillColor="#FF000000"
+        android:pathData="M12,2L14.8,9.2L22,12L14.8,14.8L12,22L9.2,14.8L2,12L9.2,9.2Z" />
 </vector>
