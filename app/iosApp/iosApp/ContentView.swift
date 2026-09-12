@@ -44,7 +44,7 @@ struct ContentView: View {
     ]
 }
 
-private final class NativeChromeViewController: UIViewController {
+private final class NativeChromeViewController: UIViewController, UIScrollViewDelegate {
     private let contentViewController: UIViewController
     private let edgeEffectScrollView = UIScrollView()
 
@@ -73,9 +73,15 @@ private final class NativeChromeViewController: UIViewController {
         // owns the visible scroll position inside this stationary native container.
         edgeEffectScrollView.alwaysBounceVertical = true
         edgeEffectScrollView.alwaysBounceHorizontal = false
-        // Compose owns scrolling. Keep UIKit's scroll view stationary and use it only as the
-        // native iOS 26 rendering host for Apple's progressive soft scroll-edge effect.
-        edgeEffectScrollView.panGestureRecognizer.isEnabled = false
+        edgeEffectScrollView.delaysContentTouches = false
+        edgeEffectScrollView.canCancelContentTouches = false
+        edgeEffectScrollView.delegate = self
+        // UIScrollEdgeEffect is disabled when the scroll view's pan recognizer is disabled.
+        // Keep UIKit scrolling active for the renderer, while reserving single-finger gestures
+        // for Compose and accepting only an inert two-finger pan in this outer container.
+        edgeEffectScrollView.panGestureRecognizer.minimumNumberOfTouches = 2
+        edgeEffectScrollView.panGestureRecognizer.maximumNumberOfTouches = 2
+        edgeEffectScrollView.topEdgeEffect.isHidden = false
         edgeEffectScrollView.topEdgeEffect.style = .soft
         edgeEffectScrollView.bottomEdgeEffect.isHidden = true
         edgeEffectScrollView.leftEdgeEffect.isHidden = true
@@ -136,6 +142,12 @@ private final class NativeChromeViewController: UIViewController {
         // the Compose pixels underneath it so UIScrollEdgeEffect can sample and blur them.
         if edgeEffectScrollView.contentOffset != .zero {
             edgeEffectScrollView.contentOffset = .zero
+        }
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if scrollView.contentOffset != .zero {
+            scrollView.contentOffset = .zero
         }
     }
 }

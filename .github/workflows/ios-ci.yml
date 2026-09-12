@@ -87,9 +87,10 @@ jobs:
           fi
           xcrun simctl install "$device_id" "$app_path"
           launch_output=$(xcrun simctl launch "$device_id" site.jokersh.anime)
-          echo "$launch_output"
+          echo "$launch_output" | tee build/ios-simulator-launch.log
           test -n "$launch_output"
           sleep 12
+          xcrun simctl io "$device_id" screenshot build/ios-simulator.png
           # `simctl launch` returning successfully is the stable launch check.
           # The PID it prints is not reliable for a cross-process liveness probe
           # on every hosted macOS/CoreSimulator image, even when the app has
@@ -107,6 +108,7 @@ jobs:
             build/ios-derived-data/Build/Products/Debug-iphonesimulator/iosApp.app
             build/ios-xcodebuild.log
             build/ios-simulator-launch.log
+            build/ios-simulator.png
             build/ios-crash-reports
 
   unsigned-ipa:
