@@ -52,16 +52,42 @@ struct ContentView: View {
 }
 
 private struct NativeStatusBarMaterial: View {
+    private let fadeDistance: CGFloat = 42
+
     var body: some View {
         GeometryReader { proxy in
+            let topInset = max(proxy.safeAreaInsets.top, currentStatusBarHeight())
+            let materialHeight = topInset + fadeDistance
             Rectangle()
-                .fill(.bar)
-                .frame(width: proxy.size.width, height: proxy.safeAreaInsets.top)
+                .fill(Material.bar)
+                .frame(width: proxy.size.width, height: materialHeight)
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white, location: 0),
+                            .init(
+                                color: .white,
+                                location: topInset / max(materialHeight, 1),
+                            ),
+                            .init(color: .clear, location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom,
+                    )
+                )
                 .frame(maxHeight: .infinity, alignment: .top)
         }
         .ignoresSafeArea(.container, edges: .top)
         .allowsHitTesting(false)
     }
+}
+
+private func currentStatusBarHeight() -> CGFloat {
+    UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .filter { $0.activationState == .foregroundActive }
+        .compactMap { $0.statusBarManager?.statusBarFrame.height }
+        .max() ?? 0
 }
 
 private struct ComposeTabView: UIViewControllerRepresentable {
