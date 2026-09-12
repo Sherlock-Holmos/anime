@@ -14,6 +14,7 @@ import platform.Foundation.NSURLQueryItem
 import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIViewController
 import site.jokersh.anime.core.model.AuthCallback
+import site.jokersh.anime.core.navigation.AppRoot
 import site.jokersh.anime.data.catalog.CatalogCacheStore
 import site.jokersh.anime.data.catalog.RemoteCatalogRepository
 import site.jokersh.anime.data.catalog.RemoteSearchRepository
