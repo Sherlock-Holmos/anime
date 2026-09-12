@@ -51,7 +51,9 @@ private final class NativeRootScrollViewController: UIViewController {
     private let contentViewController: UIViewController
     private let scrollView = UIScrollView()
     private var contentHeightConstraint: NSLayoutConstraint?
-    private var reportedContentHeight: CGFloat = 0
+    // Give Compose room for the first non-lazy root layout. The measured final height replaces
+    // this probe as soon as discovery data reaches a terminal state.
+    private var reportedContentHeight: CGFloat = 3_000
     private var rootPageVisible = true
     private var savedRootOffsetY: CGFloat?
     private var didScheduleCIScrollPreview = false

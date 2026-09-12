@@ -88,10 +88,14 @@ jobs:
           xcrun simctl install "$device_id" "$app_path"
           # Scroll the discover page after data arrives so the artifact captures the real
           # system soft-edge blur instead of only the untouched launch position.
-          launch_output=$(xcrun simctl launch "$device_id" site.jokersh.anime --args --ci-scroll-edge-preview)
+          launch_output=$(xcrun simctl launch "$device_id" site.jokersh.anime --ci-scroll-edge-preview)
           echo "$launch_output" | tee build/ios-simulator-launch.log
           test -n "$launch_output"
-          sleep 12
+          sleep 20
+          xcrun simctl spawn "$device_id" log show \
+            --style compact \
+            --last 3m \
+            --predicate 'process == "iosApp"' > build/ios-simulator-runtime.log 2>&1 || true
           xcrun simctl io "$device_id" screenshot build/ios-simulator.png
           # `simctl launch` returning successfully is the stable launch check.
           # The PID it prints is not reliable for a cross-process liveness probe
@@ -110,8 +114,18 @@ jobs:
             build/ios-derived-data/Build/Products/Debug-iphonesimulator/iosApp.app
             build/ios-xcodebuild.log
             build/ios-simulator-launch.log
+            build/ios-simulator-runtime.log
             build/ios-simulator.png
             build/ios-crash-reports
+
+      - name: Upload simulator screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anime-ios-screenshot-${{ github.run_number }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: build/ios-simulator.png
 
   unsigned-ipa:
     name: Unsigned iOS device IPA

@@ -38,7 +38,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -47,7 +47,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -207,7 +206,10 @@ private fun NativeDiscoverContent(
     desktopLayout: Boolean,
     onNativeContentHeightChanged: (Double) -> Unit,
 ) {
-    NativeContentHeightReporter(onNativeContentHeightChanged) {
+    NativeContentHeightReporter(
+        enabled = state.content !is AsyncContent.Initial && state.content !is AsyncContent.Loading,
+        onHeightChanged = onNativeContentHeightChanged,
+    ) {
         Column(
             modifier =
                 Modifier
@@ -279,31 +281,27 @@ private fun NativeDiscoverContent(
 }
 
 /**
- * Measures the Compose content without a vertical ceiling even while UIKit is still using the
- * viewport-height bootstrap constraint. The host applies the reported point height on the next
- * main-loop turn, after which this layout and the native scroll view have matching content sizes.
+ * Reports the final root height after loading. UIKit starts this page with a bounded probe height,
+ * so this callback never mutates Auto Layout from inside a Compose measure pass.
  */
 @Composable
 private fun NativeContentHeightReporter(
+    enabled: Boolean,
     onHeightChanged: (Double) -> Unit,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current.density
-    Layout(
-        content = content,
-        modifier = Modifier.fillMaxWidth(),
-    ) { measurables, constraints ->
-        val placeable =
-            measurables.single().measure(
-                constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity),
-            )
-        onHeightChanged(placeable.height.toDouble() / density.toDouble())
-        layout(
-            width = placeable.width.coerceIn(constraints.minWidth, constraints.maxWidth),
-            height = placeable.height.coerceIn(constraints.minHeight, constraints.maxHeight),
-        ) {
-            placeable.place(0, 0)
-        }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .onSizeChanged { size ->
+                    if (enabled) {
+                        onHeightChanged(size.height.toDouble() / density.toDouble())
+                    }
+                },
+    ) {
+        content()
     }
 }
 
