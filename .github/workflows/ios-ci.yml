@@ -73,7 +73,7 @@ jobs:
             xcrun simctl delete "$device_id" >/dev/null 2>&1 || true
           }
           trap cleanup EXIT
-          xcrun simctl boot "$device_id"
+          perl -e 'alarm 60; exec @ARGV' -- xcrun simctl boot "$device_id"
           simulator_ready=false
           for _ in $(seq 1 90); do
             if xcrun simctl getenv "$device_id" HOME >/dev/null 2>&1; then
@@ -86,12 +86,28 @@ jobs:
             echo 'iOS Simulator did not become ready within 180 seconds.' >&2
             exit 1
           fi
-          xcrun simctl install "$device_id" "$app_path"
+          perl -e 'alarm 60; exec @ARGV' -- xcrun simctl install "$device_id" "$app_path"
           # Scroll the discover page after data arrives so the artifact captures the real
           # system soft-edge blur instead of only the untouched launch position.
-          launch_output=$(xcrun simctl launch "$device_id" "$bundle_id" --ci-scroll-edge-preview | tee build/ios-simulator-launch.log)
-          test -n "$launch_output"
-          app_pid=$(echo "$launch_output" | awk '{print $2}')
+          launch_output=''
+          app_pid=''
+          launch_status=1
+          for attempt in 1 2 3; do
+            set +e
+            launch_output=$(perl -e 'alarm 30; exec @ARGV' -- \
+              xcrun simctl launch "$device_id" "$bundle_id" -- --ci-scroll-edge-preview \
+              2>&1 | tee -a build/ios-simulator-launch.log)
+            launch_status=$?
+            set -e
+            app_pid=$(echo "$launch_output" | awk '{print $2}')
+            if [ "$launch_status" -eq 0 ] && [ -n "$app_pid" ]; then
+              break
+            fi
+            echo "simctl launch attempt $attempt failed (status $launch_status); retrying." \
+              | tee -a build/ios-simulator-launch.log
+            sleep 3
+          done
+          test "$launch_status" -eq 0
           test -n "$app_pid"
           # CoreSimulator's launchctl service queries are not reliable on hosted
           # macOS runners and can block the workflow indefinitely. Keep the app
