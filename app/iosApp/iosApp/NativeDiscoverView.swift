@@ -116,6 +116,11 @@ final class NativeAppModel: ObservableObject {
         }
     }
 
+    func saveSearchHistory(query: String) {
+        start()
+        facade?.saveSearchHistory(query: query)
+    }
+
     func loadCollection(status: String?, completion: ((NativeCollectionPageSnapshot?, String?) -> Void)? = nil) {
         start()
         facade?.loadCollection(status: status) { [weak self] rawSnapshot, error in
@@ -152,6 +157,17 @@ final class NativeAppModel: ObservableObject {
                 let snapshot = rawSnapshot.flatMap { Self.decode($0, as: [NativeNotificationSnapshot].self) }
                 self.notifications = snapshot ?? []
                 completion?(snapshot, error)
+            }
+        }
+    }
+
+    func markNotificationRead(id: String, completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.markNotificationRead(id: id) { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if error == nil { self.loadNotifications() }
+                completion?(error)
             }
         }
     }

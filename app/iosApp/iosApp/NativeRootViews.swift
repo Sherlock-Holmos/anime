@@ -1192,7 +1192,7 @@ private struct NativeNotificationRow: View {
         Button(action: onRead) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: notification.readAt == nil ? "bell.badge.fill" : "bell")
-                    .foregroundStyle(notification.readAt == nil ? .tint : .secondary)
+                    .foregroundStyle(notification.readAt == nil ? Color.accentColor : Color.secondary)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(notification.title).font(.headline)
                     Text(notification.createdAt.replacingOccurrences(of: "T", with: " ").prefix(16))
