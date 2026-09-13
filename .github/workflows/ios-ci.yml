@@ -95,7 +95,10 @@ jobs:
           app_pid=$(echo "$launch_output" | awk '{print $2}')
           test -n "$app_pid"
           app_service_is_running() {
-            xcrun simctl spawn "$device_id" launchctl print gui/501 2>/dev/null | grep -Fq "$bundle_id"
+            # `launchctl print gui/501` can hang on some CoreSimulator images. The
+            # process/service list is enough for a bounded liveness check and exits
+            # cleanly on both the current and previous hosted runtimes.
+            xcrun simctl spawn "$device_id" launchctl list 2>/dev/null | grep -F "$bundle_id" >/dev/null
           }
           app_started=false
           for _ in $(seq 1 30); do
@@ -107,7 +110,8 @@ jobs:
           done
           if [ "$app_started" != true ]; then
             echo "iOS app exited during startup (pid $app_pid)." >&2
-            xcrun simctl spawn "$device_id" launchctl print gui/501 2>&1 | tail -120 || true
+            xcrun simctl spawn "$device_id" launchctl list 2>&1 | tail -120 || true
+            xcrun simctl io "$device_id" screenshot build/ios-simulator.png || true
             exit 1
           fi
           sleep 20
@@ -127,10 +131,13 @@ jobs:
           if ! app_service_is_running; then
             echo "iOS app crashed or was terminated during the runtime soak." >&2
             tail -200 build/ios-simulator-runtime.log >&2 || true
+            xcrun simctl io "$device_id" screenshot build/ios-simulator.png || true
             exit 1
           fi
           mkdir -p build/ios-crash-reports
-          find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -type f -name '*iosApp*' -mmin -10 -exec cp {} build/ios-crash-reports/ \; 2>/dev/null || true
+          simulator_home=$(xcrun simctl getenv "$device_id" HOME)
+          find "$HOME/Library/Logs/DiagnosticReports" "$simulator_home/Library/Logs/CrashReporter" \
+            -maxdepth 2 -type f -name '*iosApp*' -mmin -10 -exec cp {} build/ios-crash-reports/ \; 2>/dev/null || true
           xcrun simctl io "$device_id" screenshot build/ios-simulator.png
           xcrun simctl terminate "$device_id" site.jokersh.anime >/dev/null 2>&1 || true
 
