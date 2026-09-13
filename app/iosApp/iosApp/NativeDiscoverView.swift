@@ -492,7 +492,8 @@ private struct NativeHeroCard: View {
                     Color.secondary.opacity(0.2)
                 }
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
             .overlay {
                 LinearGradient(
                     colors: [.clear, .black.opacity(0.82)],
@@ -517,7 +518,9 @@ private struct NativeHeroCard: View {
             }
             .padding(20)
         }
+        .frame(maxWidth: .infinity)
         .frame(height: 250)
+        .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
