@@ -107,7 +107,15 @@ jobs:
           simulator_data="$HOME/Library/Developer/CoreSimulator/Devices/$device_id/data"
           find "$HOME/Library/Logs/DiagnosticReports" "$simulator_data/Library/Logs/CrashReporter" \
             -maxdepth 2 -type f -name '*iosApp*' -mmin -10 -exec cp {} build/ios-crash-reports/ \; 2>/dev/null || true
-          xcrun simctl io "$device_id" screenshot build/ios-simulator.png
+          # Hosted CoreSimulator can occasionally leave `simctl io` blocked even after
+          # the image has been produced. Keep artifact collection bounded so a real app
+          # crash report can still be uploaded instead of hiding behind a hung command.
+          if ! perl -e 'alarm 15; exec @ARGV' -- \
+            xcrun simctl io "$device_id" screenshot build/ios-simulator.png \
+            > build/ios-simulator-screenshot.log 2>&1; then
+            echo 'Simulator screenshot command timed out or failed; continuing with crash artifacts.' \
+              | tee -a build/ios-simulator-screenshot.log
+          fi
 
       - name: Upload simulator application and logs
         if: always()
