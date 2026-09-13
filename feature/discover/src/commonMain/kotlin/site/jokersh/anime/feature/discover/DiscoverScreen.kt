@@ -228,8 +228,9 @@ private fun NativeDiscoverContent(
                 onRefresh = onRefresh,
                 onCalendarClick = onCalendarClick,
                 desktopLayout = desktopLayout,
-                // The native UIScrollView's adjusted content inset owns the safe area.
-                contentUnderSystemBars = false,
+                // The native scroll view is edge-to-edge; keep controls below the status bar
+                // while allowing the page background to occupy the full top edge.
+                contentUnderSystemBars = true,
             )
             if (state.isOffline) {
                 OfflineBanner(lastUpdatedLabel = state.lastUpdatedLabel)

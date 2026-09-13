@@ -28,6 +28,10 @@ struct ContentView: View {
                 .tag(index)
             }
         }
+        // Apply the edge-to-edge contract to the tab container itself. Applying it only to
+        // the representable child still lets SwiftUI reserve an opaque status-bar strip above
+        // the child, which prevents the native scroll-edge material from covering that area.
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
         .tint(.accentColor)
         .toolbarBackground(nativeGlassEnabled ? .visible : .hidden, for: .tabBar)
         .background(Color.clear)
@@ -51,11 +55,12 @@ private final class NativeRootScrollViewController: UIViewController {
     private let contentViewController: UIViewController
     private let scrollView = UIScrollView()
     private var contentHeightConstraint: NSLayoutConstraint?
-    // Give Compose room for the first non-lazy root layout. The measured final height replaces
-    // this probe as soon as discovery data reaches a terminal state.
-    private var reportedContentHeight: CGFloat = 3_000
+    // Give Compose room for the first non-lazy root layout. Keep the probe below the 8,192px
+    // Metal texture limit on 3x iPhones (2,400pt * 3 = 7,200px); the measured final height
+    // replaces it as soon as discovery data reaches a terminal state.
+    private var reportedContentHeight: CGFloat = 2_400
     private var rootPageVisible = true
-    private var savedRootOffsetY: CGFloat?
+    private var savedRootOffsetY: CGFloat = 0
     private var didScheduleCIScrollPreview = false
 
     init(contentViewController: UIViewController) {
@@ -70,6 +75,9 @@ private final class NativeRootScrollViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        edgesForExtendedLayout = [.top, .bottom]
+        extendedLayoutIncludesOpaqueBars = true
+        view.insetsLayoutMarginsFromSafeArea = false
         view.backgroundColor = .clear
         view.isOpaque = false
 
@@ -168,27 +176,25 @@ private final class NativeRootScrollViewController: UIViewController {
 
     private func updateNativeScrollGeometry(preserveOffset: Bool) {
         guard isViewLoaded else { return }
-        let localTopInset = view.safeAreaInsets.top
-        let windowTopInset = view.window?.safeAreaInsets.top ?? 0
-        let statusBarFrameHeight =
-            view.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
-        let topInset = max(localTopInset, windowTopInset, statusBarFrameHeight)
         let viewportHeight = max(view.bounds.height, 1)
 
         scrollView.isScrollEnabled = rootPageVisible
         scrollView.alwaysBounceVertical = rootPageVisible
         scrollView.topEdgeEffect.isHidden = !rootPageVisible
         contentHeightConstraint?.constant =
-            rootPageVisible ? max(reportedContentHeight, viewportHeight - topInset) : viewportHeight
+            rootPageVisible ? max(reportedContentHeight, viewportHeight) : viewportHeight
 
         if rootPageVisible {
             let oldOffset = scrollView.contentOffset.y
-            scrollView.contentInset = UIEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
-            scrollView.verticalScrollIndicatorInsets = UIEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
-            let desiredOffset = preserveOffset ? oldOffset : (savedRootOffsetY ?? -topInset)
-            let maximumOffset = max(-topInset, (contentHeightConstraint?.constant ?? 0) - viewportHeight)
+            // Keep the scroll content and its themed background edge-to-edge. The Compose header
+            // applies safe-area padding to controls; putting the safe area in contentInset creates
+            // the hard white strip that differs from Apple Books' continuous edge treatment.
+            scrollView.contentInset = .zero
+            scrollView.verticalScrollIndicatorInsets = .zero
+            let desiredOffset = preserveOffset ? oldOffset : savedRootOffsetY
+            let maximumOffset = max(0, (contentHeightConstraint?.constant ?? 0) - viewportHeight)
             scrollView.setContentOffset(
-                CGPoint(x: 0, y: min(max(desiredOffset, -topInset), maximumOffset)),
+                CGPoint(x: 0, y: min(max(desiredOffset, 0), maximumOffset)),
                 animated: false
             )
         } else {
