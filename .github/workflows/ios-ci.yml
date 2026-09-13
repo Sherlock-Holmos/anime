@@ -62,6 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           app_path='build/ios-derived-data/Build/Products/Debug-iphonesimulator/iosApp.app'
+          bundle_id='site.jokersh.anime'
           runtime_id=$(xcrun simctl list runtimes -j | jq -r '.runtimes[] | select(.isAvailable == true and (.name | startswith("iOS"))) | .identifier' | tail -1)
           device_type=$(xcrun simctl list devicetypes -j | jq -r '.devicetypes[] | select(.name | startswith("iPhone")) | .identifier' | head -1)
           test -n "$runtime_id"
@@ -88,11 +89,27 @@ jobs:
           xcrun simctl install "$device_id" "$app_path"
           # Scroll the discover page after data arrives so the artifact captures the real
           # system soft-edge blur instead of only the untouched launch position.
-          launch_output=$(xcrun simctl launch "$device_id" site.jokersh.anime --ci-scroll-edge-preview)
+          launch_output=$(xcrun simctl launch "$device_id" "$bundle_id" --ci-scroll-edge-preview)
           echo "$launch_output" | tee build/ios-simulator-launch.log
           test -n "$launch_output"
           app_pid=$(echo "$launch_output" | awk '{print $2}')
           test -n "$app_pid"
+          app_service_is_running() {
+            xcrun simctl spawn "$device_id" launchctl print gui/501 2>/dev/null | grep -Fq "$bundle_id"
+          }
+          app_started=false
+          for _ in $(seq 1 30); do
+            if app_service_is_running; then
+              app_started=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$app_started" != true ]; then
+            echo "iOS app exited during startup (pid $app_pid)." >&2
+            xcrun simctl spawn "$device_id" launchctl print gui/501 2>&1 | tail -120 || true
+            exit 1
+          fi
           sleep 20
           # `simctl spawn ... ps` is not available on every hosted CoreSimulator image.
           # Treat the successful launch request as the startup gate and collect runtime
@@ -106,7 +123,12 @@ jobs:
           xcrun simctl spawn "$device_id" log show \
             --style compact \
             --last 5m \
-            --predicate 'process == "iosApp" OR eventMessage CONTAINS[c] "crash"' > build/ios-simulator-crash.log 2>&1 || true
+            --predicate 'process == "iosApp" OR eventMessage CONTAINS[c] "crash" OR eventMessage CONTAINS[c] "exception"' > build/ios-simulator-crash.log 2>&1 || true
+          if ! app_service_is_running; then
+            echo "iOS app crashed or was terminated during the runtime soak." >&2
+            tail -200 build/ios-simulator-runtime.log >&2 || true
+            exit 1
+          fi
           mkdir -p build/ios-crash-reports
           find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -type f -name '*iosApp*' -mmin -10 -exec cp {} build/ios-crash-reports/ \; 2>/dev/null || true
           xcrun simctl io "$device_id" screenshot build/ios-simulator.png

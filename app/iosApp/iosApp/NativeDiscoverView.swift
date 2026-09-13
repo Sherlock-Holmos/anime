@@ -24,6 +24,7 @@ final class NativeAppModel: ObservableObject {
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
+        NSLog("[Anime iOS] native model startup begin")
 
         let facade = IosBridge.shared.nativeAppFacade(
             openExternalUrl: { rawUrl in
@@ -40,13 +41,16 @@ final class NativeAppModel: ObservableObject {
             },
         )
         self.facade = facade
+        NSLog("[Anime iOS] native facade created")
         facade.startSessionObservation { [weak self] rawSnapshot in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.session = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? NativeSessionSnapshot(status: "failed")
             }
         }
+        NSLog("[Anime iOS] session observation installed")
         facade.start()
+        NSLog("[Anime iOS] native facade start requested")
     }
 
     func refresh(force: Bool = false) {

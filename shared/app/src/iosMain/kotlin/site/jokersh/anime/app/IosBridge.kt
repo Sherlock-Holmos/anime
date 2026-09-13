@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -177,10 +178,27 @@ public class IosNativeAppFacade internal constructor(
         if (startupJob?.isActive == true) return
         startupJob =
             scope.launch {
-                appContainer.sessionRepository.refresh()
-                appContainer.collectionRepository.requestSync()
-                appContainer.communityRepository.retryPendingRatings()
+                startupStep("session restore") { appContainer.sessionRepository.refresh() }
+                startupStep("collection sync") { appContainer.collectionRepository.requestSync() }
+                startupStep("rating outbox") { appContainer.communityRepository.retryPendingRatings() }
             }
+    }
+
+    private suspend fun startupStep(
+        name: String,
+        block: suspend () -> Any?,
+    ) {
+        try {
+            println("[Anime iOS] startup step begin: $name")
+            block()
+            println("[Anime iOS] startup step complete: $name")
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Throwable) {
+            // Startup work is best effort. A missing network, unavailable simulator
+            // Keychain, or stale local cache must never terminate the SwiftUI process.
+            println("[Anime iOS] startup step failed: $name: ${failure.message ?: failure::class.simpleName}")
+        }
     }
 
     public fun startSessionObservation(onChanged: (String) -> Unit) {
