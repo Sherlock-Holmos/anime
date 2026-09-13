@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -137,10 +138,43 @@ public class IosNativeAppFacade internal constructor(
                     "${failure::class.simpleName}: ${failure.message ?: "unknown error"}",
             )
         }
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + coroutineExceptionHandler)
+    // Network and JSON work must not share SwiftUI's main executor. SwiftUI receives
+    // completion callbacks and explicitly hops back to MainActor, so keeping this
+    // scope on Default avoids starving the native view tree while a Darwin request
+    // or a large catalog response is in flight.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + coroutineExceptionHandler)
     private val json = Json { encodeDefaults = true }
     private var sessionObservation: Job? = null
     private var startupJob: Job? = null
+
+    private companion object {
+        const val IOS_OPERATION_TIMEOUT_MILLIS: Long = 35_000
+    }
+
+    private fun launchTextOperation(
+        name: String,
+        completion: (String?, String?) -> Unit,
+        block: suspend () -> Pair<String?, String?>,
+    ) {
+        scope.launch {
+            val outcome =
+                try {
+                    withTimeout(IOS_OPERATION_TIMEOUT_MILLIS) {
+                        println("[Anime iOS] operation begin: $name")
+                        block()
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Throwable) {
+                    println(
+                        "[Anime iOS] operation failed: $name: " +
+                            "${failure::class.simpleName}: ${failure.message ?: "unknown error"}",
+                    )
+                    null to (failure.message ?: "请求超时或服务暂时不可用")
+                }
+            completion(outcome.first, outcome.second)
+        }
+    }
 
     /** Starts the same app-level restore and background sync work used by the Compose host. */
     public fun start() {
@@ -198,83 +232,67 @@ public class IosNativeAppFacade internal constructor(
     public fun loadDiscovery(
         force: Boolean,
         completion: (String?, String?) -> Unit,
-    ) {
-        scope.launch {
+    ) =
+        launchTextOperation("discovery", completion) {
             val result =
                 appContainer.catalogRepository.refreshDiscovery(
                     if (force) RefreshPolicy.Force else RefreshPolicy.IfStale,
                 )
             val state = appContainer.catalogRepository.observeDiscovery().first()
-            completion(
-                state.value?.let { json.encodeToString(it.toNativeSnapshot()) },
-                if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null,
-            )
+            state.value?.let { json.encodeToString(it.toNativeSnapshot()) } to
+                if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null
         }
-    }
 
     public fun loadSubject(
         subjectId: Long,
         force: Boolean,
         completion: (String?, String?) -> Unit,
-    ) {
-        scope.launch {
-            val id = runCatching { SubjectId(subjectId) }.getOrElse {
-                completion(null, "作品 ID 无效")
-                return@launch
-            }
+    ) =
+        launchTextOperation("subject:$subjectId", completion) {
+            val id = SubjectId(subjectId)
             val result =
                 appContainer.catalogRepository.refreshSubject(
                     id,
                     if (force) RefreshPolicy.Force else RefreshPolicy.IfStale,
                 )
             val state = appContainer.catalogRepository.observeSubject(id).first()
-            completion(
-                state.value?.let { json.encodeToString(it.toNativeSnapshot()) },
-                if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null,
-            )
+            state.value?.let { json.encodeToString(it.toNativeSnapshot()) } to
+                if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null
         }
-    }
 
-    public fun loadSearchDiscovery(completion: (String?, String?) -> Unit) {
-        scope.launch {
+    public fun loadSearchDiscovery(completion: (String?, String?) -> Unit) =
+        launchTextOperation("search discovery", completion) {
             val result = appContainer.searchRepository.discovery()
-            completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
-                result.exceptionOrNull()?.message,
-            )
+            result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
         }
-    }
 
     public fun searchSubjects(
         query: String,
         cursor: String?,
         completion: (String?, String?) -> Unit,
-    ) {
-        scope.launch {
+    ) =
+        launchTextOperation("search", completion) {
             val normalized = query.trim()
             if (normalized.isBlank()) {
-                completion(null, "请输入搜索内容")
-                return@launch
-            }
-            val result =
-                runCatching {
-                    appContainer.searchRepository.search(
-                        SearchRequest(
-                            query = normalized,
-                            sort = SearchSort.Relevance,
-                            cursor = cursor?.takeIf(String::isNotBlank)?.let(::Cursor),
-                            pageSize = appContainer.profile.searchPageSize,
-                        ),
-                    ).getOrThrow()
-            }
-            completion(
+                null to "请输入搜索内容"
+            } else {
+                val result =
+                    runCatching {
+                        appContainer.searchRepository.search(
+                            SearchRequest(
+                                query = normalized,
+                                sort = SearchSort.Relevance,
+                                cursor = cursor?.takeIf(String::isNotBlank)?.let(::Cursor),
+                                pageSize = appContainer.profile.searchPageSize,
+                            ),
+                        ).getOrThrow()
+                    }
                 result.getOrNull()?.let {
                     json.encodeToString(it.toNativeSearchSnapshot { subject -> subject.toNativeSummary() })
-                },
-                result.exceptionOrNull()?.message,
-            )
+                } to
+                    result.exceptionOrNull()?.message
+            }
         }
-    }
 
     public fun saveSearchHistory(query: String) {
         scope.launch { appContainer.searchRepository.saveHistory(query) }
@@ -283,66 +301,51 @@ public class IosNativeAppFacade internal constructor(
     public fun loadCollection(
         status: String?,
         completion: (String?, String?) -> Unit,
-    ) {
-        scope.launch {
+    ) =
+        launchTextOperation("collection", completion) {
             val result =
                 appContainer.sessionRepository.collectionPage(
                     status = status?.let(::nativeCollectionStatus),
                     limit = 50,
                 )
-            completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
-                result.exceptionOrNull()?.message,
-            )
+            result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
         }
-    }
 
     public fun loadActivity(
         feed: String,
         cursor: String?,
         completion: (String?, String?) -> Unit,
-    ) {
-        scope.launch {
+    ) =
+        launchTextOperation("activity:$feed", completion) {
             val result = appContainer.communityRepository.feedPage(feed = feed, limit = 20, cursor = cursor)
-            completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
-                result.exceptionOrNull()?.message,
-            )
+            result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
         }
-    }
 
-    public fun loadNotifications(completion: (String?, String?) -> Unit) {
-        scope.launch {
+    public fun loadNotifications(completion: (String?, String?) -> Unit) =
+        launchTextOperation("notifications", completion) {
             val result = appContainer.communityRepository.notifications(50)
-            completion(
-                result.getOrNull()?.let { json.encodeToString(it.map(CommunityNotification::toNativeSnapshot)) },
-                result.exceptionOrNull()?.message,
-            )
+            result.getOrNull()?.let { json.encodeToString(it.map(CommunityNotification::toNativeSnapshot)) } to
+                result.exceptionOrNull()?.message
         }
-    }
 
     public fun markNotificationRead(id: String, completion: (String?) -> Unit) {
         scope.launch { completion(appContainer.communityRepository.markNotificationRead(id).exceptionOrNull()?.message) }
     }
 
-    public fun loadProfile(completion: (String?, String?) -> Unit) {
-        scope.launch {
+    public fun loadProfile(completion: (String?, String?) -> Unit) =
+        launchTextOperation("profile", completion) {
             val result =
                 runCatching {
                     appContainer.sessionRepository.refresh().getOrThrow().user.toNativeSnapshot()
                 }
-            completion(
-                result.getOrNull()?.let { json.encodeToString(it) },
-                result.exceptionOrNull()?.message,
-            )
+            result.getOrNull()?.let { json.encodeToString(it) } to result.exceptionOrNull()?.message
         }
-    }
 
     public fun loadSubjectCommunity(
         subjectId: Long,
         completion: (String?, String?) -> Unit,
-    ) {
-        scope.launch {
+    ) =
+        launchTextOperation("subject community:$subjectId", completion) {
             val rating = appContainer.communityRepository.rating(subjectId)
             val reviews = appContainer.communityRepository.reviews(subjectId, 20)
             val comments = appContainer.communityRepository.comments(subjectId, 30)
@@ -357,9 +360,8 @@ public class IosNativeAppFacade internal constructor(
                 } else {
                     null
                 }
-            completion(snapshot?.let { json.encodeToString(it) }, failure?.message)
+            snapshot?.let { json.encodeToString(it) } to failure?.message
         }
-    }
 
     public fun saveRating(
         subjectId: Long,
