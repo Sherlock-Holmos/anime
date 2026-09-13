@@ -7,26 +7,16 @@ import AnimeShared
 struct ContentView: View {
     @State private var selectedRootIndex = 0
     @State private var nativeGlassEnabled = true
+    @StateObject private var nativeModel = NativeAppModel()
 
     var body: some View {
         TabView(selection: $selectedRootIndex) {
-            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                ComposeTabView(
-                    rootIndex: index,
-                    handlesAuthCallback: index == 0,
-                    onNativeGlassStateChanged: { enabled in
-                        if index == 0 {
-                            nativeGlassEnabled = enabled.boolValue
-                        }
-                    },
-                )
-                // Let the native chrome float over the edge-to-edge Compose page.
-                .ignoresSafeArea(.container, edges: [.top, .bottom])
-                .tabItem {
-                    Label(tab.title, systemImage: tab.systemImage)
-                }
-                .tag(index)
-            }
+            NativeDiscoverView(model: nativeModel)
+                .tabItem { Label(tabs[0].title, systemImage: tabs[0].systemImage) }
+                .tag(0)
+            legacyTab(index: 1)
+            legacyTab(index: 2)
+            legacyTab(index: 3)
         }
         // Apply the edge-to-edge contract to the tab container itself. Applying it only to
         // the representable child still lets SwiftUI reserve an opaque status-bar strip above
@@ -41,6 +31,19 @@ struct ContentView: View {
             for: .tabBar
         )
         .background(Color.clear)
+    }
+
+    @ViewBuilder
+    private func legacyTab(index: Int) -> some View {
+        let tab = tabs[index]
+        ComposeTabView(
+            rootIndex: index,
+            handlesAuthCallback: false,
+            onNativeGlassStateChanged: { _ in },
+        )
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
+        .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+        .tag(index)
     }
 
     private let tabs: [(title: String, systemImage: String)] = [
