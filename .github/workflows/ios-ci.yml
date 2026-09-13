@@ -87,10 +87,28 @@ jobs:
             exit 1
           fi
           xcrun simctl install "$device_id" "$app_path"
+          bounded_output() {
+            local output_file="$1"
+            shift
+            set +e
+            perl -e 'alarm 15; exec @ARGV' -- "$@" > "$output_file" 2>&1
+            local command_status=$?
+            set -e
+            return "$command_status"
+          }
           # Scroll the discover page after data arrives so the artifact captures the real
           # system soft-edge blur instead of only the untouched launch position.
-          launch_output=$(xcrun simctl launch "$device_id" "$bundle_id" --ci-scroll-edge-preview)
-          echo "$launch_output" | tee build/ios-simulator-launch.log
+          set +e
+          perl -e 'alarm 30; exec @ARGV' -- xcrun simctl launch "$device_id" "$bundle_id" --ci-scroll-edge-preview > build/ios-simulator-launch.log 2>&1
+          launch_status=$?
+          set -e
+          if [ "$launch_status" -ne 0 ]; then
+            cat build/ios-simulator-launch.log >&2 || true
+            echo "iOS Simulator launch command failed or timed out." >&2
+            exit 1
+          fi
+          cat build/ios-simulator-launch.log
+          launch_output=$(cat build/ios-simulator-launch.log)
           test -n "$launch_output"
           app_pid=$(echo "$launch_output" | awk '{print $2}')
           test -n "$app_pid"
@@ -99,22 +117,30 @@ jobs:
           # alive long enough to exercise the first frame and native startup, then
           # use simctl terminate as the direct liveness assertion below.
           sleep 20
-          xcrun simctl spawn "$device_id" log show \
+          bounded_output build/ios-simulator-runtime.log \
+            xcrun simctl spawn "$device_id" log show \
             --style compact \
             --last 3m \
-            --predicate 'process == "iosApp"' > build/ios-simulator-runtime.log 2>&1 || true
+            --predicate 'process == "iosApp"' || true
           cp build/ios-simulator-runtime.log build/ios-simulator-process.log
-          xcrun simctl spawn "$device_id" log show \
+          bounded_output build/ios-simulator-crash.log \
+            xcrun simctl spawn "$device_id" log show \
             --style compact \
             --last 5m \
-            --predicate 'process == "iosApp" OR eventMessage CONTAINS[c] "crash" OR eventMessage CONTAINS[c] "exception"' > build/ios-simulator-crash.log 2>&1 || true
+            --predicate 'process == "iosApp" OR eventMessage CONTAINS[c] "crash" OR eventMessage CONTAINS[c] "exception"' || true
           mkdir -p build/ios-crash-reports
           simulator_home=$(xcrun simctl getenv "$device_id" HOME)
           find "$HOME/Library/Logs/DiagnosticReports" "$simulator_home/Library/Logs/CrashReporter" \
             -maxdepth 2 -type f -name '*iosApp*' -mmin -10 -exec cp {} build/ios-crash-reports/ \; 2>/dev/null || true
-          xcrun simctl io "$device_id" screenshot build/ios-simulator.png
+          if ! bounded_output build/ios-simulator-screenshot.log \
+            xcrun simctl io "$device_id" screenshot build/ios-simulator.png; then
+            cat build/ios-simulator-screenshot.log >&2 || true
+            echo 'Unable to capture the iOS Simulator screenshot.' >&2
+            exit 1
+          fi
           set +e
-          xcrun simctl terminate "$device_id" "$bundle_id" > build/ios-simulator-terminate.log 2>&1
+          bounded_output build/ios-simulator-terminate.log \
+            xcrun simctl terminate "$device_id" "$bundle_id"
           terminate_status=$?
           set -e
           if [ "$terminate_status" -ne 0 ]; then
@@ -139,6 +165,7 @@ jobs:
             build/ios-simulator-crash.log
             build/ios-simulator-runtime.log
             build/ios-simulator-terminate.log
+            build/ios-simulator-screenshot.log
             build/ios-simulator.png
             build/ios-crash-reports
 
