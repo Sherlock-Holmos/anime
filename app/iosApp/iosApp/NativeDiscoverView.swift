@@ -494,13 +494,12 @@ private struct NativeHeroCard: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
-            .overlay {
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.82)],
-                    startPoint: .center,
-                    endPoint: .bottom,
-                )
-            }
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.82)],
+                startPoint: .center,
+                endPoint: .bottom,
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("本季口碑新作")
