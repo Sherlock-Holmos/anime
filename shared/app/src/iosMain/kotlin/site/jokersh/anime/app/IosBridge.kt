@@ -1,10 +1,5 @@
 package site.jokersh.anime.app
 
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.window.ComposeUIViewController
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
@@ -24,7 +19,6 @@ import kotlinx.serialization.json.Json
 import platform.Foundation.NSURLComponents
 import platform.Foundation.NSURLQueryItem
 import platform.Foundation.NSUserDefaults
-import platform.UIKit.UIViewController
 import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.AuthCallback
 import site.jokersh.anime.core.model.CollectionStatus
@@ -43,7 +37,6 @@ import site.jokersh.anime.core.model.SubjectDetail
 import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.core.model.UserCollectionSummary
 import site.jokersh.anime.core.model.UserProfile
-import site.jokersh.anime.core.navigation.AppRoot
 import site.jokersh.anime.data.catalog.CatalogCacheStore
 import site.jokersh.anime.data.catalog.RemoteCatalogRepository
 import site.jokersh.anime.data.catalog.RemoteSearchRepository
@@ -87,42 +80,6 @@ public object IosBridge {
         ).also {
             sharedNativeFacade = it
             it.consumePendingAuthCallback()
-        }
-    }
-
-    @OptIn(ExperimentalComposeUiApi::class)
-    public fun rootViewController(
-        rootIndex: Int,
-        openExternalUrl: (String) -> Unit,
-        readSecret: (String) -> String?,
-        writeSecret: (String, String) -> Unit,
-        removeSecret: (String) -> Unit,
-        onNativeGlassStateChanged: (Boolean) -> Unit,
-        onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit,
-        onNativeContentHeightChanged: (Double) -> Unit,
-        handlesAuthCallback: Boolean,
-    ): UIViewController {
-        val appContainer = appContainer(readSecret, writeSecret, removeSecret)
-        val initialRoot = rootIndex.toAppRoot()
-        return ComposeUIViewController {
-            if (handlesAuthCallback) {
-                val callback by pendingAuthCallback.collectAsState()
-                LaunchedEffect(callback) {
-                    val current = callback ?: return@LaunchedEffect
-                    appContainer.sessionRepository.completeLogin(current)
-                    if (pendingAuthCallback.value == current) pendingAuthCallback.value = null
-                }
-            }
-            AnimeApp(
-                appContainer = appContainer,
-                initialRoot = initialRoot,
-                openExternalUrl = openExternalUrl,
-                nativeRootNavigation = true,
-                onNativeGlassStateChanged = onNativeGlassStateChanged,
-                onNativeRootNavigationVisibilityChanged = onNativeRootNavigationVisibilityChanged,
-                onNativeContentHeightChanged = onNativeContentHeightChanged,
-                lifecycleOwner = rootIndex == 0,
-            )
         }
     }
 
@@ -947,14 +904,6 @@ private fun AppError?.nativeMessage(): String? =
         is AppError.Server -> "服务器暂时不可用"
         is AppError.Data -> "数据格式异常"
         is AppError.Unknown -> "发生未知错误"
-    }
-
-private fun Int.toAppRoot(): AppRoot =
-    when (this) {
-        1 -> AppRoot.Library
-        2 -> AppRoot.Activity
-        3 -> AppRoot.Profile
-        else -> AppRoot.Discover
     }
 
 private fun nativeCollectionStatus(value: String): CollectionStatus? =
