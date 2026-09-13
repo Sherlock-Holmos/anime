@@ -165,12 +165,18 @@ private class IosKeychainSessionTokenStore(
     private val defaults = NSUserDefaults.standardUserDefaults
 
     override fun load(): StoredSessionToken? {
-        val token = readSecret(ACCESS_TOKEN_ACCOUNT) ?: return null
-        val expiresAt = defaults.objectForKey(EXPIRY_KEY)?.toString()?.toLongOrNull() ?: return null
+        val token = readSecret(ACCESS_TOKEN_ACCOUNT)?.takeIf(String::isNotBlank) ?: return null
+        // Older builds stored this as a string, while a partially completed save can
+        // leave only the Keychain values behind. Treat a missing/invalid timestamp as
+        // already expired so a saved refresh token gets a chance to restore the session.
+        val expiresAt =
+            defaults.stringForKey(EXPIRY_KEY)?.toLongOrNull()
+                ?: defaults.objectForKey(EXPIRY_KEY)?.toString()?.toLongOrNull()
+                ?: 0L
         return StoredSessionToken(
             token = token,
             expiresAt = Instant.fromEpochSeconds(expiresAt),
-            refreshToken = readSecret(REFRESH_TOKEN_ACCOUNT),
+            refreshToken = readSecret(REFRESH_TOKEN_ACCOUNT)?.takeIf(String::isNotBlank),
         )
     }
 

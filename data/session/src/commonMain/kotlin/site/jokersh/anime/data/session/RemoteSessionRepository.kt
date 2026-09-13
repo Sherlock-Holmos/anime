@@ -152,22 +152,37 @@ public class RemoteSessionRepository(
             state.value = SessionState.Guest
             return Result.failure(IllegalStateException("No saved session"))
         }
-        if (stored.expiresAt <= Clock.System.now()) {
+        val now = Clock.System.now()
+        if (stored.expiresAt <= now && stored.refreshToken == null) {
             tokenStore.clear()
             state.value = SessionState.Expired(null)
             return Result.failure(IllegalStateException("Session expired"))
         }
         state.value = SessionState.Restoring
         return runCatching {
+            // The API intentionally uses a short-lived access token and a longer-lived
+            // refresh token. An app restart commonly happens after the access token has
+            // expired, so the refresh token must be attempted before treating the user as
+            // signed out.
             val active =
-                if (stored.expiresAt <= Clock.System.now() + 2.minutes &&
-                    stored.refreshToken != null
-                ) {
+                if (stored.refreshToken != null && stored.expiresAt <= now + 2.minutes) {
                     rotateSession(stored.refreshToken)
                 } else {
                     stored
                 }
-            fetchCurrentUser(active.token, active.expiresAt)
+            try {
+                fetchCurrentUser(active.token, active.expiresAt)
+            } catch (unauthorized: UnauthorizedSessionException) {
+                // The local clock can lag behind the server. If the access token was
+                // rejected despite looking current locally, use the refresh token once
+                // before invalidating the whole session.
+                if (active == stored && stored.refreshToken != null) {
+                    val refreshed = rotateSession(stored.refreshToken)
+                    fetchCurrentUser(refreshed.token, refreshed.expiresAt)
+                } else {
+                    throw unauthorized
+                }
+            }
         }.onSuccess { state.value = it }
             .onFailure { failure ->
                 if (failure is UnauthorizedSessionException) {

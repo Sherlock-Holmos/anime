@@ -265,38 +265,59 @@ private struct ComposeTabView: UIViewControllerRepresentable {
 private final class IosKeychain {
     static let shared = IosKeychain()
     private let service = "site.jokersh.anime.session"
+    // Session credentials must remain readable after the app is relaunched once the
+    // device has been unlocked. This item is device-local by design and must never be
+    // restored to another device.
+    private let accessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 
     func read(account: String) -> String? {
         var query = baseQuery(account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess else {
+            if status != errSecItemNotFound {
+                NSLog("Anime Keychain read failed: %d", status)
+            }
+            return nil
+        }
+        guard let data = result as? Data else {
+            NSLog("Anime Keychain read returned an unexpected value")
+            return nil
+        }
         return String(data: data, encoding: .utf8)
     }
 
     func write(account: String, value: String) {
         let data = Data(value.utf8)
-        let query = baseQuery(account: account)
-        let updateStatus = SecItemUpdate(
-            query as CFDictionary,
-            [kSecValueData as String: data] as CFDictionary
-        )
-        guard updateStatus == errSecItemNotFound else {
-            if updateStatus != errSecSuccess {
-                NSLog("Anime Keychain update failed: %d", updateStatus)
-            }
+        var item = baseQuery(account: account)
+        item[kSecValueData as String] = data
+        item[kSecAttrAccessible as String] = accessibility
+
+        // Add first, then update an existing item. This avoids the old delete-then-add
+        // window and also repairs items created by earlier builds with weaker defaults.
+        let insertStatus = SecItemAdd(item as CFDictionary, nil)
+        if insertStatus == errSecSuccess {
             return
         }
 
-        var insert = query
-        insert[kSecValueData as String] = data
-        let insertStatus = SecItemAdd(insert as CFDictionary, nil)
-        if insertStatus != errSecSuccess {
-            // A sideloaded build may receive a different keychain access group
-            // after it is re-signed. Persistence failure must never terminate the app.
+        guard insertStatus == errSecDuplicateItem else {
+            // A sideloaded build may receive a different keychain access group after it
+            // is re-signed. Persistence failure must never terminate the app.
             NSLog("Anime Keychain insert failed: %d", insertStatus)
+            return
+        }
+
+        let updateStatus = SecItemUpdate(
+            baseQuery(account: account) as CFDictionary,
+            [
+                kSecValueData as String: data,
+                kSecAttrAccessible as String: accessibility,
+            ] as CFDictionary
+        )
+        if updateStatus != errSecSuccess {
+            NSLog("Anime Keychain update failed: %d", updateStatus)
         }
     }
 
