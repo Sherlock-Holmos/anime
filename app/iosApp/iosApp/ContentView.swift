@@ -54,7 +54,12 @@ struct ContentView: View {
 private final class NativeRootScrollViewController: UIViewController {
     private let contentViewController: UIViewController
     private let scrollView = UIScrollView()
+    private let topEdgeMaterialView = UIVisualEffectView(
+        effect: UIBlurEffect(style: .systemChromeMaterial)
+    )
+    private let topEdgeMaterialMask = CAGradientLayer()
     private var contentHeightConstraint: NSLayoutConstraint?
+    private var topEdgeMaterialHeightConstraint: NSLayoutConstraint?
     // Give Compose room for the first non-lazy root layout. Keep the probe below the 8,192px
     // Metal texture limit on 3x iPhones (2,400pt * 3 = 7,200px); the measured final height
     // replaces it as soon as discovery data reaches a terminal state.
@@ -105,6 +110,32 @@ private final class NativeRootScrollViewController: UIViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
+        // Compose renders into a Metal-backed surface, so the public UIKit scroll-edge effect
+        // does not always sample that surface on every iOS/Compose combination. Keep the system
+        // soft edge as the primary effect and add a native material fallback with a real alpha
+        // gradient. This is the same visual construction used by Apple's edge-to-edge chrome:
+        // opaque material around the status bar, continuously fading into the live page below.
+        topEdgeMaterialView.translatesAutoresizingMaskIntoConstraints = false
+        topEdgeMaterialView.isUserInteractionEnabled = false
+        topEdgeMaterialView.isHidden = false
+        topEdgeMaterialView.layer.mask = topEdgeMaterialMask
+        topEdgeMaterialMask.colors = [
+            UIColor.black.cgColor,
+            UIColor.black.withAlphaComponent(0.94).cgColor,
+            UIColor.black.withAlphaComponent(0.68).cgColor,
+            UIColor.clear.cgColor,
+        ]
+        topEdgeMaterialMask.locations = [0, 0.56, 0.82, 1]
+        let materialHeightConstraint = topEdgeMaterialView.heightAnchor.constraint(equalToConstant: 144)
+        topEdgeMaterialHeightConstraint = materialHeightConstraint
+        view.addSubview(topEdgeMaterialView)
+        NSLayoutConstraint.activate([
+            topEdgeMaterialView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            topEdgeMaterialView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            topEdgeMaterialView.topAnchor.constraint(equalTo: view.topAnchor),
+            materialHeightConstraint,
+        ])
+
         addChild(contentViewController)
         let contentView = contentViewController.view!
         contentView.translatesAutoresizingMaskIntoConstraints = false
@@ -133,6 +164,11 @@ private final class NativeRootScrollViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateNativeScrollGeometry(preserveOffset: true)
+        let materialHeight = max(view.safeAreaInsets.top + 86, 136)
+        if abs((topEdgeMaterialHeightConstraint?.constant ?? 0) - materialHeight) > 0.5 {
+            topEdgeMaterialHeightConstraint?.constant = materialHeight
+        }
+        topEdgeMaterialMask.frame = topEdgeMaterialView.bounds
     }
 
     func setRootPageVisible(_ visible: Bool) {
@@ -142,6 +178,7 @@ private final class NativeRootScrollViewController: UIViewController {
                 self.savedRootOffsetY = self.scrollView.contentOffset.y
             }
             self.rootPageVisible = visible
+            self.topEdgeMaterialView.isHidden = !visible
             self.updateNativeScrollGeometry(preserveOffset: false)
         }
     }
