@@ -8,12 +8,30 @@ import androidx.compose.ui.window.ComposeUIViewController
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import platform.Foundation.NSURLComponents
 import platform.Foundation.NSURLQueryItem
 import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIViewController
+import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.AuthCallback
+import site.jokersh.anime.core.model.DiscoveryFeed
+import site.jokersh.anime.core.model.ImageRef
+import site.jokersh.anime.core.model.LoginRequest
+import site.jokersh.anime.core.model.RefreshPolicy
+import site.jokersh.anime.core.model.SessionState
+import site.jokersh.anime.core.model.SubjectDetail
+import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.core.navigation.AppRoot
 import site.jokersh.anime.data.catalog.CatalogCacheStore
 import site.jokersh.anime.data.catalog.RemoteCatalogRepository
@@ -36,6 +54,24 @@ import kotlin.time.Instant
 public object IosBridge {
     private val pendingAuthCallback = MutableStateFlow<AuthCallback?>(null)
     private var sharedAppContainer: AppContainer? = null
+    private var sharedNativeFacade: IosNativeAppFacade? = null
+
+    /** SwiftUI entry point backed by the same KMP container as the legacy Compose host. */
+    public fun nativeAppFacade(
+        openExternalUrl: (String) -> Unit,
+        readSecret: (String) -> String?,
+        writeSecret: (String, String) -> Unit,
+        removeSecret: (String) -> Unit,
+    ): IosNativeAppFacade {
+        sharedNativeFacade?.let { return it }
+        return IosNativeAppFacade(
+            appContainer(readSecret, writeSecret, removeSecret),
+            openExternalUrl,
+        ).also {
+            sharedNativeFacade = it
+            it.consumePendingAuthCallback()
+        }
+    }
 
     @OptIn(ExperimentalComposeUiApi::class)
     public fun rootViewController(
@@ -49,9 +85,7 @@ public object IosBridge {
         onNativeContentHeightChanged: (Double) -> Unit,
         handlesAuthCallback: Boolean,
     ): UIViewController {
-        val appContainer =
-            sharedAppContainer
-                ?: createIosContainer(readSecret, writeSecret, removeSecret).also { sharedAppContainer = it }
+        val appContainer = appContainer(readSecret, writeSecret, removeSecret)
         val initialRoot = rootIndex.toAppRoot()
         return ComposeUIViewController {
             if (handlesAuthCallback) {
@@ -88,9 +122,266 @@ public object IosBridge {
         val code = queryItems.firstOrNull { it.name == "code" }?.value?.takeIf(String::isNotBlank) ?: return false
         val state = queryItems.firstOrNull { it.name == "state" }?.value?.takeIf(String::isNotBlank) ?: return false
         pendingAuthCallback.value = AuthCallback(authorizationCode = code, state = state)
+        sharedNativeFacade?.consumePendingAuthCallback()
         return true
     }
+
+    private fun appContainer(
+        readSecret: (String) -> String?,
+        writeSecret: (String, String) -> Unit,
+        removeSecret: (String) -> Unit,
+    ): AppContainer =
+        sharedAppContainer
+            ?: createIosContainer(readSecret, writeSecret, removeSecret).also { sharedAppContainer = it }
+
+    internal fun pendingCallback(): AuthCallback? = pendingAuthCallback.value
+
+    internal fun clearPendingCallback() {
+        pendingAuthCallback.value = null
+    }
 }
+
+/**
+ * Swift-friendly bridge for the native iOS vertical slice.
+ *
+ * The facade keeps repository, cache, session and refresh logic in KMP. It exposes small
+ * JSON snapshots instead of Kotlin sealed classes and Flow types so SwiftUI does not need
+ * to depend on Kotlin/Native implementation details.
+ */
+public class IosNativeAppFacade internal constructor(
+    private val appContainer: AppContainer,
+    private val openExternalUrl: (String) -> Unit,
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val json = Json { encodeDefaults = true }
+    private var sessionObservation: Job? = null
+    private var startupJob: Job? = null
+
+    /** Starts the same app-level restore and background sync work used by the Compose host. */
+    public fun start() {
+        if (startupJob?.isActive == true) return
+        startupJob =
+            scope.launch {
+                appContainer.sessionRepository.refresh()
+                appContainer.collectionRepository.requestSync()
+                appContainer.communityRepository.retryPendingRatings()
+            }
+    }
+
+    public fun startSessionObservation(onChanged: (String) -> Unit) {
+        sessionObservation?.cancel()
+        sessionObservation =
+            scope.launch {
+                appContainer.sessionRepository.observeSession().collect { state ->
+                    onChanged(json.encodeToString(state.toNativeSnapshot()))
+                }
+            }
+    }
+
+    public fun stopSessionObservation() {
+        sessionObservation?.cancel()
+        sessionObservation = null
+    }
+
+    public fun refreshSession(completion: (String?, String?) -> Unit) {
+        scope.launch {
+            val result = appContainer.sessionRepository.refresh()
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun loadDiscovery(
+        force: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result =
+                appContainer.catalogRepository.refreshDiscovery(
+                    if (force) RefreshPolicy.Force else RefreshPolicy.IfStale,
+                )
+            val state = appContainer.catalogRepository.observeDiscovery().first()
+            completion(
+                state.value?.let { json.encodeToString(it.toNativeSnapshot()) },
+                if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null,
+            )
+        }
+    }
+
+    public fun loadSubject(
+        subjectId: Long,
+        force: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val id = runCatching { SubjectId(subjectId) }.getOrElse {
+                completion(null, "作品 ID 无效")
+                return@launch
+            }
+            val result =
+                appContainer.catalogRepository.refreshSubject(
+                    id,
+                    if (force) RefreshPolicy.Force else RefreshPolicy.IfStale,
+                )
+            val state = appContainer.catalogRepository.observeSubject(id).first()
+            completion(
+                state.value?.let { json.encodeToString(it.toNativeSnapshot()) },
+                if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null,
+            )
+        }
+    }
+
+    public fun beginBangumiLogin(completion: (String?, String?) -> Unit) {
+        scope.launch {
+            val result =
+                appContainer.sessionRepository.beginLogin(
+                    LoginRequest(
+                        requestId = "ios-${kotlin.time.Clock.System.now()}",
+                        pendingActionId = null,
+                    ),
+                )
+            result.onSuccess {
+                openExternalUrl(it.authorizeUrl)
+                completion(it.authorizeUrl, null)
+            }.onFailure { completion(null, it.message ?: "无法开始登录") }
+        }
+    }
+
+    public fun consumePendingAuthCallback() {
+        scope.launch {
+            val callback = IosBridge.pendingCallback()
+            if (callback == null) return@launch
+            appContainer.sessionRepository.completeLogin(callback)
+            if (IosBridge.pendingCallback() == callback) IosBridge.clearPendingCallback()
+        }
+    }
+
+    public fun logout(completion: (String?) -> Unit) {
+        scope.launch { completion(appContainer.sessionRepository.logout().exceptionOrNull()?.message) }
+    }
+}
+
+@Serializable
+private data class NativeSessionSnapshot(
+    val status: String,
+    val userId: String? = null,
+    val displayName: String? = null,
+    val avatarUrl: String? = null,
+    val expiresAtEpochSeconds: Long? = null,
+    val message: String? = null,
+)
+
+private fun SessionState.toNativeSnapshot(): NativeSessionSnapshot =
+    when (this) {
+        SessionState.Guest -> NativeSessionSnapshot(status = "guest")
+        SessionState.Restoring -> NativeSessionSnapshot(status = "restoring")
+        is SessionState.Authenticated ->
+            NativeSessionSnapshot(
+                status = "authenticated",
+                userId = user.summary.id.value,
+                displayName = user.summary.displayName,
+                avatarUrl = user.summary.avatar.nativeUrl(),
+                expiresAtEpochSeconds = expiresAt.epochSeconds,
+            )
+        is SessionState.Expired -> NativeSessionSnapshot(status = "expired")
+        is SessionState.Failed -> NativeSessionSnapshot(status = "failed", message = message)
+    }
+
+@Serializable
+private data class NativeDiscoverySnapshot(
+    val sections: List<NativeDiscoverySection>,
+    val generatedAtEpochSeconds: Long,
+)
+
+@Serializable
+private data class NativeDiscoverySection(
+    val id: String,
+    val title: String,
+    val subjects: List<NativeSubjectSummary>,
+)
+
+@Serializable
+private data class NativeSubjectSummary(
+    val id: Long,
+    val title: String,
+    val originalTitle: String? = null,
+    val posterUrl: String? = null,
+    val year: Int? = null,
+    val type: String,
+    val airingStatus: String,
+    val rating: Double? = null,
+    val ratingVotes: Int = 0,
+)
+
+@Serializable
+private data class NativeSubjectDetailSnapshot(
+    val summary: NativeSubjectSummary,
+    val summaryText: String? = null,
+    val airDate: String? = null,
+    val endDate: String? = null,
+    val totalEpisodes: Int? = null,
+    val tags: List<String> = emptyList(),
+    val backdropUrl: String? = null,
+    val sourceUrl: String,
+    val dataUpdatedAtEpochSeconds: Long,
+)
+
+private fun DiscoveryFeed.toNativeSnapshot(): NativeDiscoverySnapshot =
+    NativeDiscoverySnapshot(
+        sections = sections.map { section ->
+            NativeDiscoverySection(section.id, section.title, section.subjects.map { it.toNativeSummary() })
+        },
+        generatedAtEpochSeconds = generatedAt.epochSeconds,
+    )
+
+private fun SubjectDetail.toNativeSnapshot(): NativeSubjectDetailSnapshot =
+    NativeSubjectDetailSnapshot(
+        summary = summary.toNativeSummary(),
+        summaryText = summaryText,
+        airDate = airDate?.toString(),
+        endDate = endDate?.toString(),
+        totalEpisodes = totalEpisodes,
+        tags = tags.sortedBy { it.order }.map { it.name },
+        backdropUrl = backdrop.nativeUrl(),
+        sourceUrl = sourceUrl,
+        dataUpdatedAtEpochSeconds = dataUpdatedAt.epochSeconds,
+    )
+
+private fun site.jokersh.anime.core.model.SubjectSummary.toNativeSummary(): NativeSubjectSummary =
+    NativeSubjectSummary(
+        id = id.value,
+        title = title,
+        originalTitle = originalTitle,
+        posterUrl = poster.nativeUrl(),
+        year = year,
+        type = type.name,
+        airingStatus = airingStatus.name,
+        rating = rating?.score,
+        ratingVotes = rating?.votes ?: 0,
+    )
+
+private fun ImageRef?.nativeUrl(): String? =
+    when (this) {
+        is ImageRef.Remote -> url
+        else -> null
+    }
+
+private fun AppError?.nativeMessage(): String? =
+    when (this) {
+        null -> null
+        AppError.Offline -> "当前显示的是离线缓存"
+        AppError.Timeout -> "请求超时"
+        is AppError.Unauthorized -> "登录状态已失效"
+        is AppError.NotFound -> "内容不存在"
+        is AppError.RateLimited -> "请求过于频繁"
+        is AppError.Validation -> "请求参数无效"
+        is AppError.Upstream -> "上游数据服务暂时不可用"
+        is AppError.Server -> "服务器暂时不可用"
+        is AppError.Data -> "数据格式异常"
+        is AppError.Unknown -> "发生未知错误"
+    }
 
 private fun Int.toAppRoot(): AppRoot =
     when (this) {

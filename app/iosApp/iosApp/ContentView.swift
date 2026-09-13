@@ -4,43 +4,35 @@ import SwiftUI
 import UIKit
 import AnimeShared
 
+@MainActor
 struct ContentView: View {
     @State private var selectedRootIndex = 0
-    @State private var nativeGlassEnabled = true
+    @StateObject private var nativeModel = NativeAppModel()
 
     var body: some View {
         TabView(selection: $selectedRootIndex) {
-            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                ComposeTabView(
-                    rootIndex: index,
-                    handlesAuthCallback: index == 0,
-                    onNativeGlassStateChanged: { enabled in
-                        if index == 0 {
-                            nativeGlassEnabled = enabled.boolValue
-                        }
-                    },
-                )
-                // Let the native chrome float over the edge-to-edge Compose page.
-                .ignoresSafeArea(.container, edges: [.top, .bottom])
-                .tabItem {
-                    Label(tab.title, systemImage: tab.systemImage)
-                }
-                .tag(index)
-            }
+            NativeDiscoverView(model: nativeModel)
+                .tabItem { Label(tabs[0].title, systemImage: tabs[0].systemImage) }
+                .tag(0)
+            legacyTab(index: 1)
+            legacyTab(index: 2)
+            legacyTab(index: 3)
         }
-        // Apply the edge-to-edge contract to the tab container itself. Applying it only to
-        // the representable child still lets SwiftUI reserve an opaque status-bar strip above
-        // the child, which prevents the native scroll-edge material from covering that area.
-        .ignoresSafeArea(.container, edges: [.top, .bottom])
         .tint(.accentColor)
-        // Let iOS decide when the native tab bar surface is visible. This keeps the
-        // Liquid Glass/tab-bar scroll treatment owned by SwiftUI instead of forcing a
-        // static background that can compete with the content edge effect.
-        .toolbarBackgroundVisibility(
-            nativeGlassEnabled ? .automatic : .hidden,
-            for: .tabBar
+        // Keep the system in charge of the tab-bar material and its scroll-edge transition.
+        .toolbarBackgroundVisibility(.automatic, for: .tabBar)
+    }
+
+    @ViewBuilder
+    private func legacyTab(index: Int) -> some View {
+        let tab = tabs[index]
+        ComposeTabView(
+            rootIndex: index,
+            handlesAuthCallback: false,
+            onNativeGlassStateChanged: { _ in },
         )
-        .background(Color.clear)
+        .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+        .tag(index)
     }
 
     private let tabs: [(title: String, systemImage: String)] = [
@@ -262,7 +254,7 @@ private struct ComposeTabView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
-private final class IosKeychain {
+final class IosKeychain {
     static let shared = IosKeychain()
     private let service = "site.jokersh.anime.session"
     // Session credentials must remain readable after the app is relaunched once the
@@ -334,7 +326,7 @@ private final class IosKeychain {
     }
 }
 
-private final class IosAuthSessionCoordinator: NSObject, ASWebAuthenticationPresentationContextProviding {
+final class IosAuthSessionCoordinator: NSObject, ASWebAuthenticationPresentationContextProviding {
     static let shared = IosAuthSessionCoordinator()
 
     private var session: ASWebAuthenticationSession?
