@@ -983,7 +983,7 @@ private struct NativeReviewComposer: View {
     let onComplete: (NativeReviewSnapshot?, String?) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
-    @State private var body = ""
+    @State private var reviewBody = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
 
@@ -994,7 +994,7 @@ private struct NativeReviewComposer: View {
                     TextField("例如：节奏很舒服的一季", text: $title)
                 }
                 Section("你的感受") {
-                    TextEditor(text: $body)
+                    TextEditor(text: $reviewBody)
                         .frame(minHeight: 160)
                 }
                 if let errorMessage {
@@ -1007,7 +1007,7 @@ private struct NativeReviewComposer: View {
                     Button(isSubmitting ? "发布中…" : "发布评价") {
                         submit()
                     }
-                    .disabled(isSubmitting || body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(isSubmitting || reviewBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .navigationTitle("写评价")
@@ -1020,7 +1020,7 @@ private struct NativeReviewComposer: View {
     }
 
     private func submit() {
-        let normalizedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedBody = reviewBody.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedBody.isEmpty else { return }
         isSubmitting = true
         errorMessage = nil

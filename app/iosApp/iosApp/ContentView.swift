@@ -2,6 +2,7 @@ import AuthenticationServices
 import Security
 import SwiftUI
 import UIKit
+import AnimeShared
 
 struct ContentView: View {
     @State private var selectedRootIndex = 0
