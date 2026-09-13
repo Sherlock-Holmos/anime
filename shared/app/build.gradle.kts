@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.konan.target.Family
 
 plugins {
     id("anime.kmp.library")
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
 }

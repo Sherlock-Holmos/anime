@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import platform.Foundation.NSURLComponents
@@ -209,7 +210,7 @@ public class IosNativeAppFacade internal constructor(
         sessionObservation =
             scope.launch {
                 appContainer.sessionRepository.observeSession().collect { state ->
-                    onChanged(json.encodeToString(state.toNativeSnapshot()))
+                    onChanged(json.encodeToString(NativeSessionSnapshot.serializer(), state.toNativeSnapshot()))
                 }
             }
     }
@@ -223,7 +224,7 @@ public class IosNativeAppFacade internal constructor(
         scope.launch {
             val result = appContainer.sessionRepository.refresh()
             completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.getOrNull()?.let { json.encodeToString(NativeSessionSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
             )
         }
@@ -239,7 +240,7 @@ public class IosNativeAppFacade internal constructor(
                     if (force) RefreshPolicy.Force else RefreshPolicy.IfStale,
                 )
             val state = appContainer.catalogRepository.observeDiscovery().first()
-            state.value?.let { json.encodeToString(it.toNativeSnapshot()) } to
+            state.value?.let { json.encodeToString(NativeDiscoverySnapshot.serializer(), it.toNativeSnapshot()) } to
                 if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null
         }
 
@@ -256,14 +257,14 @@ public class IosNativeAppFacade internal constructor(
                     if (force) RefreshPolicy.Force else RefreshPolicy.IfStale,
                 )
             val state = appContainer.catalogRepository.observeSubject(id).first()
-            state.value?.let { json.encodeToString(it.toNativeSnapshot()) } to
+            state.value?.let { json.encodeToString(NativeSubjectDetailSnapshot.serializer(), it.toNativeSnapshot()) } to
                 if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null
         }
 
     public fun loadSearchDiscovery(completion: (String?, String?) -> Unit) =
         launchTextOperation("search discovery", completion) {
             val result = appContainer.searchRepository.discovery()
-            result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
+            result.getOrNull()?.let { json.encodeToString(NativeSearchDiscoverySnapshot.serializer(), it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
         }
 
     public fun searchSubjects(
@@ -288,7 +289,10 @@ public class IosNativeAppFacade internal constructor(
                         ).getOrThrow()
                     }
                 result.getOrNull()?.let {
-                    json.encodeToString(it.toNativeSearchSnapshot { subject -> subject.toNativeSummary() })
+                    json.encodeToString(
+                        NativeSearchResultsSnapshot.serializer(),
+                        it.toNativeSearchSnapshot { subject -> subject.toNativeSummary() },
+                    )
                 } to
                     result.exceptionOrNull()?.message
             }
@@ -308,7 +312,7 @@ public class IosNativeAppFacade internal constructor(
                     status = status?.let(::nativeCollectionStatus),
                     limit = 50,
                 )
-            result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
+            result.getOrNull()?.let { json.encodeToString(NativeCollectionPageSnapshot.serializer(), it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
         }
 
     public fun loadActivity(
@@ -318,13 +322,18 @@ public class IosNativeAppFacade internal constructor(
     ) =
         launchTextOperation("activity:$feed", completion) {
             val result = appContainer.communityRepository.feedPage(feed = feed, limit = 20, cursor = cursor)
-            result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
+            result.getOrNull()?.let { json.encodeToString(NativeActivityPageSnapshot.serializer(), it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
         }
 
     public fun loadNotifications(completion: (String?, String?) -> Unit) =
         launchTextOperation("notifications", completion) {
             val result = appContainer.communityRepository.notifications(50)
-            result.getOrNull()?.let { json.encodeToString(it.map(CommunityNotification::toNativeSnapshot)) } to
+            result.getOrNull()?.let {
+                json.encodeToString(
+                    ListSerializer(NativeNotificationSnapshot.serializer()),
+                    it.map(CommunityNotification::toNativeSnapshot),
+                )
+            } to
                 result.exceptionOrNull()?.message
         }
 
@@ -338,7 +347,7 @@ public class IosNativeAppFacade internal constructor(
                 runCatching {
                     appContainer.sessionRepository.refresh().getOrThrow().user.toNativeSnapshot()
                 }
-            result.getOrNull()?.let { json.encodeToString(it) } to result.exceptionOrNull()?.message
+            result.getOrNull()?.let { json.encodeToString(NativeProfileSnapshot.serializer(), it) } to result.exceptionOrNull()?.message
         }
 
     public fun loadSubjectCommunity(
@@ -360,7 +369,7 @@ public class IosNativeAppFacade internal constructor(
                 } else {
                     null
                 }
-            snapshot?.let { json.encodeToString(it) } to failure?.message
+            snapshot?.let { json.encodeToString(NativeSubjectCommunitySnapshot.serializer(), it) } to failure?.message
         }
 
     public fun saveRating(
@@ -405,7 +414,7 @@ public class IosNativeAppFacade internal constructor(
         scope.launch {
             val result = appContainer.communityRepository.createComment(subjectId, body, false)
             completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.getOrNull()?.let { json.encodeToString(NativeCommentSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
             )
         }
@@ -427,7 +436,7 @@ public class IosNativeAppFacade internal constructor(
                 visibility = "public",
             )
             completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.getOrNull()?.let { json.encodeToString(NativeReviewSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
             )
         }
@@ -442,7 +451,7 @@ public class IosNativeAppFacade internal constructor(
         scope.launch {
             val result = appContainer.communityRepository.reactComment(id, reaction, active)
             completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.getOrNull()?.let { json.encodeToString(NativeReactionSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
             )
         }
@@ -457,7 +466,7 @@ public class IosNativeAppFacade internal constructor(
         scope.launch {
             val result = appContainer.communityRepository.reactReview(id, reaction, active)
             completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.getOrNull()?.let { json.encodeToString(NativeReactionSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
             )
         }
@@ -471,7 +480,7 @@ public class IosNativeAppFacade internal constructor(
         scope.launch {
             val result = appContainer.sessionRepository.loginWithAnime(AnimeLoginCredentials(username, password))
             completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.getOrNull()?.let { json.encodeToString(NativeSessionSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
             )
         }
@@ -489,7 +498,7 @@ public class IosNativeAppFacade internal constructor(
                     AnimeRegistration(username, password, displayName),
                 )
             completion(
-                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.getOrNull()?.let { json.encodeToString(NativeSessionSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
             )
         }
@@ -503,7 +512,12 @@ public class IosNativeAppFacade internal constructor(
         scope.launch {
             val result = appContainer.sessionRepository.diagnostics()
             completion(
-                result.getOrNull()?.let { json.encodeToString(it.map(ServiceDiagnostic::toNativeSnapshot)) },
+                result.getOrNull()?.let {
+                    json.encodeToString(
+                        ListSerializer(NativeDiagnosticSnapshot.serializer()),
+                        it.map(ServiceDiagnostic::toNativeSnapshot),
+                    )
+                },
                 result.exceptionOrNull()?.message,
             )
         }
@@ -540,7 +554,7 @@ public class IosNativeAppFacade internal constructor(
 }
 
 @Serializable
-private data class NativeSessionSnapshot(
+internal data class NativeSessionSnapshot(
     val status: String,
     val userId: String? = null,
     val displayName: String? = null,
@@ -566,20 +580,20 @@ private fun SessionState.toNativeSnapshot(): NativeSessionSnapshot =
     }
 
 @Serializable
-private data class NativeDiscoverySnapshot(
+internal data class NativeDiscoverySnapshot(
     val sections: List<NativeDiscoverySection>,
     val generatedAtEpochSeconds: Long,
 )
 
 @Serializable
-private data class NativeDiscoverySection(
+internal data class NativeDiscoverySection(
     val id: String,
     val title: String,
     val subjects: List<NativeSubjectSummary>,
 )
 
 @Serializable
-private data class NativeSubjectSummary(
+internal data class NativeSubjectSummary(
     val id: Long,
     val title: String,
     val originalTitle: String? = null,
@@ -592,7 +606,7 @@ private data class NativeSubjectSummary(
 )
 
 @Serializable
-private data class NativeSubjectDetailSnapshot(
+internal data class NativeSubjectDetailSnapshot(
     val summary: NativeSubjectSummary,
     val summaryText: String? = null,
     val airDate: String? = null,
@@ -605,27 +619,27 @@ private data class NativeSubjectDetailSnapshot(
 )
 
 @Serializable
-private data class NativeSearchDiscoverySnapshot(
+internal data class NativeSearchDiscoverySnapshot(
     val trending: List<String>,
     val recommendations: List<NativeSubjectSummary>,
     val personalized: Boolean,
 )
 
 @Serializable
-private data class NativeSearchResultsSnapshot(
+internal data class NativeSearchResultsSnapshot(
     val items: List<NativeSubjectSummary>,
     val nextCursor: String? = null,
     val hasMore: Boolean,
 )
 
 @Serializable
-private data class NativeCollectionPageSnapshot(
+internal data class NativeCollectionPageSnapshot(
     val items: List<NativeCollectionItemSnapshot>,
     val nextCursor: String? = null,
 )
 
 @Serializable
-private data class NativeCollectionItemSnapshot(
+internal data class NativeCollectionItemSnapshot(
     val subjectId: Long,
     val title: String,
     val originalTitle: String,
@@ -641,13 +655,13 @@ private data class NativeCollectionItemSnapshot(
 )
 
 @Serializable
-private data class NativeActivityPageSnapshot(
+internal data class NativeActivityPageSnapshot(
     val items: List<NativeActivityItemSnapshot>,
     val nextCursor: String? = null,
 )
 
 @Serializable
-private data class NativeActivityItemSnapshot(
+internal data class NativeActivityItemSnapshot(
     val id: String,
     val actorId: String? = null,
     val actorName: String,
@@ -663,7 +677,7 @@ private data class NativeActivityItemSnapshot(
 )
 
 @Serializable
-private data class NativeNotificationSnapshot(
+internal data class NativeNotificationSnapshot(
     val id: String,
     val kind: String,
     val actorId: String? = null,
@@ -677,7 +691,7 @@ private data class NativeNotificationSnapshot(
 )
 
 @Serializable
-private data class NativeProfileSnapshot(
+internal data class NativeProfileSnapshot(
     val userId: String,
     val displayName: String,
     val avatarUrl: String? = null,
@@ -694,7 +708,7 @@ private data class NativeProfileSnapshot(
 )
 
 @Serializable
-private data class NativeDiagnosticSnapshot(
+internal data class NativeDiagnosticSnapshot(
     val endpoint: String,
     val statusCode: Int? = null,
     val healthy: Boolean,
@@ -702,20 +716,20 @@ private data class NativeDiagnosticSnapshot(
 )
 
 @Serializable
-private data class NativeSubjectCommunitySnapshot(
+internal data class NativeSubjectCommunitySnapshot(
     val rating: NativeRatingSnapshot,
     val reviews: List<NativeReviewSnapshot>,
     val comments: List<NativeCommentSnapshot>,
 )
 
 @Serializable
-private data class NativeRatingSnapshot(
+internal data class NativeRatingSnapshot(
     val score: Double? = null,
     val votes: Long,
 )
 
 @Serializable
-private data class NativeReviewSnapshot(
+internal data class NativeReviewSnapshot(
     val id: String,
     val subjectId: Long,
     val authorId: String,
@@ -732,7 +746,7 @@ private data class NativeReviewSnapshot(
 )
 
 @Serializable
-private data class NativeCommentSnapshot(
+internal data class NativeCommentSnapshot(
     val id: String,
     val parentId: String? = null,
     val authorId: String,
@@ -746,7 +760,7 @@ private data class NativeCommentSnapshot(
 )
 
 @Serializable
-private data class NativeReactionSnapshot(
+internal data class NativeReactionSnapshot(
     val reaction: String,
     val active: Boolean,
     val likeCount: Long,
