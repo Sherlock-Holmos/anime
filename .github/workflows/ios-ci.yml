@@ -94,31 +94,11 @@ jobs:
           test -n "$launch_output"
           app_pid=$(echo "$launch_output" | awk '{print $2}')
           test -n "$app_pid"
-          app_service_is_running() {
-            # `launchctl print gui/501` can hang on some CoreSimulator images. The
-            # process/service list is enough for a bounded liveness check and exits
-            # cleanly on both the current and previous hosted runtimes.
-            xcrun simctl spawn "$device_id" launchctl list 2>/dev/null | grep -F "$bundle_id" >/dev/null
-          }
-          app_started=false
-          for _ in $(seq 1 30); do
-            if app_service_is_running; then
-              app_started=true
-              break
-            fi
-            sleep 1
-          done
-          if [ "$app_started" != true ]; then
-            echo "iOS app exited during startup (pid $app_pid)." >&2
-            xcrun simctl spawn "$device_id" launchctl list 2>&1 | tail -120 || true
-            xcrun simctl io "$device_id" screenshot build/ios-simulator.png || true
-            exit 1
-          fi
+          # CoreSimulator's launchctl service queries are not reliable on hosted
+          # macOS runners and can block the workflow indefinitely. Keep the app
+          # alive long enough to exercise the first frame and native startup, then
+          # use simctl terminate as the direct liveness assertion below.
           sleep 20
-          # `simctl spawn ... ps` is not available on every hosted CoreSimulator image.
-          # Treat the successful launch request as the startup gate and collect runtime
-          # logs plus a screenshot for post-build crash diagnosis instead of relying on a
-          # simulator-internal process listing.
           xcrun simctl spawn "$device_id" log show \
             --style compact \
             --last 3m \
@@ -128,18 +108,21 @@ jobs:
             --style compact \
             --last 5m \
             --predicate 'process == "iosApp" OR eventMessage CONTAINS[c] "crash" OR eventMessage CONTAINS[c] "exception"' > build/ios-simulator-crash.log 2>&1 || true
-          if ! app_service_is_running; then
-            echo "iOS app crashed or was terminated during the runtime soak." >&2
-            tail -200 build/ios-simulator-runtime.log >&2 || true
-            xcrun simctl io "$device_id" screenshot build/ios-simulator.png || true
-            exit 1
-          fi
           mkdir -p build/ios-crash-reports
           simulator_home=$(xcrun simctl getenv "$device_id" HOME)
           find "$HOME/Library/Logs/DiagnosticReports" "$simulator_home/Library/Logs/CrashReporter" \
             -maxdepth 2 -type f -name '*iosApp*' -mmin -10 -exec cp {} build/ios-crash-reports/ \; 2>/dev/null || true
           xcrun simctl io "$device_id" screenshot build/ios-simulator.png
-          xcrun simctl terminate "$device_id" site.jokersh.anime >/dev/null 2>&1 || true
+          set +e
+          xcrun simctl terminate "$device_id" "$bundle_id" > build/ios-simulator-terminate.log 2>&1
+          terminate_status=$?
+          set -e
+          if [ "$terminate_status" -ne 0 ]; then
+            echo "iOS app crashed or was terminated during the 20-second runtime soak (pid $app_pid)." >&2
+            cat build/ios-simulator-terminate.log >&2 || true
+            tail -200 build/ios-simulator-runtime.log >&2 || true
+            exit 1
+          fi
 
       - name: Upload simulator application and logs
         if: always()
@@ -155,6 +138,7 @@ jobs:
             build/ios-simulator-process.log
             build/ios-simulator-crash.log
             build/ios-simulator-runtime.log
+            build/ios-simulator-terminate.log
             build/ios-simulator.png
             build/ios-crash-reports
 
