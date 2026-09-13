@@ -129,6 +129,8 @@ jobs:
             build/ios-derived-data/Build/Products/Debug-iphonesimulator/iosApp.app
             build/ios-xcodebuild.log
             build/ios-simulator-launch.log
+            build/ios-simulator-process.log
+            build/ios-simulator-crash.log
             build/ios-simulator-runtime.log
             build/ios-simulator.png
             build/ios-crash-reports

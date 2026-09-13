@@ -1,10 +1,10 @@
 # Anime iOS host
 
-`iosApp` is a SwiftUI host for `AnimeShared.framework`. iOS presentation and navigation
-are native SwiftUI, while repositories, authentication, caching and domain state remain
-in KMP. The first native vertical slice owns the App Shell, Discover and Subject Detail;
-the remaining tabs are temporarily hosted by the existing Compose routes during the
-incremental migration.
+`iosApp` is a SwiftUI host for `AnimeShared.framework`. Repositories, authentication,
+caching and domain state remain in KMP. The native SwiftUI App Shell and Discover/Subject
+Detail vertical slice is kept in the target for incremental migration, while the current
+production root stays on the previously verified Compose containers until device runtime
+validation is complete.
 
 Requirements:
 
