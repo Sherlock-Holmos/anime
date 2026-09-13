@@ -177,6 +177,7 @@ struct NativeLibraryView: View {
                 .padding(.bottom, 36)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索作品")
             .onSubmit(of: .search, submitSearch)
             .refreshable { await refreshRecommendations() }
@@ -197,8 +198,6 @@ struct NativeLibraryView: View {
             Text("Anime")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.tint)
-            Text("资料库")
-                .font(.largeTitle.weight(.bold))
             Text("搜索作品，打开完整资料与社区讨论。")
                 .foregroundStyle(.secondary)
         }
@@ -295,8 +294,6 @@ struct NativeCollectionView: View {
                         Text("个人空间")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.tint)
-                        Text("我的片库")
-                            .font(.largeTitle.weight(.bold))
                         Text("把想看、正在追和已经看过的作品收在一处。")
                             .foregroundStyle(.secondary)
                     }
@@ -338,6 +335,7 @@ struct NativeCollectionView: View {
                 .padding(.bottom, 36)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle("片库")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
@@ -377,8 +375,6 @@ struct NativeActivityView: View {
                         Text("社区")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.tint)
-                        Text("动态")
-                            .font(.largeTitle.weight(.bold))
                         Text("评分、评价、片单与讨论都在这里汇聚。")
                             .foregroundStyle(.secondary)
                     }
@@ -398,6 +394,7 @@ struct NativeActivityView: View {
                 .padding(.bottom, 36)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .refreshable { await refresh() }
             .navigationTitle("动态")
             .navigationBarTitleDisplayMode(.large)
@@ -509,6 +506,7 @@ struct NativeProfileView: View {
                 .padding(.bottom, 36)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle("我的")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -540,8 +538,6 @@ struct NativeProfileView: View {
             Text("Anime")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.tint)
-            Text("我的空间")
-                .font(.largeTitle.weight(.bold))
             Text("管理账号、片库和同步状态。")
                 .foregroundStyle(.secondary)
         }

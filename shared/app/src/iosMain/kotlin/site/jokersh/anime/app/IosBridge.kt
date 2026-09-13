@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.Serializable
@@ -145,6 +147,7 @@ public class IosNativeAppFacade internal constructor(
     // or a large catalog response is in flight.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + coroutineExceptionHandler)
     private val json = Json { encodeDefaults = true }
+    private val sessionOperationMutex = Mutex()
     private var sessionObservation: Job? = null
     private var startupJob: Job? = null
 
@@ -182,7 +185,9 @@ public class IosNativeAppFacade internal constructor(
         if (startupJob?.isActive == true) return
         startupJob =
             scope.launch {
-                startupStep("session restore") { appContainer.sessionRepository.refresh() }
+                startupStep("session restore") {
+                    sessionOperationMutex.withLock { appContainer.sessionRepository.refresh() }
+                }
                 startupStep("collection sync") { appContainer.collectionRepository.requestSync() }
                 startupStep("rating outbox") { appContainer.communityRepository.retryPendingRatings() }
             }
@@ -222,7 +227,7 @@ public class IosNativeAppFacade internal constructor(
 
     public fun refreshSession(completion: (String?, String?) -> Unit) {
         scope.launch {
-            val result = appContainer.sessionRepository.refresh()
+            val result = sessionOperationMutex.withLock { appContainer.sessionRepository.refresh() }
             completion(
                 result.getOrNull()?.let { json.encodeToString(NativeSessionSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
@@ -478,7 +483,10 @@ public class IosNativeAppFacade internal constructor(
         completion: (String?, String?) -> Unit,
     ) {
         scope.launch {
-            val result = appContainer.sessionRepository.loginWithAnime(AnimeLoginCredentials(username, password))
+            val result =
+                sessionOperationMutex.withLock {
+                    appContainer.sessionRepository.loginWithAnime(AnimeLoginCredentials(username, password))
+                }
             completion(
                 result.getOrNull()?.let { json.encodeToString(NativeSessionSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
@@ -494,9 +502,11 @@ public class IosNativeAppFacade internal constructor(
     ) {
         scope.launch {
             val result =
-                appContainer.sessionRepository.registerAnime(
-                    AnimeRegistration(username, password, displayName),
-                )
+                sessionOperationMutex.withLock {
+                    appContainer.sessionRepository.registerAnime(
+                        AnimeRegistration(username, password, displayName),
+                    )
+                }
             completion(
                 result.getOrNull()?.let { json.encodeToString(NativeSessionSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
@@ -505,7 +515,13 @@ public class IosNativeAppFacade internal constructor(
     }
 
     public fun updateProfile(displayName: String, completion: (String?) -> Unit) {
-        scope.launch { completion(appContainer.sessionRepository.updateProfile(displayName).exceptionOrNull()?.message) }
+        scope.launch {
+            completion(
+                sessionOperationMutex.withLock {
+                    appContainer.sessionRepository.updateProfile(displayName)
+                }.exceptionOrNull()?.message,
+            )
+        }
     }
 
     public fun diagnostics(completion: (String?, String?) -> Unit) {
@@ -543,13 +559,17 @@ public class IosNativeAppFacade internal constructor(
         scope.launch {
             val callback = IosBridge.pendingCallback()
             if (callback == null) return@launch
-            appContainer.sessionRepository.completeLogin(callback)
+            sessionOperationMutex.withLock { appContainer.sessionRepository.completeLogin(callback) }
             if (IosBridge.pendingCallback() == callback) IosBridge.clearPendingCallback()
         }
     }
 
     public fun logout(completion: (String?) -> Unit) {
-        scope.launch { completion(appContainer.sessionRepository.logout().exceptionOrNull()?.message) }
+        scope.launch {
+            completion(
+                sessionOperationMutex.withLock { appContainer.sessionRepository.logout() }.exceptionOrNull()?.message,
+            )
+        }
     }
 }
 

@@ -18,6 +18,21 @@ final class NativeAppModel: ObservableObject {
 
     private var facade: IosNativeAppFacade?
     private var hasStarted = false
+    private var hasAuthenticatedSession = false
+
+    private func applySessionSnapshot(_ snapshot: NativeSessionSnapshot) {
+        // A background restore may still finish after an interactive login. Once iOS has
+        // received an authenticated session, never let that intermediate restoring state
+        // replace the visible account screen and cause a flash.
+        if snapshot.status == "restoring" {
+            guard !hasAuthenticatedSession else { return }
+            session = snapshot
+            return
+        }
+
+        hasAuthenticatedSession = snapshot.status == "authenticated"
+        session = snapshot
+    }
 
     init() {}
 
@@ -45,7 +60,8 @@ final class NativeAppModel: ObservableObject {
         facade.startSessionObservation { [weak self] rawSnapshot in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.session = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? NativeSessionSnapshot(status: "failed")
+                let snapshot = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? NativeSessionSnapshot(status: "failed")
+                self.applySessionSnapshot(snapshot)
             }
         }
         NSLog("[Anime iOS] session observation installed")
@@ -286,7 +302,8 @@ final class NativeAppModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let rawSnapshot {
-                    self.session = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? self.session
+                    let snapshot = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? self.session
+                    self.applySessionSnapshot(snapshot)
                 }
                 completion?(error)
             }
@@ -299,7 +316,8 @@ final class NativeAppModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let rawSnapshot {
-                    self.session = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? self.session
+                    let snapshot = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? self.session
+                    self.applySessionSnapshot(snapshot)
                 }
                 completion?(error)
             }
@@ -378,6 +396,7 @@ struct NativeDiscoverView: View {
                 .padding(.bottom, 32)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .refreshable {
                 model.refresh(force: true)
             }
@@ -584,6 +603,7 @@ struct NativeSubjectDetailView: View {
             .padding(.bottom, 32)
         }
         .background(Color(uiColor: .systemGroupedBackground))
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle(summary.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
