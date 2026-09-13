@@ -367,16 +367,13 @@ struct NativeDiscoverView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 28) {
-                    discoverHeader
                     if model.isLoading && model.discovery == nil {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 240)
                     } else if let discovery = model.discovery {
-                        if let hero = discovery.sections.flatMap(\.subjects).first {
-                            NavigationLink(value: hero) {
-                                NativeHeroCard(subject: hero)
-                            }
-                            .buttonStyle(.plain)
+                        let heroSubjects = carouselSubjects(from: discovery)
+                        if !heroSubjects.isEmpty {
+                            NativeDiscoveryCarousel(subjects: heroSubjects)
                         }
 
                         ForEach(discovery.sections) { section in
@@ -402,16 +399,6 @@ struct NativeDiscoverView: View {
             }
             .navigationTitle("发现")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        model.refresh(force: true)
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .accessibilityLabel("刷新")
-                }
-            }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
                 NativeSubjectDetailView(summary: subject, model: model)
             }
@@ -424,16 +411,32 @@ struct NativeDiscoverView: View {
         }
     }
 
-    private var discoverHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Anime")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.tint)
-            Text("为你整理的新作、口碑与正在追")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.secondary)
+    private func carouselSubjects(from discovery: NativeDiscoverySnapshot) -> [NativeSubjectSummary] {
+        var seen = Set<Int64>()
+        return Array(
+            discovery.sections
+                .flatMap(\.subjects)
+                .filter { seen.insert($0.id).inserted }
+                .prefix(5)
+        )
+    }
+}
+
+private struct NativeDiscoveryCarousel: View {
+    let subjects: [NativeSubjectSummary]
+
+    var body: some View {
+        TabView {
+            ForEach(subjects) { subject in
+                NavigationLink(value: subject) {
+                    NativeHeroCard(subject: subject)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 250)
+        .tabViewStyle(.page(indexDisplayMode: .automatic))
+        .indexViewStyle(.page(backgroundDisplayMode: .interactive))
     }
 }
 

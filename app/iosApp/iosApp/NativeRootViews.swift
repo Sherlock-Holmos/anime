@@ -155,7 +155,6 @@ struct NativeLibraryView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    libraryIntro
                     if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         recommendationContent
                     } else if isSearching && results.isEmpty {
@@ -190,16 +189,6 @@ struct NativeLibraryView: View {
         .task {
             model.start()
             if model.searchDiscovery == nil { model.loadSearchDiscovery() }
-        }
-    }
-
-    private var libraryIntro: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("Anime")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.tint)
-            Text("搜索作品，打开完整资料与社区讨论。")
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -290,13 +279,6 @@ struct NativeCollectionView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("个人空间")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.tint)
-                        Text("把想看、正在追和已经看过的作品收在一处。")
-                            .foregroundStyle(.secondary)
-                    }
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(filters, id: \.self) { filter in
@@ -371,13 +353,6 @@ struct NativeActivityView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("社区")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.tint)
-                        Text("评分、评价、片单与讨论都在这里汇聚。")
-                            .foregroundStyle(.secondary)
-                    }
                     Picker("内容", selection: $selectedMode) {
                         Text("动态").tag("动态")
                         Text("通知").tag("通知")
@@ -480,14 +455,12 @@ struct NativeActivityView: View {
 struct NativeProfileView: View {
     @ObservedObject var model: NativeAppModel
     @State private var showingAccount = false
-    @State private var showingDiagnostics = false
     @State private var message: String?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    profileHeader
                     if model.session.status == "authenticated" {
                         authenticatedContent
                     } else if model.session.status == "restoring" {
@@ -511,17 +484,17 @@ struct NativeProfileView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAccount = true } label: { Image(systemName: "person.crop.circle") }
-                        .accessibilityLabel("账号")
+                    NavigationLink {
+                        NativeSettingsView(model: model)
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("设置")
                 }
             }
             .sheet(isPresented: $showingAccount) {
                 NativeAccountSheet(model: model)
                     .presentationDetents([.medium, .large])
-            }
-            .sheet(isPresented: $showingDiagnostics) {
-                NavigationStack { NativeDiagnosticsView(model: model) }
-                    .presentationDetents([.large])
             }
         }
         .task {
@@ -530,16 +503,6 @@ struct NativeProfileView: View {
         }
         .onChange(of: model.session.status) { _, status in
             if status == "authenticated" { model.loadProfile() }
-        }
-    }
-
-    private var profileHeader: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("Anime")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.tint)
-            Text("管理账号、片库和同步状态。")
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -571,11 +534,6 @@ struct NativeProfileView: View {
             NativeCollectionView(model: model)
         } label: {
             NativeActionRow(title: "我的片库", subtitle: "浏览正在追、想看和已完成的作品", systemImage: "books.vertical")
-        }
-        .buttonStyle(.plain)
-
-        Button { showingDiagnostics = true } label: {
-            NativeActionRow(title: "服务诊断", subtitle: "检查 API、健康检查和当前连接状态", systemImage: "waveform.path.ecg")
         }
         .buttonStyle(.plain)
 
@@ -942,6 +900,49 @@ struct NativeSubjectCommunityView: View {
                 message = "发布失败：\(error)"
             }
         }
+    }
+}
+
+struct NativeSettingsView: View {
+    @ObservedObject var model: NativeAppModel
+    @State private var showingAccount = false
+
+    var body: some View {
+        Form {
+            Section("账号") {
+                if model.session.status == "authenticated" {
+                    LabeledContent("当前账号", value: model.session.displayName ?? "Anime 用户")
+                    Button("切换账号") { showingAccount = true }
+                } else {
+                    Button("登录或注册") { showingAccount = true }
+                }
+            }
+
+            Section("服务") {
+                NavigationLink {
+                    NativeDiagnosticsView(model: model)
+                } label: {
+                    Label("服务诊断", systemImage: "waveform.path.ecg")
+                }
+            }
+
+            Section("关于") {
+                LabeledContent("版本", value: appVersion)
+                LabeledContent("界面", value: "SwiftUI 原生")
+            }
+        }
+        .navigationTitle("设置")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingAccount) {
+            NativeAccountSheet(model: model)
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "未知"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        return build.map { "\(version) (\($0))" } ?? version
     }
 }
 
