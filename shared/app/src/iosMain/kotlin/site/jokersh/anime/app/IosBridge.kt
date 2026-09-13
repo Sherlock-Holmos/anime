@@ -966,7 +966,13 @@ private fun createIosContainer(
                 socketTimeoutMillis = 30_000
             }
         }
-    val tokenStore = IosKeychainSessionTokenStore(readSecret, writeSecret, removeSecret)
+    val tokenStore =
+        IosKeychainSessionTokenStore(
+            readSecret = readSecret,
+            writeSecret = writeSecret,
+            removeSecret = removeSecret,
+            clearLocalUserData = { IosLocalUserDataStore().clear() },
+        )
     val remoteSession = RemoteSessionRepository(client, baseUrl, tokenStore)
     val remoteCommunity =
         RemoteCommunityRepository(
@@ -1013,10 +1019,27 @@ private class IosKeychainSessionTokenStore(
     private val readSecret: (String) -> String?,
     private val writeSecret: (String, String) -> Unit,
     private val removeSecret: (String) -> Unit,
+    private val clearLocalUserData: () -> Unit,
 ) : SessionTokenStore {
     private val defaults = NSUserDefaults.standardUserDefaults
+    private val json = Json { ignoreUnknownKeys = true }
 
     override fun load(): StoredSessionToken? {
+        readSecret(SESSION_RECORD_ACCOUNT)?.let { value ->
+            runCatching { json.decodeFromString<IosStoredSessionRecord>(value) }
+                .getOrNull()
+                ?.takeIf { it.accessToken.isNotBlank() }
+                ?.let {
+                    return StoredSessionToken(
+                        token = it.accessToken,
+                        expiresAt = Instant.fromEpochSeconds(it.expiresAtEpochSeconds),
+                        refreshToken = it.refreshToken?.takeIf(String::isNotBlank),
+                    )
+                }
+            // A damaged bundle should not prevent a legacy item from being recovered.
+            removeSecret(SESSION_RECORD_ACCOUNT)
+        }
+
         val token = readSecret(ACCESS_TOKEN_ACCOUNT)?.takeIf(String::isNotBlank) ?: return null
         // Older builds stored this as a string, while a partially completed save can
         // leave only the Keychain values behind. Treat a missing/invalid timestamp as
@@ -1025,11 +1048,16 @@ private class IosKeychainSessionTokenStore(
             defaults.stringForKey(EXPIRY_KEY)?.toLongOrNull()
                 ?: defaults.objectForKey(EXPIRY_KEY)?.toString()?.toLongOrNull()
                 ?: 0L
-        return StoredSessionToken(
+        val legacy = StoredSessionToken(
             token = token,
             expiresAt = Instant.fromEpochSeconds(expiresAt),
             refreshToken = readSecret(REFRESH_TOKEN_ACCOUNT)?.takeIf(String::isNotBlank),
         )
+        // Migrate the old split representation after it has been read successfully.
+        // The legacy values remain as a fallback for one upgrade cycle and are removed
+        // together with the new record by clear().
+        save(legacy.token, legacy.expiresAt, legacy.refreshToken)
+        return legacy
     }
 
     override fun save(
@@ -1037,21 +1065,52 @@ private class IosKeychainSessionTokenStore(
         expiresAt: Instant,
         refreshToken: String?,
     ) {
-        writeSecret(ACCESS_TOKEN_ACCOUNT, token)
-        defaults.setObject(expiresAt.epochSeconds.toString(), forKey = EXPIRY_KEY)
-        if (refreshToken ==
-            null
-        ) {
-            removeSecret(REFRESH_TOKEN_ACCOUNT)
-        } else {
-            writeSecret(REFRESH_TOKEN_ACCOUNT, refreshToken)
-        }
+        // Keep all session fields in one Keychain item. This prevents a process
+        // interruption between three independent writes from creating a token with
+        // a mismatched expiry or refresh token.
+        writeSecret(
+            SESSION_RECORD_ACCOUNT,
+            json.encodeToString(
+                IosStoredSessionRecord(
+                    accessToken = token,
+                    refreshToken = refreshToken,
+                    expiresAtEpochSeconds = expiresAt.epochSeconds,
+                ),
+            ),
+        )
     }
 
     override fun clear() {
+        removeSecret(SESSION_RECORD_ACCOUNT)
         removeSecret(ACCESS_TOKEN_ACCOUNT)
         removeSecret(REFRESH_TOKEN_ACCOUNT)
         defaults.removeObjectForKey(EXPIRY_KEY)
+        // These stores contain user-owned offline work. They must not survive a
+        // logout/expired session and become visible or replayed under another account.
+        clearLocalUserData()
+    }
+}
+
+@Serializable
+private data class IosStoredSessionRecord(
+    val accessToken: String,
+    val refreshToken: String? = null,
+    val expiresAtEpochSeconds: Long,
+)
+
+private class IosLocalUserDataStore {
+    private val defaults = NSUserDefaults.standardUserDefaults
+
+    fun clear() {
+        defaults.removeObjectForKey(COLLECTION_SNAPSHOT_KEY)
+        defaults.removeObjectForKey(COMMENT_DRAFTS_KEY)
+        defaults.removeObjectForKey(RATING_OUTBOX_KEY)
+    }
+
+    private companion object {
+        const val COLLECTION_SNAPSHOT_KEY = "anime.collection.snapshots"
+        const val COMMENT_DRAFTS_KEY = "anime.comment.drafts"
+        const val RATING_OUTBOX_KEY = "anime.rating.outbox"
     }
 }
 
@@ -1114,6 +1173,7 @@ private class IosRatingOutboxStore :
 }
 
 private const val PRODUCTION_API_BASE_URL = "https://api.jokersh.site"
+private const val SESSION_RECORD_ACCOUNT = "session-record"
 private const val ACCESS_TOKEN_ACCOUNT = "access-token"
 private const val REFRESH_TOKEN_ACCOUNT = "refresh-token"
 private const val EXPIRY_KEY = "anime.session.expiresAt"

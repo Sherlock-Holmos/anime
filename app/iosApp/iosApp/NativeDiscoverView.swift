@@ -7,7 +7,7 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var discovery: NativeDiscoverySnapshot?
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
-    @Published private(set) var session = NativeSessionSnapshot(status: "restoring")
+    @Published private(set) var session: NativeSessionSnapshot
     @Published private(set) var searchDiscovery: NativeSearchDiscoverySnapshot?
     @Published private(set) var collectionPage: NativeCollectionPageSnapshot?
     @Published private(set) var activityPage: NativeActivityPageSnapshot?
@@ -20,6 +20,9 @@ final class NativeAppModel: ObservableObject {
     private var hasStarted = false
     private var hasAuthenticatedSession = false
 
+    private static let sessionCacheKey = "anime.ios.session.snapshot"
+    private static let profileCacheKey = "anime.ios.profile.snapshot"
+
     private func applySessionSnapshot(_ snapshot: NativeSessionSnapshot) {
         // A background restore may still finish after an interactive login. Once iOS has
         // received an authenticated session, never let that intermediate restoring state
@@ -30,11 +33,36 @@ final class NativeAppModel: ObservableObject {
             return
         }
 
+        if snapshot.status == "failed", hasAuthenticatedSession {
+            // A temporary network failure is not a logout. Keep the cached account
+            // visible and let the next refresh retry instead of flashing to guest.
+            return
+        }
+
+        if snapshot.status == "authenticated" {
+            if session.userId != snapshot.userId {
+                profile = Self.loadCachedProfile(for: snapshot.userId)
+            }
+            hasAuthenticatedSession = true
+            session = snapshot
+            Self.persist(snapshot)
+            return
+        }
+
         hasAuthenticatedSession = snapshot.status == "authenticated"
         session = snapshot
+        if snapshot.status == "guest" || snapshot.status == "expired" {
+            profile = nil
+            Self.clearPersistedUserSnapshot()
+        }
     }
 
-    init() {}
+    init() {
+        let cachedSession = Self.loadCachedSession()
+        session = cachedSession ?? NativeSessionSnapshot(status: "restoring")
+        hasAuthenticatedSession = cachedSession != nil
+        profile = cachedSession.flatMap { Self.loadCachedProfile(for: $0.userId) }
+    }
 
     func start() {
         guard !hasStarted else { return }
@@ -198,8 +226,11 @@ final class NativeAppModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeProfileSnapshot.self) }
-                self.profile = snapshot
-                completion?(snapshot, error)
+                if let snapshot {
+                    self.profile = snapshot
+                    Self.persist(snapshot)
+                }
+                completion?(self.profile, error)
             }
         }
     }
@@ -336,7 +367,10 @@ final class NativeAppModel: ObservableObject {
         facade?.logout { [weak self] error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                if error == nil { self.profile = nil }
+                if error == nil {
+                    self.profile = nil
+                    Self.clearPersistedUserSnapshot()
+                }
                 completion?(error)
             }
         }
@@ -357,6 +391,42 @@ final class NativeAppModel: ObservableObject {
     fileprivate static func decode<T: Decodable>(_ raw: String, as type: T.Type) -> T? {
         guard let data = raw.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private static func loadCachedSession() -> NativeSessionSnapshot? {
+        guard
+            let data = UserDefaults.standard.data(forKey: sessionCacheKey),
+            let snapshot = try? JSONDecoder().decode(NativeSessionSnapshot.self, from: data),
+            snapshot.status == "authenticated",
+            let userId = snapshot.userId,
+            !userId.isEmpty
+        else { return nil }
+        return snapshot
+    }
+
+    private static func loadCachedProfile(for userId: String?) -> NativeProfileSnapshot? {
+        guard
+            let userId,
+            let data = UserDefaults.standard.data(forKey: profileCacheKey),
+            let snapshot = try? JSONDecoder().decode(NativeProfileSnapshot.self, from: data),
+            snapshot.userId == userId
+        else { return nil }
+        return snapshot
+    }
+
+    private static func persist(_ snapshot: NativeSessionSnapshot) {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: sessionCacheKey)
+    }
+
+    private static func persist(_ snapshot: NativeProfileSnapshot) {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: profileCacheKey)
+    }
+
+    private static func clearPersistedUserSnapshot() {
+        UserDefaults.standard.removeObject(forKey: sessionCacheKey)
+        UserDefaults.standard.removeObject(forKey: profileCacheKey)
     }
 }
 
