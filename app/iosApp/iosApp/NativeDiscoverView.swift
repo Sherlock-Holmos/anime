@@ -8,6 +8,13 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var session = NativeSessionSnapshot(status: "restoring")
+    @Published private(set) var searchDiscovery: NativeSearchDiscoverySnapshot?
+    @Published private(set) var collectionPage: NativeCollectionPageSnapshot?
+    @Published private(set) var activityPage: NativeActivityPageSnapshot?
+    @Published private(set) var notifications: [NativeNotificationSnapshot] = []
+    @Published private(set) var profile: NativeProfileSnapshot?
+    @Published private(set) var subjectCommunity: [Int64: NativeSubjectCommunitySnapshot] = [:]
+    @Published private(set) var diagnostics: [NativeDiagnosticSnapshot] = []
 
     private var facade: IosNativeAppFacade?
     private var hasStarted = false
@@ -81,7 +88,235 @@ final class NativeAppModel: ObservableObject {
         }
     }
 
-    private static func decode<T: Decodable>(_ raw: String, as type: T.Type) -> T? {
+    func loadSearchDiscovery(completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.loadSearchDiscovery { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let rawSnapshot {
+                    self.searchDiscovery = Self.decode(rawSnapshot, as: NativeSearchDiscoverySnapshot.self)
+                }
+                completion?(error)
+            }
+        }
+    }
+
+    func search(
+        query: String,
+        cursor: String? = nil,
+        completion: ((NativeSearchResultsSnapshot?, String?) -> Void)? = nil,
+    ) {
+        start()
+        facade?.searchSubjects(query: query, cursor: cursor) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeSearchResultsSnapshot.self) }
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func loadCollection(status: String?, completion: ((NativeCollectionPageSnapshot?, String?) -> Void)? = nil) {
+        start()
+        facade?.loadCollection(status: status) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeCollectionPageSnapshot.self) }
+                self.collectionPage = snapshot
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func loadActivity(
+        feed: String,
+        cursor: String? = nil,
+        completion: ((NativeActivityPageSnapshot?, String?) -> Void)? = nil,
+    ) {
+        start()
+        facade?.loadActivity(feed: feed, cursor: cursor) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeActivityPageSnapshot.self) }
+                self.activityPage = snapshot
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func loadNotifications(completion: (([NativeNotificationSnapshot]?, String?) -> Void)? = nil) {
+        start()
+        facade?.loadNotifications { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: [NativeNotificationSnapshot].self) }
+                self.notifications = snapshot ?? []
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func loadProfile(completion: ((NativeProfileSnapshot?, String?) -> Void)? = nil) {
+        start()
+        facade?.loadProfile { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeProfileSnapshot.self) }
+                self.profile = snapshot
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func loadSubjectCommunity(subjectId: Int64, completion: ((NativeSubjectCommunitySnapshot?, String?) -> Void)? = nil) {
+        start()
+        facade?.loadSubjectCommunity(subjectId: subjectId) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeSubjectCommunitySnapshot.self) }
+                if let snapshot { self.subjectCommunity[subjectId] = snapshot }
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func saveRating(subjectId: Int64, score: Int, completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.saveRating(subjectId: subjectId, score: Int32(score)) { error in
+            Task { @MainActor in completion?(error) }
+        }
+    }
+
+    func setCollection(subjectId: Int64, status: String?, completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.setCollection(subjectId: subjectId, status: status) { error in
+            Task { @MainActor in completion?(error) }
+        }
+    }
+
+    func createComment(subjectId: Int64, body: String, completion: ((NativeCommentSnapshot?, String?) -> Void)? = nil) {
+        start()
+        facade?.createComment(subjectId: subjectId, body: body) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeCommentSnapshot.self) }
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func createReview(
+        subjectId: Int64,
+        title: String?,
+        body: String,
+        completion: ((NativeReviewSnapshot?, String?) -> Void)? = nil,
+    ) {
+        start()
+        facade?.createReview(subjectId: subjectId, title: title, body: body) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeReviewSnapshot.self) }
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func reactComment(
+        id: String,
+        reaction: String,
+        active: Bool,
+        completion: ((NativeReactionSnapshot?, String?) -> Void)? = nil,
+    ) {
+        start()
+        facade?.reactComment(id: id, reaction: reaction, active: active) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeReactionSnapshot.self) }
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func reactReview(
+        id: String,
+        reaction: String,
+        active: Bool,
+        completion: ((NativeReactionSnapshot?, String?) -> Void)? = nil,
+    ) {
+        start()
+        facade?.reactReview(id: id, reaction: reaction, active: active) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeReactionSnapshot.self) }
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func beginBangumiLogin(completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.beginBangumiLogin { _, error in
+            Task { @MainActor in completion?(error) }
+        }
+    }
+
+    func loginWithAnime(username: String, password: String, completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.loginWithAnime(username: username, password: password) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let rawSnapshot {
+                    self.session = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? self.session
+                }
+                completion?(error)
+            }
+        }
+    }
+
+    func registerAnime(username: String, password: String, displayName: String, completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.registerAnime(username: username, password: password, displayName: displayName) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let rawSnapshot {
+                    self.session = Self.decode(rawSnapshot, as: NativeSessionSnapshot.self) ?? self.session
+                }
+                completion?(error)
+            }
+        }
+    }
+
+    func updateProfile(displayName: String, completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.updateProfile(displayName: displayName) { error in
+            Task { @MainActor in completion?(error) }
+        }
+    }
+
+    func logout(completion: ((String?) -> Void)? = nil) {
+        start()
+        facade?.logout { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if error == nil { self.profile = nil }
+                completion?(error)
+            }
+        }
+    }
+
+    func loadDiagnostics(completion: (([NativeDiagnosticSnapshot]?, String?) -> Void)? = nil) {
+        start()
+        facade?.diagnostics { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: [NativeDiagnosticSnapshot].self) }
+                self.diagnostics = snapshot ?? []
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    fileprivate static func decode<T: Decodable>(_ raw: String, as type: T.Type) -> T? {
         guard let data = raw.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
@@ -292,7 +527,9 @@ struct NativeSubjectDetailView: View {
     let summary: NativeSubjectSummary
     @ObservedObject var model: NativeAppModel
     @State private var detail: NativeSubjectDetailSnapshot?
+    @State private var community: NativeSubjectCommunitySnapshot?
     @State private var errorMessage: String?
+    @State private var communityError: String?
     @State private var isLoading = true
 
     var body: some View {
@@ -315,6 +552,13 @@ struct NativeSubjectDetailView: View {
                         action: { load(force: true) },
                     )
                 }
+                NativeSubjectCommunityView(
+                    subjectId: summary.id,
+                    community: community,
+                    errorMessage: communityError,
+                    model: model,
+                    onReload: loadCommunity,
+                )
             }
             .padding(16)
             .padding(.bottom, 32)
@@ -322,7 +566,10 @@ struct NativeSubjectDetailView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle(summary.title)
         .navigationBarTitleDisplayMode(.inline)
-        .task { load() }
+        .task {
+            load()
+            loadCommunity()
+        }
     }
 
     @ViewBuilder
@@ -367,6 +614,17 @@ struct NativeSubjectDetailView: View {
             detail = value
             errorMessage = error
             isLoading = false
+        }
+    }
+
+    private func loadCommunity() {
+        communityError = nil
+        if let cached = model.subjectCommunity[summary.id] {
+            community = cached
+        }
+        model.loadSubjectCommunity(subjectId: summary.id) { value, error in
+            community = value
+            communityError = error
         }
     }
 }

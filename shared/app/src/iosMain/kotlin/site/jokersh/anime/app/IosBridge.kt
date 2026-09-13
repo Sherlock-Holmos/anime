@@ -25,13 +25,22 @@ import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIViewController
 import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.AuthCallback
+import site.jokersh.anime.core.model.CollectionStatus
+import site.jokersh.anime.core.model.Cursor
 import site.jokersh.anime.core.model.DiscoveryFeed
 import site.jokersh.anime.core.model.ImageRef
+import site.jokersh.anime.core.model.AnimeLoginCredentials
+import site.jokersh.anime.core.model.AnimeRegistration
 import site.jokersh.anime.core.model.LoginRequest
 import site.jokersh.anime.core.model.RefreshPolicy
+import site.jokersh.anime.core.model.SearchRequest
+import site.jokersh.anime.core.model.SearchDiscovery
+import site.jokersh.anime.core.model.SearchSort
 import site.jokersh.anime.core.model.SessionState
 import site.jokersh.anime.core.model.SubjectDetail
 import site.jokersh.anime.core.model.SubjectId
+import site.jokersh.anime.core.model.UserCollectionSummary
+import site.jokersh.anime.core.model.UserProfile
 import site.jokersh.anime.core.navigation.AppRoot
 import site.jokersh.anime.data.catalog.CatalogCacheStore
 import site.jokersh.anime.data.catalog.RemoteCatalogRepository
@@ -39,11 +48,17 @@ import site.jokersh.anime.data.catalog.RemoteSearchRepository
 import site.jokersh.anime.data.collection.CollectionStore
 import site.jokersh.anime.data.collection.OfflineFirstCollectionRepository
 import site.jokersh.anime.data.comment.CommentDraftStore
+import site.jokersh.anime.data.comment.CommunityActivity
+import site.jokersh.anime.data.comment.CommunityComment
+import site.jokersh.anime.data.comment.CommunityNotification
+import site.jokersh.anime.data.comment.CommunityReaction
+import site.jokersh.anime.data.comment.CommunityReview
 import site.jokersh.anime.data.comment.OfflineFirstCommunityRepository
 import site.jokersh.anime.data.comment.RatingOutboxStore
 import site.jokersh.anime.data.comment.RemoteCommentRepository
 import site.jokersh.anime.data.comment.RemoteCommunityRepository
 import site.jokersh.anime.data.session.RemoteSessionRepository
+import site.jokersh.anime.data.session.ServiceDiagnostic
 import site.jokersh.anime.data.session.SessionTokenStore
 import site.jokersh.anime.data.session.StoredSessionToken
 import site.jokersh.anime.data.settings.PersistentSettingsRepository
@@ -233,6 +248,278 @@ public class IosNativeAppFacade internal constructor(
         }
     }
 
+    public fun loadSearchDiscovery(completion: (String?, String?) -> Unit) {
+        scope.launch {
+            val result = appContainer.searchRepository.discovery()
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun searchSubjects(
+        query: String,
+        cursor: String?,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val normalized = query.trim()
+            if (normalized.isBlank()) {
+                completion(null, "请输入搜索内容")
+                return@launch
+            }
+            val result =
+                runCatching {
+                    appContainer.searchRepository.search(
+                        SearchRequest(
+                            query = normalized,
+                            sort = SearchSort.Relevance,
+                            cursor = cursor?.takeIf(String::isNotBlank)?.let(::Cursor),
+                            pageSize = appContainer.profile.searchPageSize,
+                        ),
+                    ).getOrThrow()
+            }
+            completion(
+                result.getOrNull()?.let {
+                    json.encodeToString(it.toNativeSearchSnapshot { subject -> subject.toNativeSummary() })
+                },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun saveSearchHistory(query: String) {
+        scope.launch { appContainer.searchRepository.saveHistory(query) }
+    }
+
+    public fun loadCollection(
+        status: String?,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result =
+                appContainer.sessionRepository.collectionPage(
+                    status = status?.let(::nativeCollectionStatus),
+                    limit = 50,
+                )
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun loadActivity(
+        feed: String,
+        cursor: String?,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result = appContainer.communityRepository.feedPage(feed = feed, limit = 20, cursor = cursor)
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun loadNotifications(completion: (String?, String?) -> Unit) {
+        scope.launch {
+            val result = appContainer.communityRepository.notifications(50)
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.map(CommunityNotification::toNativeSnapshot)) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun markNotificationRead(id: String, completion: (String?) -> Unit) {
+        scope.launch { completion(appContainer.communityRepository.markNotificationRead(id).exceptionOrNull()?.message) }
+    }
+
+    public fun loadProfile(completion: (String?, String?) -> Unit) {
+        scope.launch {
+            val result =
+                runCatching {
+                    appContainer.sessionRepository.refresh().getOrThrow().user.toNativeSnapshot()
+                }
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun loadSubjectCommunity(
+        subjectId: Long,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val rating = appContainer.communityRepository.rating(subjectId)
+            val reviews = appContainer.communityRepository.reviews(subjectId, 20)
+            val comments = appContainer.communityRepository.comments(subjectId, 30)
+            val failure = rating.exceptionOrNull() ?: reviews.exceptionOrNull() ?: comments.exceptionOrNull()
+            val snapshot =
+                if (failure == null) {
+                    NativeSubjectCommunitySnapshot(
+                        rating = rating.getOrThrow().toNativeSnapshot(),
+                        reviews = reviews.getOrThrow().map(CommunityReview::toNativeSnapshot),
+                        comments = comments.getOrThrow().map(CommunityComment::toNativeSnapshot),
+                    )
+                } else {
+                    null
+                }
+            completion(snapshot?.let { json.encodeToString(it) }, failure?.message)
+        }
+    }
+
+    public fun saveRating(
+        subjectId: Long,
+        score: Int,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch {
+            completion(
+                appContainer.communityRepository
+                    .saveRating(subjectId, score, emptySet(), "public")
+                    .exceptionOrNull()
+                    ?.message,
+            )
+        }
+    }
+
+    public fun setCollection(
+        subjectId: Long,
+        status: String?,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch {
+            val message =
+                if (status == null) {
+                    appContainer.communityRepository.deleteCollection(subjectId).exceptionOrNull()?.message
+                } else {
+                    appContainer.communityRepository
+                        .setCollection(subjectId, status, null)
+                        .exceptionOrNull()
+                        ?.message
+                }
+            completion(message)
+        }
+    }
+
+    public fun createComment(
+        subjectId: Long,
+        body: String,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result = appContainer.communityRepository.createComment(subjectId, body, false)
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun createReview(
+        subjectId: Long,
+        title: String?,
+        body: String,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result = appContainer.communityRepository.createReview(
+                subjectId = subjectId,
+                kind = "review",
+                title = title,
+                body = body,
+                spoiler = false,
+                visibility = "public",
+            )
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun reactComment(
+        id: String,
+        reaction: String,
+        active: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result = appContainer.communityRepository.reactComment(id, reaction, active)
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun reactReview(
+        id: String,
+        reaction: String,
+        active: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result = appContainer.communityRepository.reactReview(id, reaction, active)
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun loginWithAnime(
+        username: String,
+        password: String,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result = appContainer.sessionRepository.loginWithAnime(AnimeLoginCredentials(username, password))
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun registerAnime(
+        username: String,
+        password: String,
+        displayName: String,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result =
+                appContainer.sessionRepository.registerAnime(
+                    AnimeRegistration(username, password, displayName),
+                )
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun updateProfile(displayName: String, completion: (String?) -> Unit) {
+        scope.launch { completion(appContainer.sessionRepository.updateProfile(displayName).exceptionOrNull()?.message) }
+    }
+
+    public fun diagnostics(completion: (String?, String?) -> Unit) {
+        scope.launch {
+            val result = appContainer.sessionRepository.diagnostics()
+            completion(
+                result.getOrNull()?.let { json.encodeToString(it.map(ServiceDiagnostic::toNativeSnapshot)) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
     public fun beginBangumiLogin(completion: (String?, String?) -> Unit) {
         scope.launch {
             val result =
@@ -328,6 +615,155 @@ private data class NativeSubjectDetailSnapshot(
     val dataUpdatedAtEpochSeconds: Long,
 )
 
+@Serializable
+private data class NativeSearchDiscoverySnapshot(
+    val trending: List<String>,
+    val recommendations: List<NativeSubjectSummary>,
+    val personalized: Boolean,
+)
+
+@Serializable
+private data class NativeSearchResultsSnapshot(
+    val items: List<NativeSubjectSummary>,
+    val nextCursor: String? = null,
+    val hasMore: Boolean,
+)
+
+@Serializable
+private data class NativeCollectionPageSnapshot(
+    val items: List<NativeCollectionItemSnapshot>,
+    val nextCursor: String? = null,
+)
+
+@Serializable
+private data class NativeCollectionItemSnapshot(
+    val subjectId: Long,
+    val title: String,
+    val originalTitle: String,
+    val posterUrl: String? = null,
+    val airDate: String? = null,
+    val score: Double,
+    val status: String,
+    val userRating: Int,
+    val comment: String,
+    val episodeProgress: Int,
+    val totalEpisodes: Int,
+    val updatedAt: String,
+)
+
+@Serializable
+private data class NativeActivityPageSnapshot(
+    val items: List<NativeActivityItemSnapshot>,
+    val nextCursor: String? = null,
+)
+
+@Serializable
+private data class NativeActivityItemSnapshot(
+    val id: String,
+    val actorId: String? = null,
+    val actorName: String,
+    val actorAvatarUrl: String? = null,
+    val kind: String,
+    val subjectId: Long? = null,
+    val subjectTitle: String? = null,
+    val posterUrl: String? = null,
+    val reviewId: String? = null,
+    val listId: String? = null,
+    val summary: String,
+    val occurredAt: String,
+)
+
+@Serializable
+private data class NativeNotificationSnapshot(
+    val id: String,
+    val kind: String,
+    val actorId: String? = null,
+    val actorName: String? = null,
+    val subjectId: Long? = null,
+    val commentId: String? = null,
+    val listId: String? = null,
+    val readAt: String? = null,
+    val createdAt: String,
+    val reviewId: String? = null,
+)
+
+@Serializable
+private data class NativeProfileSnapshot(
+    val userId: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val provider: String,
+    val reviewCount: Int,
+    val ratingCount: Int,
+    val listCount: Int,
+    val wishCount: Int,
+    val watchingCount: Int,
+    val completedCount: Int,
+    val onHoldCount: Int,
+    val droppedCount: Int,
+    val syncedAt: String? = null,
+)
+
+@Serializable
+private data class NativeDiagnosticSnapshot(
+    val endpoint: String,
+    val statusCode: Int? = null,
+    val healthy: Boolean,
+    val body: String,
+)
+
+@Serializable
+private data class NativeSubjectCommunitySnapshot(
+    val rating: NativeRatingSnapshot,
+    val reviews: List<NativeReviewSnapshot>,
+    val comments: List<NativeCommentSnapshot>,
+)
+
+@Serializable
+private data class NativeRatingSnapshot(
+    val score: Double? = null,
+    val votes: Long,
+)
+
+@Serializable
+private data class NativeReviewSnapshot(
+    val id: String,
+    val subjectId: Long,
+    val authorId: String,
+    val kind: String,
+    val title: String? = null,
+    val body: String,
+    val spoiler: Boolean,
+    val likeCount: Long,
+    val createdAt: String,
+    val owned: Boolean,
+    val bookmarkCount: Long,
+    val editedAt: String? = null,
+    val visibility: String,
+)
+
+@Serializable
+private data class NativeCommentSnapshot(
+    val id: String,
+    val parentId: String? = null,
+    val authorId: String,
+    val authorName: String,
+    val body: String,
+    val spoiler: Boolean,
+    val createdAt: String,
+    val owned: Boolean,
+    val likeCount: Long,
+    val bookmarkCount: Long,
+)
+
+@Serializable
+private data class NativeReactionSnapshot(
+    val reaction: String,
+    val active: Boolean,
+    val likeCount: Long,
+    val bookmarkCount: Long,
+)
+
 private fun DiscoveryFeed.toNativeSnapshot(): NativeDiscoverySnapshot =
     NativeDiscoverySnapshot(
         sections = sections.map { section ->
@@ -335,6 +771,106 @@ private fun DiscoveryFeed.toNativeSnapshot(): NativeDiscoverySnapshot =
         },
         generatedAtEpochSeconds = generatedAt.epochSeconds,
     )
+
+private fun SearchDiscovery.toNativeSnapshot(): NativeSearchDiscoverySnapshot =
+    NativeSearchDiscoverySnapshot(
+        trending = trending,
+        recommendations = recommendations.map { it.toNativeSummary() },
+        personalized = personalized,
+    )
+
+private fun <T> site.jokersh.anime.core.model.Page<T>.toNativeSearchSnapshot(
+    map: (T) -> NativeSubjectSummary,
+): NativeSearchResultsSnapshot =
+    NativeSearchResultsSnapshot(
+        items = items.map(map),
+        nextCursor = nextCursor?.value,
+        hasMore = hasMore,
+    )
+
+private fun site.jokersh.anime.data.session.UserCollectionPage.toNativeSnapshot(): NativeCollectionPageSnapshot =
+    NativeCollectionPageSnapshot(items = items.map(UserCollectionSummary::toNativeSnapshot), nextCursor = nextCursor)
+
+private fun UserCollectionSummary.toNativeSnapshot(): NativeCollectionItemSnapshot =
+    NativeCollectionItemSnapshot(
+        subjectId = subjectId.value,
+        title = title,
+        originalTitle = originalTitle,
+        posterUrl = posterUrl,
+        airDate = airDate,
+        score = score,
+        status = status.name,
+        userRating = userRating,
+        comment = comment,
+        episodeProgress = episodeProgress,
+        totalEpisodes = totalEpisodes,
+        updatedAt = updatedAt,
+    )
+
+private fun site.jokersh.anime.data.comment.CommunityFeedPage.toNativeSnapshot(): NativeActivityPageSnapshot =
+    NativeActivityPageSnapshot(items = items.map(CommunityActivity::toNativeSnapshot), nextCursor = nextCursor)
+
+private fun CommunityActivity.toNativeSnapshot(): NativeActivityItemSnapshot =
+    NativeActivityItemSnapshot(
+        id = id,
+        actorId = actorId,
+        actorName = actorName,
+        actorAvatarUrl = actorAvatarUrl,
+        kind = kind,
+        subjectId = subjectId,
+        subjectTitle = subjectTitle,
+        posterUrl = posterUrl,
+        reviewId = reviewId,
+        listId = listId,
+        summary = summary,
+        occurredAt = occurredAt,
+    )
+
+private fun CommunityNotification.toNativeSnapshot(): NativeNotificationSnapshot =
+    NativeNotificationSnapshot(
+        id = id,
+        kind = kind,
+        actorId = actorId,
+        actorName = actorName,
+        subjectId = subjectId,
+        commentId = commentId,
+        listId = listId,
+        readAt = readAt,
+        createdAt = createdAt,
+        reviewId = reviewId,
+    )
+
+private fun UserProfile.toNativeSnapshot(): NativeProfileSnapshot =
+    NativeProfileSnapshot(
+        userId = summary.id.value,
+        displayName = summary.displayName,
+        avatarUrl = summary.avatar.nativeUrl(),
+        provider = connectedProvider.name,
+        reviewCount = reviewCount,
+        ratingCount = ratingCount,
+        listCount = listCount,
+        wishCount = collectionCounts[CollectionStatus.Wish] ?: 0,
+        watchingCount = collectionCounts[CollectionStatus.Watching] ?: 0,
+        completedCount = collectionCounts[CollectionStatus.Completed] ?: 0,
+        onHoldCount = collectionCounts[CollectionStatus.OnHold] ?: 0,
+        droppedCount = collectionCounts[CollectionStatus.Dropped] ?: 0,
+        syncedAt = syncedAt?.toString(),
+    )
+
+private fun ServiceDiagnostic.toNativeSnapshot(): NativeDiagnosticSnapshot =
+    NativeDiagnosticSnapshot(endpoint, statusCode, healthy, body)
+
+private fun site.jokersh.anime.data.comment.CommunityRating.toNativeSnapshot(): NativeRatingSnapshot =
+    NativeRatingSnapshot(score, votes)
+
+private fun CommunityReview.toNativeSnapshot(): NativeReviewSnapshot =
+    NativeReviewSnapshot(id, subjectId, authorId, kind, title, body, spoiler, likeCount, createdAt, owned, bookmarkCount, editedAt, visibility)
+
+private fun CommunityComment.toNativeSnapshot(): NativeCommentSnapshot =
+    NativeCommentSnapshot(id, parentId, authorId, authorName, body, spoiler, createdAt, owned, likeCount, bookmarkCount)
+
+private fun CommunityReaction.toNativeSnapshot(): NativeReactionSnapshot =
+    NativeReactionSnapshot(reaction, active, likeCount, bookmarkCount)
 
 private fun SubjectDetail.toNativeSnapshot(): NativeSubjectDetailSnapshot =
     NativeSubjectDetailSnapshot(
@@ -389,6 +925,16 @@ private fun Int.toAppRoot(): AppRoot =
         2 -> AppRoot.Activity
         3 -> AppRoot.Profile
         else -> AppRoot.Discover
+    }
+
+private fun nativeCollectionStatus(value: String): CollectionStatus? =
+    when (value.lowercase()) {
+        "wish" -> CollectionStatus.Wish
+        "watching" -> CollectionStatus.Watching
+        "completed" -> CollectionStatus.Completed
+        "on_hold", "onhold" -> CollectionStatus.OnHold
+        "dropped" -> CollectionStatus.Dropped
+        else -> null
     }
 
 private fun createIosContainer(
