@@ -9,10 +9,16 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var session = NativeSessionSnapshot(status: "restoring")
 
-    private let facade: IosNativeAppFacade
+    private var facade: IosNativeAppFacade?
+    private var hasStarted = false
 
-    init() {
-        facade = IosBridge.shared.nativeAppFacade(
+    init() {}
+
+    func start() {
+        guard !hasStarted else { return }
+        hasStarted = true
+
+        let facade = IosBridge.shared.nativeAppFacade(
             openExternalUrl: { rawUrl in
                 IosAuthSessionCoordinator.shared.start(rawUrl: rawUrl)
             },
@@ -26,6 +32,7 @@ final class NativeAppModel: ObservableObject {
                 IosKeychain.shared.remove(account: account)
             },
         )
+        self.facade = facade
         facade.startSessionObservation { [weak self] rawSnapshot in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -35,11 +42,12 @@ final class NativeAppModel: ObservableObject {
         facade.start()
     }
 
-    deinit {
-        facade.stopSessionObservation()
-    }
-
     func refresh(force: Bool = false) {
+        start()
+        guard let facade else {
+            errorMessage = "iOS 原生页面尚未准备完成"
+            return
+        }
         guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
@@ -60,6 +68,11 @@ final class NativeAppModel: ObservableObject {
         force: Bool = false,
         completion: @escaping (NativeSubjectDetailSnapshot?, String?) -> Void,
     ) {
+        start()
+        guard let facade else {
+            completion(nil, "iOS 原生页面尚未准备完成")
+            return
+        }
         facade.loadSubject(subjectId: id, force: force) { rawSnapshot, error in
             Task { @MainActor in
                 let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeSubjectDetailSnapshot.self) }
@@ -130,6 +143,7 @@ struct NativeDiscoverView: View {
             }
         }
         .task {
+            model.start()
             if model.discovery == nil {
                 model.refresh()
             }
