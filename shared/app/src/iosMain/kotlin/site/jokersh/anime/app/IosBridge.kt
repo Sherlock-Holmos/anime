@@ -9,6 +9,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -168,7 +169,18 @@ public class IosNativeAppFacade internal constructor(
     private val appContainer: AppContainer,
     private val openExternalUrl: (String) -> Unit,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val coroutineExceptionHandler =
+        CoroutineExceptionHandler { _, failure ->
+            // SwiftUI must remain alive when a best-effort background request or
+            // session Flow fails. Individual API methods already return failures
+            // through their completion closures; this is the last boundary for
+            // observation/startup work that has no direct caller to report to.
+            println(
+                "[Anime iOS] uncaught facade coroutine failure: " +
+                    "${failure::class.simpleName}: ${failure.message ?: "unknown error"}",
+            )
+        }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + coroutineExceptionHandler)
     private val json = Json { encodeDefaults = true }
     private var sessionObservation: Job? = null
     private var startupJob: Job? = null
