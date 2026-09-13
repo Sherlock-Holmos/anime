@@ -55,7 +55,7 @@ private final class NativeRootScrollViewController: UIViewController {
     private let contentViewController: UIViewController
     private let scrollView = UIScrollView()
     private let topEdgeMaterialView = UIVisualEffectView(
-        effect: UIBlurEffect(style: .systemChromeMaterial)
+        effect: UIBlurEffect(style: .systemMaterial)
     )
     private let topEdgeMaterialMask = CAGradientLayer()
     private var contentHeightConstraint: NSLayoutConstraint?
@@ -121,11 +121,11 @@ private final class NativeRootScrollViewController: UIViewController {
         topEdgeMaterialView.layer.mask = topEdgeMaterialMask
         topEdgeMaterialMask.colors = [
             UIColor.black.cgColor,
-            UIColor.black.withAlphaComponent(0.94).cgColor,
-            UIColor.black.withAlphaComponent(0.68).cgColor,
+            UIColor.black.withAlphaComponent(0.9).cgColor,
+            UIColor.black.withAlphaComponent(0.48).cgColor,
             UIColor.clear.cgColor,
         ]
-        topEdgeMaterialMask.locations = [0, 0.56, 0.82, 1]
+        topEdgeMaterialMask.locations = [0, 0.42, 0.78, 1]
         let materialHeightConstraint = topEdgeMaterialView.heightAnchor.constraint(equalToConstant: 144)
         topEdgeMaterialHeightConstraint = materialHeightConstraint
         view.addSubview(topEdgeMaterialView)
@@ -164,7 +164,7 @@ private final class NativeRootScrollViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateNativeScrollGeometry(preserveOffset: true)
-        let materialHeight = max(view.safeAreaInsets.top + 86, 136)
+        let materialHeight = max(view.safeAreaInsets.top + 44, 104)
         if abs((topEdgeMaterialHeightConstraint?.constant ?? 0) - materialHeight) > 0.5 {
             topEdgeMaterialHeightConstraint?.constant = materialHeight
         }
