@@ -64,13 +64,16 @@ public class RemoteSessionRepository(
     private val diagnosticEndpoints: List<ServiceDiagnosticEndpoint> =
         listOf(ServiceDiagnosticEndpoint("当前服务", apiBaseUrl)),
     private val json: Json = Json { ignoreUnknownKeys = true },
+    private val apiBaseUrlProvider: (() -> String)? = null,
 ) : SessionRepository {
-    private val baseUrl: String = apiBaseUrl.trimEnd('/')
+    private val initialBaseUrl: String = apiBaseUrl.trimEnd('/')
+    private val baseUrl: String
+        get() = (apiBaseUrlProvider?.invoke() ?: initialBaseUrl).trimEnd('/')
     private val state: MutableStateFlow<SessionState> =
         MutableStateFlow(if (tokenStore.load() == null) SessionState.Guest else SessionState.Restoring)
 
     init {
-        require(baseUrl.startsWith("http://") || baseUrl.startsWith("https://")) {
+        require(initialBaseUrl.startsWith("http://") || initialBaseUrl.startsWith("https://")) {
             "apiBaseUrl must use HTTP or HTTPS"
         }
         require(diagnosticEndpoints.isNotEmpty()) { "diagnosticEndpoints must not be empty" }

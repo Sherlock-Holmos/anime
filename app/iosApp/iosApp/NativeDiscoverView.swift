@@ -15,6 +15,7 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var activityPage: NativeActivityPageSnapshot?
     @Published private(set) var notifications: [NativeNotificationSnapshot] = []
     @Published private(set) var profile: NativeProfileSnapshot?
+    @Published private(set) var networkContext: NativeNetworkContextSnapshot?
     @Published private(set) var subjectCommunity: [Int64: NativeSubjectCommunitySnapshot] = [:]
     @Published private(set) var diagnostics: [NativeDiagnosticSnapshot] = []
     @Published private(set) var isLoadingDiagnostics = false
@@ -393,6 +394,18 @@ final class NativeAppModel: ObservableObject {
                     Self.persist(snapshot)
                 }
                 completion?(self.profile, error)
+            }
+        }
+    }
+
+    func loadNetworkContext(completion: ((NativeNetworkContextSnapshot?, String?) -> Void)? = nil) {
+        start()
+        facade?.loadNetworkContext { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeNetworkContextSnapshot.self) }
+                if let snapshot { self.networkContext = snapshot }
+                completion?(snapshot, error)
             }
         }
     }

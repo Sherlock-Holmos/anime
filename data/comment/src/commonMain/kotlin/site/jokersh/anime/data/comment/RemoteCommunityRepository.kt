@@ -24,8 +24,11 @@ public class RemoteCommunityRepository(
     apiBaseUrl: String,
     private val tokenProvider: () -> String?,
     private val json: Json = Json { ignoreUnknownKeys = true },
+    private val apiBaseUrlProvider: (() -> String)? = null,
 ) : CommunityRepository {
-    private val baseUrl = apiBaseUrl.trimEnd('/')
+    private val initialBaseUrl = apiBaseUrl.trimEnd('/')
+    private val baseUrl: String
+        get() = (apiBaseUrlProvider?.invoke() ?: initialBaseUrl).trimEnd('/')
 
     public override suspend fun feed(limit: Int): Result<List<CommunityActivity>> =
         feedPage(limit = limit).map { it.items }

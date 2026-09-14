@@ -3,6 +3,8 @@ package site.jokersh.anime.app
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -84,11 +87,18 @@ import site.jokersh.anime.data.settings.PersistentSettingsRepository
 import site.jokersh.anime.data.settings.SettingsStore
 import kotlin.time.Instant
 
+internal class IosApiRouteState {
+    var baseUrl: String = PRODUCTION_API_BASE_URL
+
+    var context: NativeNetworkContext? = null
+}
+
 /** iOS host entry exported by AnimeShared.framework. */
 public object IosBridge {
     private val pendingAuthCallback = MutableStateFlow<AuthCallback?>(null)
     private var sharedAppContainer: AppContainer? = null
     private var sharedNativeFacade: IosNativeAppFacade? = null
+    private var sharedApiRouteState: IosApiRouteState? = null
 
     /** SwiftUI entry point backed by the same KMP container as the legacy Compose host. */
     public fun nativeAppFacade(
@@ -98,10 +108,9 @@ public object IosBridge {
         removeSecret: (String) -> Unit,
     ): IosNativeAppFacade {
         sharedNativeFacade?.let { return it }
-        return IosNativeAppFacade(
-            appContainer(readSecret, writeSecret, removeSecret),
-            openExternalUrl,
-        ).also {
+        val container = appContainer(readSecret, writeSecret, removeSecret)
+        val routeState = sharedApiRouteState ?: error("iOS API route state was not initialized")
+        return IosNativeAppFacade(container, openExternalUrl, routeState).also {
             sharedNativeFacade = it
             it.consumePendingAuthCallback()
         }
@@ -128,9 +137,20 @@ public object IosBridge {
         readSecret: (String) -> String?,
         writeSecret: (String, String) -> Unit,
         removeSecret: (String) -> Unit,
-    ): AppContainer =
-        sharedAppContainer
-            ?: createIosContainer(readSecret, writeSecret, removeSecret).also { sharedAppContainer = it }
+    ): AppContainer {
+        sharedAppContainer?.let { return it }
+        val routeState = IosApiRouteState()
+        val container =
+            createIosContainer(
+                readSecret = readSecret,
+                writeSecret = writeSecret,
+                removeSecret = removeSecret,
+                apiBaseUrlProvider = { routeState.baseUrl },
+            )
+        sharedApiRouteState = routeState
+        sharedAppContainer = container
+        return container
+    }
 
     internal fun pendingCallback(): AuthCallback? = pendingAuthCallback.value
 
@@ -149,6 +169,7 @@ public object IosBridge {
 public class IosNativeAppFacade internal constructor(
     private val appContainer: AppContainer,
     private val openExternalUrl: (String) -> Unit,
+    private val apiRouteState: IosApiRouteState,
 ) {
     private val coroutineExceptionHandler =
         CoroutineExceptionHandler { _, failure ->
@@ -168,6 +189,16 @@ public class IosNativeAppFacade internal constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + coroutineExceptionHandler)
     private val json = Json { encodeDefaults = true }
     private val sessionOperationMutex = Mutex()
+    private val routeSelectionMutex = Mutex()
+    private val routeClient =
+        HttpClient(Darwin) {
+            install(HttpTimeout) {
+                connectTimeoutMillis = 5_000
+                requestTimeoutMillis = 8_000
+                socketTimeoutMillis = 8_000
+            }
+        }
+    private var routeReady = false
     private var sessionObservation: Job? = null
     private var startupJob: Job? = null
 
@@ -184,6 +215,7 @@ public class IosNativeAppFacade internal constructor(
             val outcome =
                 try {
                     withTimeout(IOS_OPERATION_TIMEOUT_MILLIS) {
+                        ensureApiRoute()
                         println("[Anime iOS] operation begin: $name")
                         block()
                     }
@@ -205,12 +237,57 @@ public class IosNativeAppFacade internal constructor(
         if (startupJob?.isActive == true) return
         startupJob =
             scope.launch {
+                startupStep("network route selection") { ensureApiRoute() }
                 startupStep("session restore") {
                     sessionOperationMutex.withLock { appContainer.sessionRepository.refresh() }
                 }
                 startupStep("collection sync") { appContainer.collectionRepository.requestSync() }
                 startupStep("rating outbox") { appContainer.communityRepository.retryPendingRatings() }
             }
+    }
+
+    /** Resolves visitor location through Cloudflare and exposes the selected entrance to SwiftUI. */
+    public fun loadNetworkContext(completion: (String?, String?) -> Unit) {
+        scope.launch {
+            val result =
+                runCatching {
+                    withTimeout(10_000) { ensureApiRoute() }
+                    apiRouteState.context ?: NativeNetworkContext()
+                }
+            completion(
+                result.getOrNull()?.let { json.encodeToString(NativeNetworkContext.serializer(), it) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    private suspend fun ensureApiRoute() {
+        routeSelectionMutex.withLock {
+            if (routeReady) return@withLock
+            try {
+                val response = routeClient.get("$PRODUCTION_API_BASE_URL/api/v1/network/context")
+                check(response.status.value in 200..299) {
+                    "Network context request failed with ${response.status.value}"
+                }
+                val context = json.decodeFromString<NativeNetworkContext>(response.bodyAsText())
+                apiRouteState.context = context
+                apiRouteState.baseUrl =
+                    if (context.recommendedRoute == "direct") DIRECT_API_BASE_URL else PRODUCTION_API_BASE_URL
+                println(
+                    "[Anime iOS] API route selected: ${context.recommendedRoute}, " +
+                        "location=${context.displayLocation ?: "unknown"}",
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Throwable) {
+                // An unavailable geo bootstrap must never block the app. Unknown location is
+                // treated as non-domestic and stays on the Cloudflare entrance.
+                apiRouteState.context = NativeNetworkContext()
+                apiRouteState.baseUrl = PRODUCTION_API_BASE_URL
+                println("[Anime iOS] API route selection failed: ${failure.message ?: failure::class.simpleName}")
+            }
+            routeReady = true
+        }
     }
 
     private suspend fun startupStep(
@@ -247,6 +324,7 @@ public class IosNativeAppFacade internal constructor(
 
     public fun refreshSession(completion: (String?, String?) -> Unit) {
         scope.launch {
+            ensureApiRoute()
             val result = sessionOperationMutex.withLock { appContainer.sessionRepository.refresh() }
             completion(
                 result.getOrNull()?.let { json.encodeToString(NativeSessionSnapshot.serializer(), it.toNativeSnapshot()) },
@@ -1242,6 +1320,16 @@ internal data class NativeProfileSnapshot(
 )
 
 @Serializable
+internal data class NativeNetworkContext(
+    @SerialName("country_code") val countryCode: String? = null,
+    val region: String? = null,
+    val city: String? = null,
+    @SerialName("display_location") val displayLocation: String? = null,
+    @SerialName("is_domestic") val isDomestic: Boolean = false,
+    @SerialName("recommended_route") val recommendedRoute: String = "cloudflare",
+)
+
+@Serializable
 internal data class NativeDiagnosticSnapshot(
     val endpoint: String,
     val statusCode: Int? = null,
@@ -1675,8 +1763,9 @@ private fun createIosContainer(
     readSecret: (String) -> String?,
     writeSecret: (String, String) -> Unit,
     removeSecret: (String) -> Unit,
+    apiBaseUrlProvider: () -> String = { PRODUCTION_API_BASE_URL },
 ): AppContainer {
-    val baseUrl = PRODUCTION_API_BASE_URL
+    val baseUrl = apiBaseUrlProvider()
     val client =
         HttpClient(Darwin) {
             install(HttpTimeout) {
@@ -1702,12 +1791,14 @@ private fun createIosContainer(
                     ServiceDiagnosticEndpoint("Cloudflare 入口", PRODUCTION_API_BASE_URL),
                     ServiceDiagnosticEndpoint("腾讯云直连", DIRECT_API_BASE_URL),
                 ),
+            apiBaseUrlProvider = apiBaseUrlProvider,
         )
     val remoteCommunity =
         RemoteCommunityRepository(
             client = client,
             apiBaseUrl = baseUrl,
             tokenProvider = { tokenStore.load()?.token },
+            apiBaseUrlProvider = apiBaseUrlProvider,
         )
     return createAppContainer(
         profile =
@@ -1718,8 +1809,20 @@ private fun createIosContainer(
                 diagnosticsEnabled = false,
                 searchPageSize = 20,
             ),
-        catalogRepository = RemoteCatalogRepository(client, baseUrl, cacheStore = IosCatalogCacheStore()),
-        searchRepository = RemoteSearchRepository(client, baseUrl, tokenProvider = { tokenStore.load()?.token }),
+        catalogRepository =
+            RemoteCatalogRepository(
+                client,
+                baseUrl,
+                cacheStore = IosCatalogCacheStore(),
+                apiBaseUrlProvider = apiBaseUrlProvider,
+            ),
+        searchRepository =
+            RemoteSearchRepository(
+                client,
+                baseUrl,
+                tokenProvider = { tokenStore.load()?.token },
+                apiBaseUrlProvider = apiBaseUrlProvider,
+            ),
         sessionRepository = remoteSession,
         communityRepository = OfflineFirstCommunityRepository(remoteCommunity, IosRatingOutboxStore()),
         settingsRepository = PersistentSettingsRepository(IosSettingsStore()),

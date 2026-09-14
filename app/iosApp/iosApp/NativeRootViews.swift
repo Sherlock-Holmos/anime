@@ -89,6 +89,24 @@ struct NativeProfileSnapshot: Codable {
     var avatarURL: URL? { avatarUrl.flatMap(URL.init(string:)) }
 }
 
+struct NativeNetworkContextSnapshot: Codable {
+    let countryCode: String?
+    let region: String?
+    let city: String?
+    let displayLocation: String?
+    let isDomestic: Bool
+    let recommendedRoute: String
+
+    enum CodingKeys: String, CodingKey {
+        case countryCode = "country_code"
+        case region
+        case city
+        case displayLocation = "display_location"
+        case isDomestic = "is_domestic"
+        case recommendedRoute = "recommended_route"
+    }
+}
+
 struct NativeDiagnosticSnapshot: Codable, Identifiable {
     let endpoint: String
     let statusCode: Int?
@@ -1203,6 +1221,7 @@ struct NativeProfileView: View {
         }
         .task {
             model.start()
+            model.loadNetworkContext()
             if model.session.status == "authenticated" { model.loadProfile() }
         }
         .onChange(of: model.session.status) { _, status in
@@ -1215,8 +1234,18 @@ struct NativeProfileView: View {
         HStack(spacing: 14) {
             NativeAvatar(url: model.profile?.avatarURL ?? model.session.avatarURL, name: model.profile?.displayName ?? model.session.displayName)
             VStack(alignment: .leading, spacing: 4) {
-                Text(model.profile?.displayName ?? model.session.displayName ?? "Anime 用户")
-                    .font(.title3.weight(.bold))
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(model.profile?.displayName ?? model.session.displayName ?? "Anime 用户")
+                        .font(.title3.weight(.bold))
+                    if let location = model.networkContext?.displayLocation,
+                       !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("IP 位置 · \(location)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                }
                 Text("已登录 · \(model.profile?.provider ?? "Anime")")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

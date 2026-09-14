@@ -56,8 +56,11 @@ public class RemoteCatalogRepository(
     apiBaseUrl: String,
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val cacheStore: CatalogCacheStore = InMemoryCatalogCacheStore(),
+    private val apiBaseUrlProvider: (() -> String)? = null,
 ) : CatalogRepository {
-    private val baseUrl = apiBaseUrl.trimEnd('/')
+    private val initialBaseUrl = apiBaseUrl.trimEnd('/')
+    private val baseUrl: String
+        get() = (apiBaseUrlProvider?.invoke() ?: initialBaseUrl).trimEnd('/')
     private val discovery = MutableStateFlow(ResourceState<DiscoveryFeed>(null, null, false, null))
     private val subjects = mutableMapOf<Long, MutableStateFlow<ResourceState<SubjectDetail>>>()
     private val episodes = mutableMapOf<Long, MutableStateFlow<ResourceState<List<Episode>>>>()
@@ -66,7 +69,7 @@ public class RemoteCatalogRepository(
     private val refreshMutex = Mutex()
 
     init {
-        require(baseUrl.startsWith("http://") || baseUrl.startsWith("https://")) {
+        require(initialBaseUrl.startsWith("http://") || initialBaseUrl.startsWith("https://")) {
             "apiBaseUrl must use HTTP or HTTPS"
         }
     }
@@ -364,13 +367,16 @@ public class RemoteSearchRepository(
     apiBaseUrl: String,
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val tokenProvider: () -> String? = { null },
+    private val apiBaseUrlProvider: (() -> String)? = null,
 ) : SearchRepository {
-    private val baseUrl = apiBaseUrl.trimEnd('/')
+    private val initialBaseUrl = apiBaseUrl.trimEnd('/')
+    private val baseUrl: String
+        get() = (apiBaseUrlProvider?.invoke() ?: initialBaseUrl).trimEnd('/')
     private val history = MutableStateFlow<List<SearchHistoryItem>>(emptyList())
     private val historyMutex = Mutex()
 
     init {
-        require(baseUrl.startsWith("http://") || baseUrl.startsWith("https://")) {
+        require(initialBaseUrl.startsWith("http://") || initialBaseUrl.startsWith("https://")) {
             "apiBaseUrl must use HTTP or HTTPS"
         }
     }
