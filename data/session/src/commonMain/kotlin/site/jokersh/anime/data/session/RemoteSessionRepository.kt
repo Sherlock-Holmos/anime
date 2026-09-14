@@ -228,10 +228,10 @@ public class RemoteSessionRepository(
 
     override suspend fun updateProfile(displayName: String): Result<Unit> =
         runCatching {
-            val stored = tokenStore.load() ?: error("请先登录 Anime")
+            val token = accessToken()
             val response =
                 client.patch("$baseUrl/api/v1/me") {
-                    header(HttpHeaders.Authorization, "Bearer ${stored.token}")
+                    header(HttpHeaders.Authorization, "Bearer $token")
                     contentType(ContentType.Application.Json)
                     setBody(json.encodeToString(UpdateProfileRequest(displayName)))
                 }
@@ -261,10 +261,10 @@ public class RemoteSessionRepository(
 
     override suspend fun exportMyData(): Result<String> =
         runCatching {
-            val stored = tokenStore.load() ?: error("请先登录 Anime")
+            val token = accessToken()
             val response =
                 client.get("$baseUrl/api/v1/me/export") {
-                    header(HttpHeaders.Authorization, "Bearer ${stored.token}")
+                    header(HttpHeaders.Authorization, "Bearer $token")
                 }
             val text = response.bodyAsText()
             check(response.status.value in 200..299) { text.ifBlank { "导出失败：${response.status.value}" } }
@@ -273,10 +273,10 @@ public class RemoteSessionRepository(
 
     override suspend fun deleteAccount(): Result<Unit> =
         runCatching {
-            val stored = tokenStore.load() ?: error("请先登录 Anime")
+            val token = accessToken()
             val response =
                 client.delete("$baseUrl/api/v1/me") {
-                    header(HttpHeaders.Authorization, "Bearer ${stored.token}")
+                    header(HttpHeaders.Authorization, "Bearer $token")
                 }
             val text = response.bodyAsText()
             check(response.status.value in 200..299) { text.ifBlank { "账户注销失败：${response.status.value}" } }
@@ -331,8 +331,11 @@ public class RemoteSessionRepository(
         transform: (T) -> R,
     ): Result<R> =
         runCatching {
-            val stored = tokenStore.load() ?: error("请先登录 Anime")
-            val response = client.get("$baseUrl$path") { header(HttpHeaders.Authorization, "Bearer ${stored.token}") }
+            var response = client.get("$baseUrl$path") { header(HttpHeaders.Authorization, "Bearer ${accessToken()}") }
+            if (response.status.value == 401) {
+                val refreshedToken = refreshAfterUnauthorized()
+                response = client.get("$baseUrl$path") { header(HttpHeaders.Authorization, "Bearer $refreshedToken") }
+            }
             val text = response.bodyAsText()
             check(response.status.value in 200..299) { text.ifBlank { "请求失败：${response.status.value}" } }
             transform(json.decodeFromString<T>(text))
@@ -343,18 +346,41 @@ public class RemoteSessionRepository(
         body: T?,
     ): Result<Unit> =
         runCatching {
-            val stored = tokenStore.load() ?: error("请先登录 Anime")
-            val response =
-                client.post("$baseUrl$path") {
-                    header(HttpHeaders.Authorization, "Bearer ${stored.token}")
+            var response = client.post("$baseUrl$path") {
+                header(HttpHeaders.Authorization, "Bearer ${accessToken()}")
+                if (body != null) {
+                    contentType(ContentType.Application.Json)
+                    setBody(json.encodeToString(body))
+                }
+            }
+            if (response.status.value == 401) {
+                val refreshedToken = refreshAfterUnauthorized()
+                response = client.post("$baseUrl$path") {
+                    header(HttpHeaders.Authorization, "Bearer $refreshedToken")
                     if (body != null) {
                         contentType(ContentType.Application.Json)
                         setBody(json.encodeToString(body))
                     }
                 }
+            }
             val text = response.bodyAsText()
             check(response.status.value in 200..299) { text.ifBlank { "请求失败：${response.status.value}" } }
         }
+
+    private suspend fun accessToken(): String {
+        val stored = tokenStore.load() ?: error("请先登录 Anime")
+        if (stored.expiresAt <= Clock.System.now() + 2.minutes) {
+            if (stored.refreshToken == null) throw UnauthorizedSessionException()
+            refresh().getOrThrow()
+            return tokenStore.load()?.token ?: throw UnauthorizedSessionException()
+        }
+        return stored.token
+    }
+
+    private suspend fun refreshAfterUnauthorized(): String {
+        refresh().getOrThrow()
+        return tokenStore.load()?.token ?: throw UnauthorizedSessionException()
+    }
 
     private suspend fun nativeAuthenticate(
         path: String,

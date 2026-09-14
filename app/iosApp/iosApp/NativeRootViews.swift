@@ -302,6 +302,12 @@ struct NativeLibraryView: View {
     @State private var nextCursor: String?
     @State private var isSearching = false
     @State private var errorMessage: String?
+    @State private var selectedType = "all"
+    @State private var selectedAiring = "all"
+    @State private var selectedSort = "relevance"
+    @State private var yearStartText = ""
+    @State private var yearEndText = ""
+    @State private var showingFilters = false
 
     var body: some View {
         NavigationStack {
@@ -335,6 +341,16 @@ struct NativeLibraryView: View {
             .refreshable { await refreshRecommendations() }
             .navigationTitle("资料库")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingFilters = true
+                    } label: {
+                        Image(systemName: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    }
+                    .accessibilityLabel("搜索筛选")
+                }
+            }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
                 NativeSubjectDetailView(summary: subject, model: model)
             }
@@ -342,6 +358,20 @@ struct NativeLibraryView: View {
         .task {
             model.start()
             if model.searchDiscovery == nil { model.loadSearchDiscovery() }
+        }
+        .sheet(isPresented: $showingFilters) {
+            NativeSearchFiltersSheet(
+                selectedType: $selectedType,
+                selectedAiring: $selectedAiring,
+                selectedSort: $selectedSort,
+                yearStartText: $yearStartText,
+                yearEndText: $yearEndText,
+            ) {
+                if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    submitSearch()
+                }
+            }
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -388,8 +418,16 @@ struct NativeLibraryView: View {
 
     private var resultGrid: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("搜索结果")
-                .font(.title3.weight(.bold))
+            HStack(alignment: .firstTextBaseline) {
+                Text("搜索结果")
+                    .font(.title3.weight(.bold))
+                Spacer()
+                if hasActiveFilters {
+                    Text(activeFilterSummary)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 18) {
                 ForEach(results) { subject in
                     NavigationLink(value: subject) {
@@ -411,7 +449,14 @@ struct NativeLibraryView: View {
         guard !normalized.isEmpty else { return }
         isSearching = true
         errorMessage = nil
-        model.search(query: normalized) { snapshot, error in
+        model.search(
+            query: normalized,
+            typesCsv: typeQueryValue,
+            yearStart: Int(yearStartText),
+            yearEnd: Int(yearEndText),
+            airingCsv: airingQueryValue,
+            sort: selectedSort,
+        ) { snapshot, error in
             results = snapshot?.items ?? []
             nextCursor = snapshot?.nextCursor
             errorMessage = error
@@ -424,7 +469,15 @@ struct NativeLibraryView: View {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else { return }
         isSearching = true
-        model.search(query: normalized, cursor: cursor) { snapshot, error in
+        model.search(
+            query: normalized,
+            cursor: cursor,
+            typesCsv: typeQueryValue,
+            yearStart: Int(yearStartText),
+            yearEnd: Int(yearEndText),
+            airingCsv: airingQueryValue,
+            sort: selectedSort,
+        ) { snapshot, error in
             if let snapshot {
                 results.append(contentsOf: snapshot.items)
                 nextCursor = snapshot.nextCursor
@@ -438,6 +491,117 @@ struct NativeLibraryView: View {
         await withCheckedContinuation { continuation in
             model.loadSearchDiscovery { _ in continuation.resume() }
         }
+    }
+
+    private var typeQueryValue: String? { selectedType == "all" ? nil : selectedType }
+    private var airingQueryValue: String? { selectedAiring == "all" ? nil : selectedAiring }
+    private var hasActiveFilters: Bool {
+        selectedType != "all" || selectedAiring != "all" || selectedSort != "relevance" ||
+            !yearStartText.isEmpty || !yearEndText.isEmpty
+    }
+
+    private var activeFilterSummary: String {
+        var values: [String] = []
+        if selectedType != "all" { values.append(selectedType.searchTypeName) }
+        if selectedAiring != "all" { values.append(selectedAiring.searchAiringName) }
+        if selectedSort != "relevance" { values.append(selectedSort.searchSortName) }
+        if !yearStartText.isEmpty || !yearEndText.isEmpty {
+            values.append("年份")
+        }
+        return values.joined(separator: " · ")
+    }
+}
+
+private struct NativeSearchFiltersSheet: View {
+    @Binding var selectedType: String
+    @Binding var selectedAiring: String
+    @Binding var selectedSort: String
+    @Binding var yearStartText: String
+    @Binding var yearEndText: String
+    let onApply: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var validationMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("筛选") {
+                    Picker("类型", selection: $selectedType) {
+                        Text("全部类型").tag("all")
+                        Text("TV").tag("tv")
+                        Text("Web").tag("web")
+                        Text("OVA").tag("ova")
+                        Text("剧场版").tag("movie")
+                        Text("其他").tag("other")
+                    }
+                    Picker("播出状态", selection: $selectedAiring) {
+                        Text("全部状态").tag("all")
+                        Text("未开播").tag("announced")
+                        Text("连载中").tag("airing")
+                        Text("已完结").tag("finished")
+                    }
+                    Picker("排序", selection: $selectedSort) {
+                        Text("相关度").tag("relevance")
+                        Text("评分优先").tag("rating")
+                        Text("最近更新").tag("updated")
+                    }
+                }
+
+                Section("年份范围") {
+                    TextField("起始年份（可选）", text: $yearStartText)
+                        .keyboardType(.numberPad)
+                    TextField("结束年份（可选）", text: $yearEndText)
+                        .keyboardType(.numberPad)
+                    if let validationMessage {
+                        Text(validationMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section {
+                    Button("清除筛选") {
+                        selectedType = "all"
+                        selectedAiring = "all"
+                        selectedSort = "relevance"
+                        yearStartText = ""
+                        yearEndText = ""
+                        validationMessage = nil
+                    }
+                }
+            }
+            .navigationTitle("搜索筛选")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("应用") { apply() }
+                }
+            }
+        }
+    }
+
+    private func apply() {
+        let start = yearStartText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let end = yearEndText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let startValue = start.isEmpty ? nil : Int(start)
+        let endValue = end.isEmpty ? nil : Int(end)
+        guard (start.isEmpty || startValue != nil), (end.isEmpty || endValue != nil) else {
+            validationMessage = "年份必须是数字"
+            return
+        }
+        guard (startValue == nil || startValue! >= 1900), (endValue == nil || endValue! >= 1900) else {
+            validationMessage = "年份应不早于 1900 年"
+            return
+        }
+        guard startValue == nil || endValue == nil || startValue! <= endValue! else {
+            validationMessage = "起始年份不能晚于结束年份"
+            return
+        }
+        onApply()
+        dismiss()
     }
 }
 
@@ -1690,11 +1854,13 @@ struct NativeSubjectCommunityView: View {
     let subjectId: Int64
     let community: NativeSubjectCommunitySnapshot?
     let errorMessage: String?
+    let totalEpisodes: Int?
     @ObservedObject var model: NativeAppModel
     let onReload: () -> Void
 
     @State private var selectedScore = 0
     @State private var selectedCollectionStatus: String?
+    @State private var selectedCollectionProgress = 0
     @State private var commentText = ""
     @State private var commentSpoiler = false
     @State private var isSubmitting = false
@@ -1897,6 +2063,21 @@ struct NativeSubjectCommunityView: View {
                     Label(selectedCollectionStatus?.displayName ?? "收藏状态", systemImage: selectedCollectionStatus == nil ? "plus.circle" : "checkmark.circle.fill")
                 }
                 .buttonStyle(.bordered)
+                .disabled(model.isRestoringSession || isSavingCollection)
+            }
+
+            if selectedCollectionStatus != nil {
+                Stepper(value: Binding(
+                    get: { selectedCollectionProgress },
+                    set: { saveCollectionProgress($0) },
+                ), in: 0...max(0, totalEpisodes ?? 999)) {
+                    HStack {
+                        Label("观看进度", systemImage: "play.rectangle")
+                        Spacer()
+                        Text(progressLabel)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 .disabled(model.isRestoringSession || isSavingCollection)
             }
         }
@@ -2231,12 +2412,14 @@ struct NativeSubjectCommunityView: View {
         guard model.isAuthenticated else {
             selectedScore = 0
             selectedCollectionStatus = nil
+            selectedCollectionProgress = 0
             return
         }
         selectedScore = community?.personal?.userRating ?? model.cachedUserRating(subjectId: subjectId) ?? 0
         selectedCollectionStatus = community?.personal?.isCollected == false
             ? nil
             : community?.personal?.collectionStatus
+        selectedCollectionProgress = max(0, community?.personal?.collectionEpisodeProgress ?? 0)
     }
 
     private var commentDraftKey: String {
@@ -2288,15 +2471,43 @@ struct NativeSubjectCommunityView: View {
         guard !isSavingCollection else { return }
         isSavingCollection = true
         message = nil
-        model.setCollection(subjectId: subjectId, status: status) { error in
+        model.setCollection(subjectId: subjectId, status: status, episodeProgress: status == nil ? nil : selectedCollectionProgress) { error in
             isSavingCollection = false
             if error == nil {
                 selectedCollectionStatus = status
                 message = status.map { "已加入\($0.displayName)" } ?? "已移出片库"
+                onReload()
             } else if let error {
                 message = "收藏失败：\(error)"
             }
         }
+    }
+
+    private func saveCollectionProgress(_ progress: Int) {
+        guard let status = selectedCollectionStatus, !isSavingCollection else { return }
+        let maximum = max(0, totalEpisodes ?? 999)
+        let normalized = min(max(progress, 0), maximum)
+        guard normalized != selectedCollectionProgress else { return }
+        let previous = selectedCollectionProgress
+        selectedCollectionProgress = normalized
+        isSavingCollection = true
+        model.setCollection(subjectId: subjectId, status: status, episodeProgress: normalized) { error in
+            isSavingCollection = false
+            if let error {
+                selectedCollectionProgress = previous
+                message = "进度保存失败：\(error)"
+            } else {
+                message = "观看进度已保存"
+                onReload()
+            }
+        }
+    }
+
+    private var progressLabel: String {
+        if let totalEpisodes, totalEpisodes > 0 {
+            return "\(selectedCollectionProgress)/\(totalEpisodes)"
+        }
+        return "第 \(selectedCollectionProgress) 集"
     }
 
     private func submitComment() {
@@ -2403,6 +2614,25 @@ struct NativeSettingsView: View {
                 } label: {
                     Label("服务诊断", systemImage: "waveform.path.ecg")
                 }
+            }
+
+            Section("外观") {
+                Picker("主题", selection: Binding(
+                    get: { model.appearanceTheme },
+                    set: { model.setAppearanceTheme($0) },
+                )) {
+                    Text("跟随系统").tag("system")
+                    Text("浅色").tag("light")
+                    Text("深色").tag("dark")
+                }
+                Toggle("原生玻璃效果", isOn: Binding(
+                    get: { model.glassEnabled },
+                    set: { model.setGlassEnabled($0) },
+                ))
+                Toggle("减少动态效果", isOn: Binding(
+                    get: { model.reduceMotionEnabled },
+                    set: { model.setReduceMotionEnabled($0) },
+                ))
             }
 
             Section("关于") {
@@ -3036,6 +3266,34 @@ private extension String {
         case "popular": return "热门"
         case "public": return "全站"
         default: return self
+        }
+    }
+
+    var searchTypeName: String {
+        switch self {
+        case "tv": return "TV"
+        case "web": return "Web"
+        case "ova": return "OVA"
+        case "movie": return "剧场版"
+        case "other": return "其他"
+        default: return self
+        }
+    }
+
+    var searchAiringName: String {
+        switch self {
+        case "announced": return "未开播"
+        case "airing": return "连载中"
+        case "finished": return "已完结"
+        default: return self
+        }
+    }
+
+    var searchSortName: String {
+        switch self {
+        case "rating": return "评分优先"
+        case "updated": return "最近更新"
+        default: return "相关度"
         }
     }
 }

@@ -6,7 +6,6 @@ import AnimeShared
 
 struct ContentView: View {
     @State private var selectedRootIndex = 0
-    @State private var nativeGlassEnabled = true
     @StateObject private var nativeModel = NativeAppModel()
 
     var body: some View {
@@ -28,10 +27,24 @@ struct ContentView: View {
         // Keep the tab bar surface under SwiftUI's ownership so its scroll-edge material,
         // selection animation and safe-area treatment stay native.
         .toolbarBackgroundVisibility(
-            nativeGlassEnabled ? .automatic : .hidden,
+            nativeModel.glassEnabled ? .automatic : .hidden,
             for: .tabBar
         )
         .background(Color.clear)
+        .preferredColorScheme(preferredColorScheme)
+        .transaction { transaction in
+            if nativeModel.reduceMotionEnabled {
+                transaction.animation = nil
+            }
+        }
+        .onOpenURL { url in
+            _ = nativeModel.handleExternalUrl(url)
+        }
+        .sheet(item: $nativeModel.pendingSubject) { subject in
+            NavigationStack {
+                NativeSubjectDetailView(summary: subject, model: nativeModel)
+            }
+        }
     }
 
     private let tabs: [(title: String, systemImage: String)] = [
@@ -43,6 +56,14 @@ struct ContentView: View {
         ("动态", "bubble.left.and.bubble.right"),
         ("我的", "person.crop.circle"),
     ]
+
+    private var preferredColorScheme: ColorScheme? {
+        switch nativeModel.appearanceTheme {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
 }
 
 final class IosKeychain {

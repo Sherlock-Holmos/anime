@@ -25,6 +25,7 @@ import platform.Foundation.NSURLComponents
 import platform.Foundation.NSURLQueryItem
 import platform.Foundation.NSUserDefaults
 import site.jokersh.anime.core.model.AppError
+import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.AuthCallback
 import site.jokersh.anime.core.model.CharacterCredit
 import site.jokersh.anime.core.model.CollectionStatus
@@ -43,6 +44,7 @@ import site.jokersh.anime.core.model.SessionState
 import site.jokersh.anime.core.model.SubjectCredits
 import site.jokersh.anime.core.model.SubjectDetail
 import site.jokersh.anime.core.model.SubjectId
+import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.core.model.SubjectRelation
 import site.jokersh.anime.core.model.SubjectSection
 import site.jokersh.anime.core.model.UserCollectionSummary
@@ -332,6 +334,11 @@ public class IosNativeAppFacade internal constructor(
     public fun searchSubjects(
         query: String,
         cursor: String?,
+        typesCsv: String?,
+        yearStart: Int?,
+        yearEnd: Int?,
+        airingCsv: String?,
+        sort: String,
         completion: (String?, String?) -> Unit,
     ) =
         launchTextOperation("search", completion) {
@@ -341,10 +348,27 @@ public class IosNativeAppFacade internal constructor(
             } else {
                 val result =
                     runCatching {
+                        val normalizedYearStart = yearStart?.takeIf { it >= 1900 }
+                        val normalizedYearEnd = yearEnd?.takeIf { it >= 1900 }
+                        require(yearStart == null || normalizedYearStart != null) { "开始年份无效" }
+                        require(yearEnd == null || normalizedYearEnd != null) { "结束年份无效" }
+                        require(
+                            normalizedYearStart == null ||
+                                normalizedYearEnd == null ||
+                                normalizedYearStart <= normalizedYearEnd,
+                        ) { "年份范围无效" }
+                        val years =
+                            when {
+                                normalizedYearStart == null && normalizedYearEnd == null -> null
+                                else -> (normalizedYearStart ?: normalizedYearEnd!!)..(normalizedYearEnd ?: normalizedYearStart!!)
+                            }
                         appContainer.searchRepository.search(
                             SearchRequest(
                                 query = normalized,
-                                sort = SearchSort.Relevance,
+                                types = parseCsv(typesCsv).mapNotNull(String::toNativeSubjectType).toSet(),
+                                years = years,
+                                airing = parseCsv(airingCsv).mapNotNull(String::toNativeAiringStatus).toSet(),
+                                sort = sort.toNativeSearchSort(),
                                 cursor = cursor?.takeIf(String::isNotBlank)?.let(::Cursor),
                                 pageSize = appContainer.profile.searchPageSize,
                             ),
@@ -667,21 +691,27 @@ public class IosNativeAppFacade internal constructor(
     public fun setCollection(
         subjectId: Long,
         status: String?,
+        episodeProgress: Int?,
         completion: (String?) -> Unit,
     ) {
         scope.launch {
-            val message =
+            val result =
                 if (status == null) {
-                    appContainer.communityRepository.deleteCollection(subjectId).exceptionOrNull()?.message
+                    appContainer.communityRepository.deleteCollection(subjectId)
                 } else {
                     nativeCollectionStatus(status)?.let { normalizedStatus ->
                         appContainer.communityRepository
-                            .setCollection(subjectId, normalizedStatus.apiValueForIos(), null)
-                            .exceptionOrNull()
-                            ?.message
-                    } ?: "不支持的收藏状态"
+                            .setCollection(subjectId, normalizedStatus.apiValueForIos(), episodeProgress?.coerceAtLeast(0))
+                    } ?: Result.failure(IllegalArgumentException("不支持的收藏状态"))
                 }
-            completion(message)
+            // The SwiftUI page reads the remote collection endpoint, while the shared
+            // offline-first store is used by startup sync and other platforms. Refresh
+            // that store after a successful mutation so a later offline read cannot
+            // resurrect the old status or progress.
+            if (result.isSuccess) {
+                appContainer.collectionRepository.requestSync()
+            }
+            completion(result.exceptionOrNull()?.message)
         }
     }
 
@@ -944,6 +974,39 @@ private fun parseSubjectIds(subjectIdsCsv: String): List<Long> =
     subjectIdsCsv
         .split(',')
         .mapNotNull { it.trim().takeIf(String::isNotEmpty)?.toLongOrNull() }
+
+private fun parseCsv(value: String?): List<String> =
+    value
+        ?.split(',')
+        ?.map(String::trim)
+        ?.filter(String::isNotEmpty)
+        .orEmpty()
+
+private fun String.toNativeSubjectType(): SubjectType? =
+    when (trim().lowercase()) {
+        "tv" -> SubjectType.Tv
+        "web" -> SubjectType.Web
+        "ova" -> SubjectType.Ova
+        "movie" -> SubjectType.Movie
+        "other" -> SubjectType.Other
+        else -> null
+    }
+
+private fun String.toNativeAiringStatus(): AiringStatus? =
+    when (trim().lowercase()) {
+        "announced" -> AiringStatus.Announced
+        "airing" -> AiringStatus.Airing
+        "finished" -> AiringStatus.Finished
+        "unknown" -> AiringStatus.Unknown
+        else -> null
+    }
+
+private fun String.toNativeSearchSort(): SearchSort =
+    when (trim().lowercase()) {
+        "rating" -> SearchSort.Rating
+        "updated" -> SearchSort.Updated
+        else -> SearchSort.Relevance
+    }
 
 private fun String.toSyncConflictChoice(): SyncConflictChoice =
     when (lowercase()) {

@@ -26,6 +26,10 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var listDetails: [String: NativeListDetailSnapshot] = [:]
     @Published private(set) var syncStatus: NativeSyncStatusSnapshot?
     @Published private(set) var syncConflicts: [NativeSyncConflictSnapshot] = []
+    @Published var pendingSubject: NativeSubjectSummary?
+    @Published private(set) var appearanceTheme: String
+    @Published private(set) var glassEnabled: Bool
+    @Published private(set) var reduceMotionEnabled: Bool
 
     private var facade: IosNativeAppFacade?
     private var hasStarted = false
@@ -35,6 +39,9 @@ final class NativeAppModel: ObservableObject {
     private static let sessionCacheKey = "anime.ios.session.snapshot"
     private static let profileCacheKey = "anime.ios.profile.snapshot"
     private static let ratingCachePrefix = "anime.ios.personal-rating"
+    private static let appearanceThemeKey = "anime.ios.appearance.theme"
+    private static let glassEnabledKey = "anime.ios.appearance.glass"
+    private static let reduceMotionKey = "anime.ios.appearance.reduce-motion"
 
     var isAuthenticated: Bool {
         isSessionReady && session.status == "authenticated"
@@ -94,6 +101,56 @@ final class NativeAppModel: ObservableObject {
         // wait until the KMP repository has validated or refreshed the Keychain token.
         isSessionReady = false
         profile = cachedSession.flatMap { Self.loadCachedProfile(for: $0.userId) }
+        appearanceTheme = UserDefaults.standard.string(forKey: Self.appearanceThemeKey) ?? "system"
+        glassEnabled = UserDefaults.standard.object(forKey: Self.glassEnabledKey) as? Bool ?? true
+        reduceMotionEnabled = UserDefaults.standard.bool(forKey: Self.reduceMotionKey)
+        pendingSubject = nil
+    }
+
+    func setAppearanceTheme(_ value: String) {
+        let normalized = ["system", "light", "dark"].contains(value) ? value : "system"
+        appearanceTheme = normalized
+        UserDefaults.standard.set(normalized, forKey: Self.appearanceThemeKey)
+    }
+
+    func setGlassEnabled(_ value: Bool) {
+        glassEnabled = value
+        UserDefaults.standard.set(value, forKey: Self.glassEnabledKey)
+    }
+
+    func setReduceMotionEnabled(_ value: Bool) {
+        reduceMotionEnabled = value
+        UserDefaults.standard.set(value, forKey: Self.reduceMotionKey)
+    }
+
+    @discardableResult
+    func handleExternalUrl(_ url: URL) -> Bool {
+        if IosBridge.shared.handleOpenUrl(rawUrl: url.absoluteString) {
+            return true
+        }
+        guard
+            url.scheme?.lowercased() == "https",
+            url.host?.lowercased() == "anime.jokersh.site"
+        else { return false }
+        let components = url.pathComponents
+        guard
+            components.count >= 3,
+            components[1].lowercased() == "subjects",
+            let subjectId = Int64(components[2]),
+            subjectId > 0
+        else { return false }
+        pendingSubject = NativeSubjectSummary(
+            id: subjectId,
+            title: "作品详情",
+            originalTitle: nil,
+            posterUrl: nil,
+            year: nil,
+            type: "Other",
+            airingStatus: "Unknown",
+            rating: nil,
+            ratingVotes: 0,
+        )
+        return true
     }
 
     func start() {
@@ -208,10 +265,23 @@ final class NativeAppModel: ObservableObject {
     func search(
         query: String,
         cursor: String? = nil,
+        typesCsv: String? = nil,
+        yearStart: Int? = nil,
+        yearEnd: Int? = nil,
+        airingCsv: String? = nil,
+        sort: String = "relevance",
         completion: ((NativeSearchResultsSnapshot?, String?) -> Void)? = nil,
     ) {
         start()
-        facade?.searchSubjects(query: query, cursor: cursor) { [weak self] rawSnapshot, error in
+        facade?.searchSubjects(
+            query: query,
+            cursor: cursor,
+            typesCsv: typesCsv,
+            yearStart: yearStart.map(Int32.init),
+            yearEnd: yearEnd.map(Int32.init),
+            airingCsv: airingCsv,
+            sort: sort,
+        ) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeSearchResultsSnapshot.self) }
@@ -509,10 +579,10 @@ final class NativeAppModel: ObservableObject {
         }
     }
 
-    func setCollection(subjectId: Int64, status: String?, completion: ((String?) -> Void)? = nil) {
+    func setCollection(subjectId: Int64, status: String?, episodeProgress: Int? = nil, completion: ((String?) -> Void)? = nil) {
         start()
         if rejectSimpleWrite(completion) { return }
-        facade?.setCollection(subjectId: subjectId, status: status) { error in
+        facade?.setCollection(subjectId: subjectId, status: status, episodeProgress: episodeProgress.map(Int32.init)) { error in
             Task { @MainActor in completion?(error) }
         }
     }
@@ -836,7 +906,7 @@ struct NativeDiscoverView: View {
                         }
 
                         ForEach(discovery.sections) { section in
-                            NativeDiscoverySectionView(section: section)
+                            NativeDiscoverySectionView(section: section, model: model)
                         }
                     } else {
                         NativeEmptyState(
@@ -912,15 +982,23 @@ private struct NativeDiscoveryCarousel: View {
 
 private struct NativeDiscoverySectionView: View {
     let section: NativeDiscoverySection
+    @ObservedObject var model: NativeAppModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(section.title)
-                    .font(.title2.weight(.bold))
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(section.title)
+                        .font(.title2.weight(.bold))
+                    Text(description)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                NavigationLink("查看全部") {
+                    NativeDiscoverySectionListView(section: section, model: model)
+                }
+                .font(.subheadline.weight(.semibold))
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -945,6 +1023,33 @@ private struct NativeDiscoverySectionView: View {
         case "top-rated": return "来自 Bangumi 的高口碑作品"
         case "upcoming": return "值得提前留意的新作"
         default: return "为你整理的作品"
+        }
+    }
+}
+
+private struct NativeDiscoverySectionListView: View {
+    let section: NativeDiscoverySection
+    @ObservedObject var model: NativeAppModel
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 20) {
+                ForEach(section.subjects) { subject in
+                    NavigationLink(value: subject) {
+                        NativeSubjectCard(subject: subject)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .scrollIndicators(.hidden)
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .navigationTitle(section.title)
+        .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: NativeSubjectSummary.self) { subject in
+            NativeSubjectDetailView(summary: subject, model: model)
         }
     }
 }
@@ -1082,6 +1187,7 @@ struct NativeSubjectDetailView: View {
                         subjectId: summary.id,
                         community: community,
                         errorMessage: communityError,
+                        totalEpisodes: detail?.totalEpisodes,
                         model: model,
                         onReload: loadCommunity,
                     )
