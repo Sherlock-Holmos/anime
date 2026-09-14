@@ -900,15 +900,6 @@ struct NativeDiscoverView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 28) {
-                    GeometryReader { proxy in
-                        Color.clear
-                            .preference(
-                                key: NativeDiscoverScrollOffsetKey.self,
-                                value: proxy.frame(in: .named("native-discover-scroll")).minY,
-                            )
-                    }
-                    .frame(height: 0)
-
                     if model.isLoading && model.discovery == nil {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 240)
@@ -933,6 +924,14 @@ struct NativeDiscoverView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 32)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: NativeDiscoverScrollOffsetKey.self,
+                            value: proxy.frame(in: .named("native-discover-scroll")).minY,
+                        )
+                    }
+                }
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollIndicators(.hidden)
@@ -955,11 +954,12 @@ struct NativeDiscoverView: View {
                         NativeCalendarView(model: model)
                     } label: {
                         Image(systemName: "calendar")
+                            .frame(width: 52, height: 52)
                     }
                     .buttonStyle(.glass)
                     .accessibilityLabel("播出日历")
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 24)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
