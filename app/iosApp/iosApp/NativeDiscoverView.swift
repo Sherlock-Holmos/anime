@@ -899,6 +899,32 @@ struct NativeDiscoverView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 28) {
+                    HStack(alignment: .center, spacing: 16) {
+                        Text("发现")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .accessibilityAddTraits(.isHeader)
+
+                        Spacer(minLength: 0)
+
+                        NavigationLink {
+                            NativeCalendarView(model: model)
+                        } label: {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 20, weight: .semibold))
+                                .frame(width: 52, height: 52)
+                                .background(.thinMaterial, in: Circle())
+                                .overlay {
+                                    Circle()
+                                        .strokeBorder(.primary.opacity(0.12), lineWidth: 1)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("播出日历")
+                    }
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
+
                     if model.isLoading && model.discovery == nil {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 240)
@@ -929,18 +955,6 @@ struct NativeDiscoverView: View {
             .scrollEdgeEffectStyle(.soft, for: .top)
             .refreshable {
                 model.refresh(force: true)
-            }
-            .navigationTitle("发现")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        NativeCalendarView(model: model)
-                    } label: {
-                        Image(systemName: "calendar")
-                    }
-                    .accessibilityLabel("播出日历")
-                }
             }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
                 NativeSubjectDetailView(summary: subject, model: model)
