@@ -941,22 +941,27 @@ struct NativeDiscoverView: View {
             .refreshable {
                 model.refresh(force: true)
             }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+            .safeAreaInset(edge: .top, spacing: 0) {
+                HStack(alignment: .center, spacing: 16) {
                     Text("发现")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
                         .opacity(discoverTitleOpacity)
                         .accessibilityAddTraits(.isHeader)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
+
+                    Spacer(minLength: 0)
+
                     NavigationLink {
                         NativeCalendarView(model: model)
                     } label: {
                         Image(systemName: "calendar")
                     }
+                    .buttonStyle(.glass)
                     .accessibilityLabel("播出日历")
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .onPreferenceChange(NativeDiscoverScrollOffsetKey.self) { offset in
                 let fadeDistance: CGFloat = 52
