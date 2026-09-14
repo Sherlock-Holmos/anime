@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct NativeSearchDiscoverySnapshot: Codable {
     let trending: [String]
@@ -103,6 +104,56 @@ struct NativeSubjectCommunitySnapshot: Codable {
     let comments: [NativeCommentSnapshot]
 }
 
+struct NativeCalendarSnapshot: Codable {
+    let date: String
+    let items: [NativeSubjectSummary]
+    let generatedAtEpochSeconds: Int64
+}
+
+struct NativeSubjectSectionsSnapshot: Codable {
+    let episodes: [NativeEpisodeSnapshot]
+    let characters: [NativeCharacterSnapshot]
+    let persons: [NativePersonSnapshot]
+    let relations: [NativeRelationSnapshot]
+}
+
+struct NativeEpisodeSnapshot: Codable, Identifiable {
+    let id: Int64
+    let number: Double?
+    let title: String?
+    let originalTitle: String?
+    let type: String
+    let airDate: String?
+    let airStatus: String
+}
+
+struct NativeCharacterSnapshot: Codable, Identifiable {
+    let id: Int64
+    let name: String
+    let imageUrl: String?
+    let relation: String
+    let actors: [NativePersonSnapshot]
+
+    var imageURL: URL? { imageUrl.flatMap(URL.init(string:)) }
+}
+
+struct NativePersonSnapshot: Codable, Identifiable {
+    let id: Int64
+    let name: String
+    let imageUrl: String?
+    let role: String?
+
+    var imageURL: URL? { imageUrl.flatMap(URL.init(string:)) }
+}
+
+struct NativeRelationSnapshot: Codable, Identifiable {
+    let subject: NativeSubjectSummary
+    let kind: String
+    let label: String
+
+    var id: Int64 { subject.id }
+}
+
 struct NativeRatingSnapshot: Codable {
     let score: Double?
     let votes: Int64
@@ -137,6 +188,78 @@ struct NativeCommentSnapshot: Codable, Identifiable {
     let bookmarkCount: Int64
 }
 
+struct NativeReviewPageSnapshot: Codable {
+    let items: [NativeReviewSnapshot]
+    let nextCursor: String?
+}
+
+struct NativeUserProfileSnapshot: Codable {
+    let id: String
+    let displayName: String
+    let avatarUrl: String?
+    let createdAt: String
+    let reviewCount: Int64
+    let ratingCount: Int64
+    let listCount: Int64
+    let followerCount: Int64
+    let followingCount: Int64
+    let following: Bool
+
+    var avatarURL: URL? { avatarUrl.flatMap(URL.init(string:)) }
+}
+
+struct NativeListSummarySnapshot: Codable, Identifiable {
+    let id: String
+    let ownerId: String?
+    let ownerName: String
+    let title: String
+    let description: String
+    let itemCount: Int64
+    let followerCount: Int64
+    let updatedAt: String
+    let owned: Bool
+    let following: Bool
+}
+
+struct NativeListItemSnapshot: Codable, Identifiable {
+    let subjectId: Int64
+    let title: String
+    let posterUrl: String?
+    let note: String?
+    let position: Int
+    let score: Double?
+
+    var id: Int64 { subjectId }
+    var posterURL: URL? { posterUrl.flatMap(URL.init(string:)) }
+}
+
+struct NativeListDetailSnapshot: Codable {
+    let summary: NativeListSummarySnapshot
+    let items: [NativeListItemSnapshot]
+}
+
+struct NativeFollowSnapshot: Codable {
+    let following: Bool
+}
+
+struct NativeSyncStatusSnapshot: Codable {
+    let pendingCount: Int64
+    let failedCount: Int64
+    let conflictCount: Int64
+    let lastSuccessfulAt: String?
+    let bangumiLinked: Bool
+}
+
+struct NativeSyncConflictSnapshot: Codable, Identifiable {
+    let id: String
+    let subjectId: Int64
+    let localVersion: Int64
+    let fieldName: String
+    let localValue: String
+    let remoteValue: String
+    let detectedAt: String
+}
+
 struct NativeReactionSnapshot: Codable {
     let reaction: String
     let active: Bool
@@ -148,6 +271,7 @@ struct NativeLibraryView: View {
     @ObservedObject var model: NativeAppModel
     @State private var query = ""
     @State private var results: [NativeSubjectSummary] = []
+    @State private var nextCursor: String?
     @State private var isSearching = false
     @State private var errorMessage: String?
 
@@ -245,6 +369,11 @@ struct NativeLibraryView: View {
                     .buttonStyle(.plain)
                 }
             }
+            if let nextCursor {
+                Button("加载更多") { loadMore(cursor: nextCursor) }
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.bordered)
+            }
         }
     }
 
@@ -255,9 +384,24 @@ struct NativeLibraryView: View {
         errorMessage = nil
         model.search(query: normalized) { snapshot, error in
             results = snapshot?.items ?? []
+            nextCursor = snapshot?.nextCursor
             errorMessage = error
             isSearching = false
             if error == nil { model.saveSearchHistory(query: normalized) }
+        }
+    }
+
+    private func loadMore(cursor: String) {
+        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return }
+        isSearching = true
+        model.search(query: normalized, cursor: cursor) { snapshot, error in
+            if let snapshot {
+                results.append(contentsOf: snapshot.items)
+                nextCursor = snapshot.nextCursor
+            }
+            errorMessage = error
+            isSearching = false
         }
     }
 
@@ -305,6 +449,15 @@ struct NativeCollectionView: View {
                                 .buttonStyle(.plain)
                             }
                         }
+                        if let cursor = page.nextCursor {
+                            Button("加载更多") {
+                                model.loadCollection(status: selectedStatus, cursor: cursor, append: true) { _, error in
+                                    errorMessage = error
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .buttonStyle(.bordered)
+                        }
                     } else if model.session.status == "restoring" {
                         ProgressView("正在恢复片库")
                             .frame(maxWidth: .infinity, minHeight: 220)
@@ -343,6 +496,242 @@ struct NativeCollectionView: View {
     }
 }
 
+struct NativeCalendarView: View {
+    @ObservedObject var model: NativeAppModel
+    @State private var selectedDate = Date()
+    @State private var errorMessage: String?
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                DatePicker("播出日期", selection: $selectedDate, displayedComponents: .date)
+                    .datePickerStyle(.compact)
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                if let errorMessage {
+                    NativeInlineError(message: errorMessage) { load() }
+                } else if let calendar = model.calendar, calendar.date == dateString {
+                    if calendar.items.isEmpty {
+                        ContentUnavailableView("当天没有播出", systemImage: "calendar.badge.clock", description: Text("可以切换到其他日期查看。"))
+                            .frame(maxWidth: .infinity, minHeight: 180)
+                    } else {
+                        ForEach(calendar.items) { subject in
+                            NavigationLink {
+                                NativeSubjectDetailView(summary: subject, model: model)
+                            } label: {
+                                NativeCalendarRow(subject: subject)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } else {
+                    ProgressView("正在加载日历")
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .navigationTitle("播出日历")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { load() }
+        .onChange(of: selectedDate) { _, _ in load() }
+        .refreshable { await refresh() }
+    }
+
+    private var dateString: String { Self.dateFormatter.string(from: selectedDate) }
+
+    private func load() {
+        errorMessage = nil
+        model.loadCalendar(date: dateString) { _, error in errorMessage = error }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            model.loadCalendar(date: dateString) { _, error in
+                errorMessage = error
+                continuation.resume()
+            }
+        }
+    }
+}
+
+private struct NativeCalendarRow: View {
+    let subject: NativeSubjectSummary
+
+    var body: some View {
+        HStack(spacing: 14) {
+            NativeRemoteImage(url: subject.posterURL)
+                .frame(width: 58, height: 78)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(subject.title)
+                    .font(.headline)
+                    .lineLimit(2)
+                Text(subject.originalTitle ?? subject.type.displayName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if let rating = subject.rating {
+                    Label(String(format: "%.1f", rating), systemImage: "star.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                }
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+struct NativeSubjectSectionsView: View {
+    let subjectId: Int64
+    @ObservedObject var model: NativeAppModel
+    @State private var selectedSection = "episodes"
+    @State private var errorMessage: String?
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                Picker("资料类型", selection: $selectedSection) {
+                    Text("分集").tag("episodes")
+                    Text("角色").tag("characters")
+                    Text("关联").tag("relations")
+                }
+                .pickerStyle(.segmented)
+
+                if let errorMessage {
+                    NativeInlineError(message: errorMessage) { load(force: true) }
+                } else if let sections = model.subjectSections[subjectId] {
+                    sectionContent(sections)
+                } else {
+                    ProgressView("正在加载作品资料")
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .navigationTitle("作品资料")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { load() }
+        .refreshable { await refresh() }
+    }
+
+    @ViewBuilder
+    private func sectionContent(_ sections: NativeSubjectSectionsSnapshot) -> some View {
+        switch selectedSection {
+        case "characters":
+            if sections.characters.isEmpty {
+                ContentUnavailableView("暂无角色资料", systemImage: "person.2")
+            } else {
+                ForEach(sections.characters) { character in
+                    HStack(spacing: 12) {
+                        NativeRemoteImage(url: character.imageURL)
+                            .frame(width: 54, height: 54)
+                            .clipShape(Circle())
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(character.name).font(.headline)
+                            Text(character.relation)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            if !character.actors.isEmpty {
+                                Text("配音：" + character.actors.map(\.name).joined(separator: "、"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(14)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+        case "relations":
+            if sections.relations.isEmpty {
+                ContentUnavailableView("暂无关联作品", systemImage: "link")
+            } else {
+                ForEach(sections.relations) { relation in
+                    NavigationLink {
+                        NativeSubjectDetailView(summary: relation.subject, model: model)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(relation.label.isEmpty ? relation.kind : relation.label)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tint)
+                                Text(relation.subject.title)
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(2)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(14)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        default:
+            if sections.episodes.isEmpty {
+                ContentUnavailableView("暂无分集资料", systemImage: "list.number")
+            } else {
+                ForEach(sections.episodes) { episode in
+                    HStack(spacing: 12) {
+                        Text(episode.number.map { String(format: "%g", $0) } ?? "—")
+                            .font(.headline.monospacedDigit())
+                            .frame(width: 42)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(episode.title ?? "未命名分集")
+                                .font(.headline)
+                                .lineLimit(2)
+                            Text([episode.airDate, episode.airStatus.displayName].compactMap { $0 }.joined(separator: " · "))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(14)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private func load(force: Bool = false) {
+        errorMessage = nil
+        model.loadSubjectSections(id: subjectId, force: force) { _, error in errorMessage = error }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            model.loadSubjectSections(id: subjectId, force: true) { _, error in
+                errorMessage = error
+                continuation.resume()
+            }
+        }
+    }
+}
+
 struct NativeActivityView: View {
     @ObservedObject var model: NativeAppModel
     @State private var selectedMode = "动态"
@@ -373,6 +762,16 @@ struct NativeActivityView: View {
             .refreshable { await refresh() }
             .navigationTitle("动态")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        NativeListsView(model: model)
+                    } label: {
+                        Image(systemName: "list.bullet.rectangle")
+                    }
+                    .accessibilityLabel("片单")
+                }
+            }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
                 NativeSubjectDetailView(summary: subject, model: model)
             }
@@ -401,13 +800,11 @@ struct NativeActivityView: View {
             NativeInlineError(message: errorMessage) { loadCurrentMode() }
         } else if let page = model.activityPage, !page.items.isEmpty {
             ForEach(page.items) { item in
-                NativeActivityCard(item: item) { subject in
-                    NativeSubjectDetailView(summary: subject, model: model)
-                }
+                NativeActivityCard(item: item, destination: activityDestination(for: item))
             }
             if page.nextCursor != nil {
                 Button("加载更多") {
-                    model.loadActivity(feed: selectedFeed, cursor: page.nextCursor)
+                    model.loadActivity(feed: selectedFeed, cursor: page.nextCursor, append: true)
                 }
                 .frame(maxWidth: .infinity)
                 .buttonStyle(.bordered)
@@ -425,7 +822,7 @@ struct NativeActivityView: View {
                 .frame(maxWidth: .infinity, minHeight: 220)
         } else {
             ForEach(model.notifications) { notification in
-                NativeNotificationRow(notification: notification) {
+                NativeNotificationRow(notification: notification, destination: notificationDestination(for: notification)) {
                     model.markNotificationRead(id: notification.id)
                 }
             }
@@ -439,6 +836,38 @@ struct NativeActivityView: View {
         } else {
             model.loadActivity(feed: selectedFeed) { _, error in errorMessage = error }
         }
+    }
+
+    private func activityDestination(for item: NativeActivityItemSnapshot) -> AnyView? {
+        if let subject = item.subjectSummary {
+            return AnyView(NativeSubjectDetailView(summary: subject, model: model))
+        }
+        if let reviewId = item.reviewId {
+            return AnyView(NativeReviewDetailView(reviewId: reviewId, model: model))
+        }
+        if let listId = item.listId {
+            return AnyView(NativeListDetailView(listId: listId, model: model))
+        }
+        if let actorId = item.actorId {
+            return AnyView(NativeUserProfileView(userId: actorId, model: model))
+        }
+        return nil
+    }
+
+    private func notificationDestination(for notification: NativeNotificationSnapshot) -> AnyView? {
+        if let reviewId = notification.reviewId {
+            return AnyView(NativeReviewDetailView(reviewId: reviewId, model: model))
+        }
+        if let commentId = notification.commentId, let subjectId = notification.subjectId {
+            return AnyView(NativeSubjectDetailView(summary: NativeSubjectSummary.placeholder(id: subjectId, title: "讨论"), model: model))
+        }
+        if let listId = notification.listId {
+            return AnyView(NativeListDetailView(listId: listId, model: model))
+        }
+        if let actorId = notification.actorId {
+            return AnyView(NativeUserProfileView(userId: actorId, model: model))
+        }
+        return nil
     }
 
     private func refresh() async {
@@ -563,6 +992,610 @@ struct NativeProfileView: View {
     }
 }
 
+struct NativeReviewDetailView: View {
+    let reviewId: String
+    @ObservedObject var model: NativeAppModel
+    @State private var review: NativeReviewSnapshot?
+    @State private var errorMessage: String?
+    @State private var isLoading = true
+    @State private var isLiked = false
+    @State private var isBookmarked = false
+    @State private var message: String?
+    @State private var showingEditor = false
+    @State private var showingDeleteConfirmation = false
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 18) {
+                if isLoading && review == nil {
+                    ProgressView("正在加载评价")
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                } else if let review {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(review.title ?? "作品评价")
+                                    .font(.title2.weight(.bold))
+                                Text(review.createdAt.replacingOccurrences(of: "T", with: " ").prefix(16))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if review.spoiler {
+                                Label("剧透", systemImage: "eye.slash")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        Text(review.body)
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: 18) {
+                            Button {
+                                react("like")
+                            } label: {
+                                Label("\(review.likeCount)", systemImage: isLiked ? "heart.fill" : "heart")
+                            }
+                            Button {
+                                react("bookmark")
+                            } label: {
+                                Label("\(review.bookmarkCount)", systemImage: isBookmarked ? "bookmark.fill" : "bookmark")
+                            }
+                        }
+                        .foregroundStyle(.tint)
+                    }
+                    .padding(18)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+                    NavigationLink {
+                        NativeSubjectDetailView(summary: NativeSubjectSummary.placeholder(id: review.subjectId, title: "作品"), model: model)
+                    } label: {
+                        NativeActionRow(title: "查看所属作品", subtitle: "打开作品详情和社区讨论", systemImage: "film")
+                    }
+                    .buttonStyle(.plain)
+
+                    if let message {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(message.hasPrefix("操作失败") ? .red : .secondary)
+                    }
+                } else if let errorMessage {
+                    NativeInlineError(message: errorMessage) { load() }
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .navigationTitle("评价")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let review, review.owned {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("编辑") { showingEditor = true }
+                        Button("删除评价", role: .destructive) { showingDeleteConfirmation = true }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
+        }
+        .task { load() }
+        .refreshable { await refresh() }
+        .sheet(isPresented: $showingEditor) {
+            if let review {
+                NativeReviewEditor(review: review, model: model) { updated, error in
+                    if let updated { self.review = updated; message = "评价已更新" }
+                    if let error { message = "更新失败：\(error)" }
+                }
+            }
+        }
+        .confirmationDialog("确定删除这条评价吗？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+            Button("删除评价", role: .destructive) {
+                model.deleteReview(id: reviewId) { error in
+                    if let error { message = "删除失败：\(error)" }
+                    else { message = "评价已删除"; review = nil }
+                }
+            }
+        }
+    }
+
+    private func load() {
+        isLoading = true
+        errorMessage = nil
+        model.loadReview(id: reviewId) { value, error in
+            review = value
+            errorMessage = error
+            isLiked = false
+            isBookmarked = false
+            isLoading = false
+        }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            model.loadReview(id: reviewId) { value, error in
+                review = value
+                errorMessage = error
+                continuation.resume()
+            }
+        }
+    }
+
+    private func react(_ reaction: String) {
+        let active = reaction == "like" ? !isLiked : !isBookmarked
+        model.reactReview(id: reviewId, reaction: reaction, active: active) { value, error in
+            if let value {
+                if reaction == "like" { isLiked = value.active }
+                if reaction == "bookmark" { isBookmarked = value.active }
+                message = "操作已完成"
+            } else if let error {
+                message = "操作失败：\(error)"
+            }
+        }
+    }
+}
+
+private struct NativeReviewEditor: View {
+    let review: NativeReviewSnapshot
+    @ObservedObject var model: NativeAppModel
+    let onComplete: (NativeReviewSnapshot?, String?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var title: String
+    @State private var reviewText: String
+    @State private var spoiler: Bool
+    @State private var visibility: String
+    @State private var isSaving = false
+
+    init(review: NativeReviewSnapshot, model: NativeAppModel, onComplete: @escaping (NativeReviewSnapshot?, String?) -> Void) {
+        self.review = review
+        self.model = model
+        self.onComplete = onComplete
+        _title = State(initialValue: review.title ?? "")
+        _reviewText = State(initialValue: review.body)
+        _spoiler = State(initialValue: review.spoiler)
+        _visibility = State(initialValue: review.visibility)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("标题", text: $title)
+                TextEditor(text: $reviewText).frame(minHeight: 170)
+                Toggle("包含剧透", isOn: $spoiler)
+                Picker("可见性", selection: $visibility) {
+                    Text("公开").tag("public")
+                    Text("仅自己").tag("private")
+                }
+                Button(isSaving ? "保存中…" : "保存修改") { save() }
+                    .disabled(isSaving || reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .navigationTitle("编辑评价")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+            }
+        }
+    }
+
+    private func save() {
+        isSaving = true
+        model.updateReview(
+            id: review.id,
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : title,
+            body: reviewText.trimmingCharacters(in: .whitespacesAndNewlines),
+            spoiler: spoiler,
+            visibility: visibility,
+        ) { updated, error in
+            isSaving = false
+            onComplete(updated, error)
+            if updated != nil { dismiss() }
+        }
+    }
+}
+
+struct NativeUserProfileView: View {
+    let userId: String
+    @ObservedObject var model: NativeAppModel
+    @State private var errorMessage: String?
+    @State private var isLoading = true
+    @State private var isFollowing = false
+    @State private var message: String?
+
+    private var profile: NativeUserProfileSnapshot? { model.userProfiles[userId] }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                if let profile {
+                    HStack(spacing: 14) {
+                        NativeAvatar(url: profile.avatarURL, name: profile.displayName)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(profile.displayName).font(.title3.weight(.bold))
+                            Text("加入于 \(profile.createdAt.prefix(10))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(isFollowing ? "已关注" : "关注") {
+                            model.followUser(id: userId, following: !isFollowing) { value, error in
+                                if let value { isFollowing = value }
+                                message = error.map { "操作失败：\($0)" }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        NativeMetric(value: Int(profile.reviewCount), title: "评价")
+                        NativeMetric(value: Int(profile.ratingCount), title: "评分")
+                        NativeMetric(value: Int(profile.followerCount), title: "粉丝")
+                    }
+
+                    if let reviews = model.userReviews[userId]?.items, !reviews.isEmpty {
+                        Text("评价").font(.title3.weight(.bold))
+                        ForEach(reviews) { review in
+                            NavigationLink {
+                                NativeReviewDetailView(reviewId: review.id, model: model)
+                            } label: {
+                                NativeReviewRow(review: review)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    if let lists = model.userLists[userId], !lists.isEmpty {
+                        Text("片单").font(.title3.weight(.bold))
+                        ForEach(lists) { list in
+                            NavigationLink {
+                                NativeListDetailView(listId: list.id, model: model)
+                            } label: {
+                                NativeListSummaryRow(list: list)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    if let message {
+                        Text(message).font(.footnote).foregroundStyle(.secondary)
+                    }
+                } else if isLoading {
+                    ProgressView("正在加载用户")
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                } else if let errorMessage {
+                    NativeInlineError(message: errorMessage) { load() }
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .navigationTitle("用户")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { load() }
+        .refreshable { await refresh() }
+    }
+
+    private func load() {
+        isLoading = true
+        errorMessage = nil
+        var remaining = 2
+        func finish() {
+            remaining -= 1
+            if remaining == 0 { isLoading = false }
+        }
+        model.loadUserProfile(id: userId) { value, error in
+            if let value { isFollowing = value.following }
+            errorMessage = error
+            finish()
+        }
+        model.loadUserReviews(id: userId) { _, error in
+            if errorMessage == nil { errorMessage = error }
+            finish()
+        }
+        model.loadUserLists(id: userId) { _, error in
+            if errorMessage == nil { errorMessage = error }
+        }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            model.loadUserProfile(id: userId) { value, error in
+                if let value { isFollowing = value.following }
+                errorMessage = error
+                continuation.resume()
+            }
+            model.loadUserReviews(id: userId)
+            model.loadUserLists(id: userId)
+        }
+    }
+}
+
+private struct NativeReviewRow: View {
+    let review: NativeReviewSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(review.title ?? "作品评价").font(.headline)
+            Text(review.body).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+            Text(review.createdAt.replacingOccurrences(of: "T", with: " ").prefix(10))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct NativeListSummaryRow: View {
+    let list: NativeListSummarySnapshot
+
+    var body: some View {
+        HStack {
+            Image(systemName: "list.bullet.rectangle.portrait")
+                .font(.title2)
+                .foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(list.title).font(.headline)
+                Text("\(list.itemCount) 部作品 · \(list.followerCount) 人关注")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .foregroundStyle(.tertiary)
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+struct NativeListsView: View {
+    @ObservedObject var model: NativeAppModel
+    @State private var showingEditor = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        List {
+            if let errorMessage {
+                Section { Text(errorMessage).foregroundStyle(.red) }
+            }
+            if model.lists.isEmpty {
+                ContentUnavailableView("还没有片单", systemImage: "list.bullet.rectangle", description: Text("创建片单来整理喜欢的作品。"))
+            } else {
+                ForEach(model.lists) { list in
+                    NavigationLink {
+                        NativeListDetailView(listId: list.id, model: model)
+                    } label: {
+                        NativeListSummaryRow(list: list)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("片单")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showingEditor = true } label: { Image(systemName: "plus") }
+            }
+        }
+        .task { load() }
+        .refreshable { await refresh() }
+        .sheet(isPresented: $showingEditor) {
+            NativeListEditorView(model: model) { _, error in errorMessage = error }
+        }
+    }
+
+    private func load() {
+        model.loadLists { _, error in errorMessage = error }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            model.loadLists { _, error in errorMessage = error; continuation.resume() }
+        }
+    }
+}
+
+struct NativeListDetailView: View {
+    let listId: String
+    @ObservedObject var model: NativeAppModel
+    @State private var errorMessage: String?
+    @State private var isFollowing = false
+    @State private var showingEditor = false
+    @State private var showingDeleteConfirmation = false
+    @State private var message: String?
+
+    private var detail: NativeListDetailSnapshot? { model.listDetails[listId] }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                if let detail {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(detail.summary.title).font(.title2.weight(.bold))
+                        Text(detail.summary.description.isEmpty ? "暂无描述" : detail.summary.description)
+                            .foregroundStyle(.secondary)
+                        Text("创建者：\(detail.summary.ownerName) · \(detail.summary.itemCount) 部作品")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        HStack {
+                            Button(isFollowing ? "已关注" : "关注片单") {
+                                model.followList(id: listId, following: !isFollowing) { value, error in
+                                    if let value { isFollowing = value }
+                                    message = error.map { "操作失败：\($0)" }
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            if let ownerId = detail.summary.ownerId {
+                                NavigationLink("查看创建者") {
+                                    NativeUserProfileView(userId: ownerId, model: model)
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                    if detail.items.isEmpty {
+                        ContentUnavailableView("片单暂无作品", systemImage: "books.vertical")
+                    } else {
+                        ForEach(detail.items) { item in
+                            NavigationLink {
+                                NativeSubjectDetailView(summary: NativeSubjectSummary.placeholder(id: item.subjectId, title: item.title), model: model)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    NativeRemoteImage(url: item.posterURL)
+                                        .frame(width: 54, height: 74)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.title).font(.headline).lineLimit(2)
+                                        if let note = item.note, !note.isEmpty {
+                                            Text(note).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                        }
+                                    }
+                                    Spacer()
+                                    if let score = item.score { Text(String(format: "%.1f", score)).font(.caption.weight(.semibold)) }
+                                }
+                                .padding(12)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+                } else if let errorMessage {
+                    NativeInlineError(message: errorMessage) { load() }
+                } else {
+                    ProgressView("正在加载片单").frame(maxWidth: .infinity, minHeight: 220)
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .navigationTitle("片单")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if detail?.summary.owned == true {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("编辑") { showingEditor = true }
+                        Button("删除片单", role: .destructive) { showingDeleteConfirmation = true }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
+        }
+        .task { load() }
+        .refreshable { await refresh() }
+        .sheet(isPresented: $showingEditor) {
+            if let detail {
+                NativeListEditorView(model: model, existing: detail) { _, error in
+                    errorMessage = error
+                    if error == nil { load() }
+                }
+            }
+        }
+        .confirmationDialog("确定删除这个片单吗？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+            Button("删除片单", role: .destructive) {
+                model.deleteList(id: listId) { error in
+                    message = error.map { "删除失败：\($0)" } ?? "片单已删除"
+                }
+            }
+        }
+    }
+
+    private func load() {
+        errorMessage = nil
+        model.loadList(id: listId) { value, error in
+            if let value { isFollowing = value.summary.following }
+            errorMessage = error
+        }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            model.loadList(id: listId) { value, error in
+                if let value { isFollowing = value.summary.following }
+                errorMessage = error
+                continuation.resume()
+            }
+        }
+    }
+}
+
+private struct NativeListEditorView: View {
+    @ObservedObject var model: NativeAppModel
+    let existing: NativeListDetailSnapshot?
+    let onComplete: (NativeListSummarySnapshot?, String?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var title: String
+    @State private var description: String
+    @State private var visibility: String
+    @State private var subjectIdsText: String
+    @State private var isSaving = false
+
+    init(model: NativeAppModel, existing: NativeListDetailSnapshot? = nil, onComplete: @escaping (NativeListSummarySnapshot?, String?) -> Void) {
+        self.model = model
+        self.existing = existing
+        self.onComplete = onComplete
+        _title = State(initialValue: existing?.summary.title ?? "")
+        _description = State(initialValue: existing?.summary.description ?? "")
+        _visibility = State(initialValue: "public")
+        _subjectIdsText = State(initialValue: existing?.items.map { String($0.subjectId) }.joined(separator: ", ") ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("片单名称", text: $title)
+                TextField("描述（可选）", text: $description, axis: .vertical)
+                    .lineLimit(2...5)
+                Picker("可见性", selection: $visibility) {
+                    Text("公开").tag("public")
+                    Text("仅自己").tag("private")
+                }
+                Section("作品") {
+                    TextField("作品 ID，逗号分隔", text: $subjectIdsText, axis: .vertical)
+                        .keyboardType(.numbersAndPunctuation)
+                    Text("可以在作品详情或 Bangumi 中查看作品 ID。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Button(isSaving ? "保存中…" : (existing == nil ? "创建片单" : "保存修改")) { save() }
+                    .disabled(isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .navigationTitle(existing == nil ? "新建片单" : "编辑片单")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+            }
+        }
+    }
+
+    private func save() {
+        let ids = subjectIdsText.split { $0 == "," || $0 == "，" || $0 == " " || $0 == "\n" }.compactMap { Int64($0) }
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        isSaving = true
+        let finish: (NativeListSummarySnapshot?, String?) -> Void = { value, error in
+            isSaving = false
+            onComplete(value, error)
+            if value != nil { dismiss() }
+        }
+        if let existing {
+            model.updateList(id: existing.summary.id, title: cleanTitle, description: cleanDescription, visibility: visibility, subjectIds: ids, completion: finish)
+        } else {
+            model.createList(title: cleanTitle, description: cleanDescription, visibility: visibility, subjectIds: ids, completion: finish)
+        }
+    }
+}
+
 struct NativeSubjectCommunityView: View {
     let subjectId: Int64
     let community: NativeSubjectCommunitySnapshot?
@@ -573,6 +1606,7 @@ struct NativeSubjectCommunityView: View {
     @State private var selectedScore = 0
     @State private var selectedCollectionStatus: String?
     @State private var commentText = ""
+    @State private var commentSpoiler = false
     @State private var isSubmitting = false
     @State private var isSavingRating = false
     @State private var isSavingCollection = false
@@ -582,6 +1616,8 @@ struct NativeSubjectCommunityView: View {
     @State private var reviewReactions: [String: NativeReactionSnapshot] = [:]
     @State private var message: String?
     @State private var showingReviewComposer = false
+    @State private var editingComment: NativeCommentSnapshot?
+    @State private var deletingCommentId: String?
 
     private let collectionStatuses = [
         ("Watching", "在看"),
@@ -641,6 +1677,24 @@ struct NativeSubjectCommunityView: View {
                 }
             }
             .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $editingComment) { comment in
+            NativeCommentEditor(comment: comment, model: model) { _, error in
+                if let error { message = "更新失败：\(error)" } else { message = "讨论已更新"; onReload() }
+            }
+        }
+        .confirmationDialog("确定删除这条讨论吗？", isPresented: Binding(
+            get: { deletingCommentId != nil },
+            set: { if !$0 { deletingCommentId = nil } },
+        ), titleVisibility: .visible) {
+            Button("删除讨论", role: .destructive) {
+                guard let deletingCommentId else { return }
+                model.deleteComment(id: deletingCommentId) { error in
+                    message = error.map { "删除失败：\($0)" } ?? "讨论已删除"
+                    self.deletingCommentId = nil
+                    if error == nil { onReload() }
+                }
+            }
         }
     }
 
@@ -791,9 +1845,8 @@ struct NativeSubjectCommunityView: View {
                         }
                     }
                 HStack {
-                    Text("公开讨论")
+                    Toggle("剧透", isOn: $commentSpoiler)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
                     Spacer()
                     Button(isSubmitting ? "发布中…" : "发布") { submitComment() }
                         .buttonStyle(.borderedProminent)
@@ -828,18 +1881,46 @@ struct NativeSubjectCommunityView: View {
                 Text(comment.createdAt.replacingOccurrences(of: "T", with: " ").prefix(10))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Menu {
+                    if comment.owned {
+                        Button("编辑") { editingComment = comment }
+                        Button("删除", role: .destructive) { deletingCommentId = comment.id }
+                    } else {
+                        Button("举报") {
+                            model.reportComment(id: comment.id) { error in
+                                message = error.map { "举报失败：\($0)" } ?? "举报已提交"
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .foregroundStyle(.secondary)
+                }
             }
             Text(comment.body)
                 .fixedSize(horizontal: false, vertical: true)
-            reactionButton(
-                title: "\(commentReactions[comment.id]?.likeCount ?? comment.likeCount)",
-                systemImage: commentReactions[comment.id]?.active == true ? "heart.fill" : "heart",
-                tint: commentReactions[comment.id]?.active == true ? .pink : .secondary,
-            ) {
-                let active = commentReactions[comment.id]?.active != true
-                model.reactComment(id: comment.id, reaction: "like", active: active) { reaction, error in
-                    if let reaction { commentReactions[comment.id] = reaction }
-                    message = error.map { "操作失败：\($0)" }
+            HStack(spacing: 16) {
+                reactionButton(
+                    title: "\(commentReactions[comment.id]?.likeCount ?? comment.likeCount)",
+                    systemImage: commentReactions[comment.id]?.active == true ? "heart.fill" : "heart",
+                    tint: commentReactions[comment.id]?.active == true ? .pink : .secondary,
+                ) {
+                    let active = commentReactions[comment.id]?.active != true
+                    model.reactComment(id: comment.id, reaction: "like", active: active) { reaction, error in
+                        if let reaction { commentReactions[comment.id] = reaction }
+                        message = error.map { "操作失败：\($0)" }
+                    }
+                }
+                reactionButton(
+                    title: "\(commentReactions[comment.id]?.bookmarkCount ?? comment.bookmarkCount)",
+                    systemImage: "bookmark",
+                    tint: .secondary,
+                ) {
+                    let active = commentReactions[comment.id]?.active != true
+                    model.reactComment(id: comment.id, reaction: "bookmark", active: active) { reaction, error in
+                        if let reaction { commentReactions[comment.id] = reaction }
+                        message = error.map { "操作失败：\($0)" }
+                    }
                 }
             }
             .font(.caption.weight(.medium))
@@ -890,15 +1971,58 @@ struct NativeSubjectCommunityView: View {
         guard !body.isEmpty else { return }
         isSubmitting = true
         message = nil
-        model.createComment(subjectId: subjectId, body: body) { comment, error in
+        model.createCommentAdvanced(subjectId: subjectId, body: body, spoiler: commentSpoiler, parentId: nil) { comment, error in
             isSubmitting = false
             if let comment {
                 localComments.insert(comment, at: 0)
                 commentText = ""
+                commentSpoiler = false
                 message = "讨论已发布"
             } else if let error {
                 message = "发布失败：\(error)"
             }
+        }
+    }
+}
+
+private struct NativeCommentEditor: View {
+    let comment: NativeCommentSnapshot
+    @ObservedObject var model: NativeAppModel
+    let onComplete: (NativeCommentSnapshot?, String?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var commentText: String
+    @State private var spoiler: Bool
+    @State private var isSaving = false
+
+    init(comment: NativeCommentSnapshot, model: NativeAppModel, onComplete: @escaping (NativeCommentSnapshot?, String?) -> Void) {
+        self.comment = comment
+        self.model = model
+        self.onComplete = onComplete
+        _commentText = State(initialValue: comment.body)
+        _spoiler = State(initialValue: comment.spoiler)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextEditor(text: $commentText).frame(minHeight: 150)
+                Toggle("包含剧透", isOn: $spoiler)
+                Button(isSaving ? "保存中…" : "保存修改") { save() }
+                    .disabled(isSaving || commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .navigationTitle("编辑讨论")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+            }
+        }
+    }
+
+    private func save() {
+        isSaving = true
+        model.updateComment(id: comment.id, body: commentText.trimmingCharacters(in: .whitespacesAndNewlines), spoiler: spoiler) { value, error in
+            isSaving = false
+            onComplete(value, error)
+            if value != nil { dismiss() }
         }
     }
 }
@@ -912,6 +2036,11 @@ struct NativeSettingsView: View {
             Section("账号") {
                 if model.session.status == "authenticated" {
                     LabeledContent("当前账号", value: model.session.displayName ?? "Anime 用户")
+                    NavigationLink {
+                        NativeAccountManagementView(model: model)
+                    } label: {
+                        Label("账号与数据", systemImage: "person.crop.circle.badge.checkmark")
+                    }
                     Button("切换账号") { showingAccount = true }
                 } else {
                     Button("登录或注册") { showingAccount = true }
@@ -943,6 +2072,151 @@ struct NativeSettingsView: View {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "未知"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
         return build.map { "\(version) (\($0))" } ?? version
+    }
+}
+
+struct NativeAccountManagementView: View {
+    @ObservedObject var model: NativeAppModel
+    @State private var displayName = ""
+    @State private var currentPassword = ""
+    @State private var newPassword = ""
+    @State private var message: String?
+    @State private var exportText: String?
+    @State private var showingDeleteConfirmation = false
+
+    var body: some View {
+        Form {
+            Section("个人资料") {
+                TextField("显示名称", text: $displayName)
+                Button("保存显示名称") {
+                    model.updateProfile(displayName: displayName) { error in
+                        message = error.map { "保存失败：\($0)" } ?? "资料已更新"
+                        if error == nil { model.loadProfile() }
+                    }
+                }
+                .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            Section("修改密码") {
+                SecureField("当前密码", text: $currentPassword)
+                SecureField("新密码", text: $newPassword)
+                Button("修改密码") {
+                    model.changePassword(currentPassword: currentPassword, newPassword: newPassword) { error in
+                        message = error.map { "修改失败：\($0)" } ?? "密码已修改"
+                        if error == nil { currentPassword = ""; newPassword = "" }
+                    }
+                }
+                .disabled(currentPassword.isEmpty || newPassword.count < 8)
+            }
+
+            Section("数据与同步") {
+                NavigationLink {
+                    NativeSyncView(model: model)
+                } label: {
+                    Label("Bangumi 同步", systemImage: "arrow.triangle.2.circlepath")
+                }
+                Button("导出我的数据") {
+                    model.exportMyData { data, error in
+                        if let data { exportText = "导出成功，共 \(data.utf8.count) 字节" }
+                        else { exportText = "导出失败：\(error ?? "未知错误")" }
+                    }
+                }
+            }
+
+            Section {
+                Button("注销账号", role: .destructive) { showingDeleteConfirmation = true }
+            } footer: {
+                Text("注销会删除服务器账号及其社区数据，且无法恢复。")
+            }
+
+            if let message { Section { Text(message).foregroundStyle(message.contains("失败") ? .red : .secondary) } }
+            if let exportText { Section("导出结果") { Text(exportText).font(.footnote) } }
+        }
+        .navigationTitle("账号与数据")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            displayName = model.profile?.displayName ?? model.session.displayName ?? ""
+            if model.profile == nil { model.loadProfile() }
+        }
+        .confirmationDialog("确定注销账号吗？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+            Button("永久注销", role: .destructive) {
+                model.deleteAccount { error in message = error.map { "注销失败：\($0)" } ?? "账号已注销" }
+            }
+        }
+    }
+}
+
+struct NativeSyncView: View {
+    @ObservedObject var model: NativeAppModel
+    @State private var message: String?
+
+    var body: some View {
+        List {
+            Section("同步状态") {
+                if let status = model.syncStatus {
+                    LabeledContent("待同步", value: String(status.pendingCount))
+                    LabeledContent("失败", value: String(status.failedCount))
+                    LabeledContent("冲突", value: String(status.conflictCount))
+                    LabeledContent("Bangumi", value: status.bangumiLinked ? "已连接" : "未连接")
+                    if let last = status.lastSuccessfulAt {
+                        LabeledContent("上次成功", value: last.prefix(16).description)
+                    }
+                } else {
+                    ProgressView("正在加载同步状态")
+                }
+                Button("立即同步") {
+                    model.startSync { error in
+                        message = error.map { "同步失败：\($0)" } ?? "同步请求已提交"
+                        model.loadSyncStatus()
+                        model.loadSyncConflicts()
+                    }
+                }
+                if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+            }
+
+            Section("冲突处理") {
+                if model.syncConflicts.isEmpty {
+                    Text("没有待处理冲突")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(model.syncConflicts) { conflict in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("作品 \(conflict.subjectId) · \(conflict.fieldName)").font(.headline)
+                            Text("本地：\(conflict.localValue)").font(.caption).foregroundStyle(.secondary)
+                            Text("远端：\(conflict.remoteValue)").font(.caption).foregroundStyle(.secondary)
+                            HStack {
+                                Button("保留本地") { resolve(conflict, choice: "keep_local") }
+                                Button("使用远端") { resolve(conflict, choice: "use_remote") }
+                                Button("稍后") { resolve(conflict, choice: "later") }
+                            }
+                            .font(.caption.weight(.semibold))
+                        }
+                        .padding(.vertical, 5)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Bangumi 同步")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            model.loadSyncStatus()
+            model.loadSyncConflicts()
+        }
+        .refreshable {
+            await withCheckedContinuation { continuation in
+                model.loadSyncStatus { _, _ in
+                    model.loadSyncConflicts { _, _ in continuation.resume() }
+                }
+            }
+        }
+    }
+
+    private func resolve(_ conflict: NativeSyncConflictSnapshot, choice: String) {
+        model.resolveSyncConflict(id: conflict.id, expectedVersion: conflict.localVersion, choice: choice) { error in
+            message = error.map { "处理失败：\($0)" } ?? "冲突已处理"
+            model.loadSyncStatus()
+            model.loadSyncConflicts()
+        }
     }
 }
 
@@ -981,6 +2255,8 @@ private struct NativeReviewComposer: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var reviewBody = ""
+    @State private var spoiler = false
+    @State private var visibility = "public"
     @State private var isSubmitting = false
     @State private var errorMessage: String?
 
@@ -993,6 +2269,11 @@ private struct NativeReviewComposer: View {
                 Section("你的感受") {
                     TextEditor(text: $reviewBody)
                         .frame(minHeight: 160)
+                    Toggle("包含剧透", isOn: $spoiler)
+                    Picker("可见性", selection: $visibility) {
+                        Text("公开").tag("public")
+                        Text("仅自己").tag("private")
+                    }
                 }
                 if let errorMessage {
                     Section {
@@ -1022,10 +2303,13 @@ private struct NativeReviewComposer: View {
         isSubmitting = true
         errorMessage = nil
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        model.createReview(
+        model.createReviewAdvanced(
             subjectId: subjectId,
+            kind: "review",
             title: normalizedTitle.isEmpty ? nil : normalizedTitle,
             body: normalizedBody,
+            spoiler: spoiler,
+            visibility: visibility,
         ) { review, error in
             isSubmitting = false
             if let review {
@@ -1143,16 +2427,16 @@ private struct NativeCollectionCard: View {
     }
 }
 
-private struct NativeActivityCard<Destination: View>: View {
+private struct NativeActivityCard: View {
     let item: NativeActivityItemSnapshot
-    let destination: (NativeSubjectSummary) -> Destination
+    let destination: AnyView?
 
     var body: some View {
         Group {
-            if let subject = item.subjectSummary {
-                NavigationLink { destination(subject) } label: { content(subject: subject) }
+            if let destination {
+                NavigationLink { destination } label: { content(subject: item.subjectSummary) }
             } else {
-                content(subject: nil)
+                content(subject: item.subjectSummary)
             }
         }
         .buttonStyle(.plain)
@@ -1183,10 +2467,28 @@ private struct NativeActivityCard<Destination: View>: View {
 
 private struct NativeNotificationRow: View {
     let notification: NativeNotificationSnapshot
+    let destination: AnyView?
     let onRead: () -> Void
 
     var body: some View {
-        Button(action: onRead) {
+        Group {
+            if let destination {
+                NavigationLink {
+                    destination
+                } label: {
+                    content
+                }
+                .simultaneousGesture(TapGesture().onEnded { _ in onRead() })
+            } else {
+                Button(action: onRead) {
+                    content
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var content: some View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: notification.readAt == nil ? "bell.badge.fill" : "bell")
                     .foregroundStyle(notification.readAt == nil ? Color.accentColor : Color.secondary)
@@ -1200,8 +2502,6 @@ private struct NativeNotificationRow: View {
             }
             .padding(16)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -1304,6 +2604,20 @@ private struct NativeActionRow: View {
 
 private extension NativeSubjectSummary {
     var posterURL: URL? { posterUrl.flatMap(URL.init(string:)) }
+
+    static func placeholder(id: Int64, title: String) -> NativeSubjectSummary {
+        NativeSubjectSummary(
+            id: id,
+            title: title,
+            originalTitle: nil,
+            posterUrl: nil,
+            year: nil,
+            type: "Other",
+            airingStatus: "Unknown",
+            rating: nil,
+            ratingVotes: 0,
+        )
+    }
 }
 
 private extension NativeCollectionItemSnapshot {

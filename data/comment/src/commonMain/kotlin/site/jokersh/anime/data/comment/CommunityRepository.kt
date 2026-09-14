@@ -269,6 +269,7 @@ public interface CommunityRepository {
         title: String,
         description: String,
         subjectIds: List<Long>,
+        visibility: String = "public",
     ): Result<CommunityListSummary>
 
     public suspend fun updateList(
@@ -347,6 +348,7 @@ public class EmptyCommunityRepository : CommunityRepository {
         title: String,
         description: String,
         subjectIds: List<Long>,
+        visibility: String,
     ): Result<CommunityListSummary> = Result.failure(IllegalStateException("Community service is unavailable"))
 
     private fun unavailable(): Result<Unit> = Result.failure(IllegalStateException("Community service is unavailable"))

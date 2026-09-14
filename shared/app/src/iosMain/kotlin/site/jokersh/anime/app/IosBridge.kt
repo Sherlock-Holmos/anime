@@ -20,14 +20,17 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.datetime.LocalDate
 import platform.Foundation.NSURLComponents
 import platform.Foundation.NSURLQueryItem
 import platform.Foundation.NSUserDefaults
 import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.AuthCallback
+import site.jokersh.anime.core.model.CharacterCredit
 import site.jokersh.anime.core.model.CollectionStatus
 import site.jokersh.anime.core.model.Cursor
 import site.jokersh.anime.core.model.DiscoveryFeed
+import site.jokersh.anime.core.model.Episode
 import site.jokersh.anime.core.model.ImageRef
 import site.jokersh.anime.core.model.AnimeLoginCredentials
 import site.jokersh.anime.core.model.AnimeRegistration
@@ -37,10 +40,14 @@ import site.jokersh.anime.core.model.SearchRequest
 import site.jokersh.anime.core.model.SearchDiscovery
 import site.jokersh.anime.core.model.SearchSort
 import site.jokersh.anime.core.model.SessionState
+import site.jokersh.anime.core.model.SubjectCredits
 import site.jokersh.anime.core.model.SubjectDetail
 import site.jokersh.anime.core.model.SubjectId
+import site.jokersh.anime.core.model.SubjectRelation
+import site.jokersh.anime.core.model.SubjectSection
 import site.jokersh.anime.core.model.UserCollectionSummary
 import site.jokersh.anime.core.model.UserProfile
+import site.jokersh.anime.data.catalog.CalendarPage
 import site.jokersh.anime.data.catalog.CatalogCacheStore
 import site.jokersh.anime.data.catalog.RemoteCatalogRepository
 import site.jokersh.anime.data.catalog.RemoteSearchRepository
@@ -49,17 +56,25 @@ import site.jokersh.anime.data.collection.OfflineFirstCollectionRepository
 import site.jokersh.anime.data.comment.CommentDraftStore
 import site.jokersh.anime.data.comment.CommunityActivity
 import site.jokersh.anime.data.comment.CommunityComment
+import site.jokersh.anime.data.comment.CommunityListDetail
+import site.jokersh.anime.data.comment.CommunityListItem
+import site.jokersh.anime.data.comment.CommunityListSummary
 import site.jokersh.anime.data.comment.CommunityNotification
 import site.jokersh.anime.data.comment.CommunityReaction
 import site.jokersh.anime.data.comment.CommunityReview
+import site.jokersh.anime.data.comment.CommunityReviewPage
+import site.jokersh.anime.data.comment.CommunityUserProfile
 import site.jokersh.anime.data.comment.OfflineFirstCommunityRepository
 import site.jokersh.anime.data.comment.RatingOutboxStore
 import site.jokersh.anime.data.comment.RemoteCommentRepository
 import site.jokersh.anime.data.comment.RemoteCommunityRepository
 import site.jokersh.anime.data.session.RemoteSessionRepository
+import site.jokersh.anime.data.session.BangumiSyncConflict
+import site.jokersh.anime.data.session.BangumiSyncStatus
 import site.jokersh.anime.data.session.ServiceDiagnostic
 import site.jokersh.anime.data.session.SessionTokenStore
 import site.jokersh.anime.data.session.StoredSessionToken
+import site.jokersh.anime.data.session.SyncConflictChoice
 import site.jokersh.anime.data.settings.PersistentSettingsRepository
 import site.jokersh.anime.data.settings.SettingsStore
 import kotlin.time.Instant
@@ -266,6 +281,48 @@ public class IosNativeAppFacade internal constructor(
                 if (state.value == null) result.exceptionOrNull()?.message ?: state.error?.nativeMessage() else null
         }
 
+    public fun loadCalendar(
+        date: String,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("calendar:$date", completion) {
+            val result = runCatching { appContainer.catalogRepository.calendar(LocalDate.parse(date)).getOrThrow() }
+            result.getOrNull()?.let { json.encodeToString(NativeCalendarSnapshot.serializer(), it.toNativeSnapshot()) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun loadSubjectSections(
+        subjectId: Long,
+        force: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("subject sections:$subjectId", completion) {
+            val repository = appContainer.catalogRepository
+            val id = SubjectId(subjectId)
+            val policy = if (force) RefreshPolicy.Force else RefreshPolicy.IfStale
+            val episodeResult = repository.refreshSection(id, SubjectSection.Episodes, policy)
+            val creditResult = repository.refreshSection(id, SubjectSection.Credits, policy)
+            val relationResult = repository.refreshSection(id, SubjectSection.Relations, policy)
+            val episodes = repository.observeEpisodes(id).first().value
+            val credits = repository.observeCredits(id).first().value
+            val relations = repository.observeRelations(id).first().value
+            val failure =
+                episodeResult.exceptionOrNull() ?: creditResult.exceptionOrNull() ?: relationResult.exceptionOrNull()
+            val snapshot =
+                if (episodes != null && credits != null && relations != null) {
+                    NativeSubjectSectionsSnapshot(
+                        episodes = episodes.map(Episode::toNativeSnapshot),
+                        characters = credits.characters.map(CharacterCredit::toNativeSnapshot),
+                        persons = credits.persons.map { it.toNativeSnapshot() },
+                        relations = relations.map(SubjectRelation::toNativeSnapshot),
+                    )
+                } else {
+                    null
+                }
+            snapshot?.let { json.encodeToString(NativeSubjectSectionsSnapshot.serializer(), it) } to
+                if (snapshot == null) failure?.message ?: "作品资料暂时无法加载" else null
+        }
+
     public fun loadSearchDiscovery(completion: (String?, String?) -> Unit) =
         launchTextOperation("search discovery", completion) {
             val result = appContainer.searchRepository.discovery()
@@ -309,12 +366,14 @@ public class IosNativeAppFacade internal constructor(
 
     public fun loadCollection(
         status: String?,
+        cursor: String?,
         completion: (String?, String?) -> Unit,
     ) =
         launchTextOperation("collection", completion) {
             val result =
                 appContainer.sessionRepository.collectionPage(
                     status = status?.let(::nativeCollectionStatus),
+                    cursor = cursor,
                     limit = 50,
                 )
             result.getOrNull()?.let { json.encodeToString(NativeCollectionPageSnapshot.serializer(), it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
@@ -377,6 +436,201 @@ public class IosNativeAppFacade internal constructor(
             snapshot?.let { json.encodeToString(NativeSubjectCommunitySnapshot.serializer(), it) } to failure?.message
         }
 
+    public fun loadReview(
+        id: String,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("review:$id", completion) {
+            val result = appContainer.communityRepository.review(id)
+            result.getOrNull()?.let { json.encodeToString(NativeReviewSnapshot.serializer(), it.toNativeSnapshot()) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun updateReview(
+        id: String,
+        title: String?,
+        body: String?,
+        spoiler: Boolean,
+        visibility: String,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("update review:$id", completion) {
+            val result = appContainer.communityRepository.updateReview(id, title, body, spoiler, visibility)
+            result.getOrNull()?.let { json.encodeToString(NativeReviewSnapshot.serializer(), it.toNativeSnapshot()) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun deleteReview(
+        id: String,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch { completion(appContainer.communityRepository.deleteReview(id).exceptionOrNull()?.message) }
+    }
+
+    public fun updateComment(
+        id: String,
+        body: String,
+        spoiler: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) {
+        scope.launch {
+            val result = appContainer.communityRepository.updateComment(id, body, spoiler)
+            completion(
+                result.getOrNull()?.let { json.encodeToString(NativeCommentSnapshot.serializer(), it.toNativeSnapshot()) },
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun deleteComment(
+        id: String,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch { completion(appContainer.communityRepository.deleteComment(id).exceptionOrNull()?.message) }
+    }
+
+    public fun reportComment(
+        id: String,
+        reasonCode: String,
+        details: String?,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch {
+            completion(
+                appContainer.communityRepository.reportComment(id, reasonCode, details).exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun loadUserProfile(
+        id: String,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("user:$id", completion) {
+            val result = appContainer.communityRepository.userProfile(id)
+            result.getOrNull()?.let { json.encodeToString(NativeUserProfileSnapshot.serializer(), it.toNativeSnapshot()) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun loadUserReviews(
+        id: String,
+        cursor: String?,
+        oldestFirst: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("user reviews:$id", completion) {
+            val result = appContainer.communityRepository.userReviews(id, 20, cursor, oldestFirst)
+            result.getOrNull()?.let { json.encodeToString(NativeReviewPageSnapshot.serializer(), it.toNativeSnapshot()) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun loadUserLists(
+        id: String,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("user lists:$id", completion) {
+            val result = appContainer.communityRepository.userLists(id, 30)
+            result.getOrNull()?.let {
+                json.encodeToString(ListSerializer(NativeListSummarySnapshot.serializer()), it.map { item -> item.toNativeSnapshot() })
+            } to result.exceptionOrNull()?.message
+        }
+
+    public fun loadLists(completion: (String?, String?) -> Unit) =
+        launchTextOperation("lists", completion) {
+            val result = appContainer.communityRepository.lists(30)
+            result.getOrNull()?.let {
+                json.encodeToString(ListSerializer(NativeListSummarySnapshot.serializer()), it.map { item -> item.toNativeSnapshot() })
+            } to result.exceptionOrNull()?.message
+        }
+
+    public fun loadList(
+        id: String,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("list:$id", completion) {
+            val result = appContainer.communityRepository.list(id)
+            result.getOrNull()?.let { json.encodeToString(NativeListDetailSnapshot.serializer(), it.toNativeSnapshot()) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun createList(
+        title: String,
+        description: String,
+        visibility: String,
+        subjectIds: List<Long>,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("create list", completion) {
+            val result = appContainer.communityRepository.createList(title, description, subjectIds, visibility)
+            result.getOrNull()?.let { json.encodeToString(NativeListSummarySnapshot.serializer(), it.toNativeSnapshot()) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun updateList(
+        id: String,
+        title: String,
+        description: String,
+        visibility: String,
+        subjectIds: List<Long>,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("update list:$id", completion) {
+            val result = appContainer.communityRepository.updateList(id, title, description, visibility, subjectIds)
+            result.getOrNull()?.let { json.encodeToString(NativeListSummarySnapshot.serializer(), it.toNativeSnapshot()) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun deleteList(
+        id: String,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch { completion(appContainer.communityRepository.deleteList(id).exceptionOrNull()?.message) }
+    }
+
+    public fun loadFollowUserStatus(
+        id: String,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("user follow:$id", completion) {
+            val result = appContainer.communityRepository.followUserStatus(id)
+            result.getOrNull()?.let { json.encodeToString(NativeFollowSnapshot.serializer(), NativeFollowSnapshot(it)) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun followUser(
+        id: String,
+        following: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("user follow mutation:$id", completion) {
+            val result =
+                if (following) appContainer.communityRepository.followUser(id) else appContainer.communityRepository.unfollowUser(id)
+            result.getOrNull()?.let { json.encodeToString(NativeFollowSnapshot.serializer(), NativeFollowSnapshot(it)) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun loadFollowListStatus(
+        id: String,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("list follow:$id", completion) {
+            val result = appContainer.communityRepository.followListStatus(id)
+            result.getOrNull()?.let { json.encodeToString(NativeFollowSnapshot.serializer(), NativeFollowSnapshot(it)) } to
+                result.exceptionOrNull()?.message
+        }
+
+    public fun followList(
+        id: String,
+        following: Boolean,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("list follow mutation:$id", completion) {
+            val result =
+                if (following) appContainer.communityRepository.followList(id) else appContainer.communityRepository.unfollowList(id)
+            result.getOrNull()?.let { json.encodeToString(NativeFollowSnapshot.serializer(), NativeFollowSnapshot(it)) } to
+                result.exceptionOrNull()?.message
+        }
+
     public fun saveRating(
         subjectId: Long,
         score: Int,
@@ -416,8 +670,18 @@ public class IosNativeAppFacade internal constructor(
         body: String,
         completion: (String?, String?) -> Unit,
     ) {
+        createCommentAdvanced(subjectId, body, false, null, completion)
+    }
+
+    public fun createCommentAdvanced(
+        subjectId: Long,
+        body: String,
+        spoiler: Boolean,
+        parentId: String?,
+        completion: (String?, String?) -> Unit,
+    ) {
         scope.launch {
-            val result = appContainer.communityRepository.createComment(subjectId, body, false)
+            val result = appContainer.communityRepository.createComment(subjectId, body, spoiler, parentId)
             completion(
                 result.getOrNull()?.let { json.encodeToString(NativeCommentSnapshot.serializer(), it.toNativeSnapshot()) },
                 result.exceptionOrNull()?.message,
@@ -431,14 +695,26 @@ public class IosNativeAppFacade internal constructor(
         body: String,
         completion: (String?, String?) -> Unit,
     ) {
+        createReviewAdvanced(subjectId, "review", title, body, false, "public", completion)
+    }
+
+    public fun createReviewAdvanced(
+        subjectId: Long,
+        kind: String,
+        title: String?,
+        body: String,
+        spoiler: Boolean,
+        visibility: String,
+        completion: (String?, String?) -> Unit,
+    ) {
         scope.launch {
             val result = appContainer.communityRepository.createReview(
                 subjectId = subjectId,
-                kind = "review",
+                kind = kind,
                 title = title,
                 body = body,
-                spoiler = false,
-                visibility = "public",
+                spoiler = spoiler,
+                visibility = visibility,
             )
             completion(
                 result.getOrNull()?.let { json.encodeToString(NativeReviewSnapshot.serializer(), it.toNativeSnapshot()) },
@@ -524,6 +800,75 @@ public class IosNativeAppFacade internal constructor(
         }
     }
 
+    public fun changePassword(
+        currentPassword: String,
+        newPassword: String,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch {
+            completion(
+                sessionOperationMutex.withLock {
+                    appContainer.sessionRepository.changePassword(currentPassword, newPassword)
+                }.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    public fun exportMyData(completion: (String?, String?) -> Unit) =
+        launchTextOperation("export account data", completion) {
+            val result = appContainer.sessionRepository.exportMyData()
+            result.getOrNull() to result.exceptionOrNull()?.message
+        }
+
+    public fun deleteAccount(completion: (String?) -> Unit) {
+        scope.launch {
+            completion(
+                sessionOperationMutex.withLock { appContainer.sessionRepository.deleteAccount() }
+                    .exceptionOrNull()
+                    ?.message,
+            )
+        }
+    }
+
+    public fun loadSyncStatus(completion: (String?, String?) -> Unit) =
+        launchTextOperation("sync status", completion) {
+            val result = appContainer.sessionRepository.syncStatus()
+            result.getOrNull()?.let {
+                json.encodeToString(NativeSyncStatusSnapshot.serializer(), it.toNativeSnapshot())
+            } to result.exceptionOrNull()?.message
+        }
+
+    public fun startSync(completion: (String?) -> Unit) {
+        scope.launch { completion(appContainer.sessionRepository.startSync().exceptionOrNull()?.message) }
+    }
+
+    public fun loadSyncConflicts(completion: (String?, String?) -> Unit) =
+        launchTextOperation("sync conflicts", completion) {
+            val result = appContainer.sessionRepository.syncConflicts()
+            result.getOrNull()?.let {
+                json.encodeToString(
+                    ListSerializer(NativeSyncConflictSnapshot.serializer()),
+                    it.map(BangumiSyncConflict::toNativeSnapshot),
+                )
+            } to result.exceptionOrNull()?.message
+        }
+
+    public fun resolveSyncConflict(
+        id: String,
+        expectedVersion: Long,
+        choice: String,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch {
+            completion(
+                appContainer.sessionRepository
+                    .resolveSyncConflict(id, expectedVersion, choice.toSyncConflictChoice())
+                    .exceptionOrNull()
+                    ?.message,
+            )
+        }
+    }
+
     public fun diagnostics(completion: (String?, String?) -> Unit) {
         scope.launch {
             val result = appContainer.sessionRepository.diagnostics()
@@ -572,6 +917,13 @@ public class IosNativeAppFacade internal constructor(
         }
     }
 }
+
+private fun String.toSyncConflictChoice(): SyncConflictChoice =
+    when (lowercase()) {
+        "keep_local" -> SyncConflictChoice.KeepLocal
+        "use_remote" -> SyncConflictChoice.UseRemote
+        else -> SyncConflictChoice.Later
+    }
 
 @Serializable
 internal data class NativeSessionSnapshot(
@@ -636,6 +988,56 @@ internal data class NativeSubjectDetailSnapshot(
     val backdropUrl: String? = null,
     val sourceUrl: String,
     val dataUpdatedAtEpochSeconds: Long,
+)
+
+@Serializable
+internal data class NativeCalendarSnapshot(
+    val date: String,
+    val items: List<NativeSubjectSummary>,
+    val generatedAtEpochSeconds: Long,
+)
+
+@Serializable
+internal data class NativeSubjectSectionsSnapshot(
+    val episodes: List<NativeEpisodeSnapshot>,
+    val characters: List<NativeCharacterSnapshot>,
+    val persons: List<NativePersonSnapshot>,
+    val relations: List<NativeRelationSnapshot>,
+)
+
+@Serializable
+internal data class NativeEpisodeSnapshot(
+    val id: Long,
+    val number: Double? = null,
+    val title: String? = null,
+    val originalTitle: String? = null,
+    val type: String,
+    val airDate: String? = null,
+    val airStatus: String,
+)
+
+@Serializable
+internal data class NativeCharacterSnapshot(
+    val id: Long,
+    val name: String,
+    val imageUrl: String? = null,
+    val relation: String,
+    val actors: List<NativePersonSnapshot> = emptyList(),
+)
+
+@Serializable
+internal data class NativePersonSnapshot(
+    val id: Long,
+    val name: String,
+    val imageUrl: String? = null,
+    val role: String? = null,
+)
+
+@Serializable
+internal data class NativeRelationSnapshot(
+    val subject: NativeSubjectSummary,
+    val kind: String,
+    val label: String,
 )
 
 @Serializable
@@ -766,6 +1168,12 @@ internal data class NativeReviewSnapshot(
 )
 
 @Serializable
+internal data class NativeReviewPageSnapshot(
+    val items: List<NativeReviewSnapshot>,
+    val nextCursor: String? = null,
+)
+
+@Serializable
 internal data class NativeCommentSnapshot(
     val id: String,
     val parentId: String? = null,
@@ -777,6 +1185,75 @@ internal data class NativeCommentSnapshot(
     val owned: Boolean,
     val likeCount: Long,
     val bookmarkCount: Long,
+)
+
+@Serializable
+internal data class NativeUserProfileSnapshot(
+    val id: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val createdAt: String,
+    val reviewCount: Long,
+    val ratingCount: Long,
+    val listCount: Long,
+    val followerCount: Long,
+    val followingCount: Long,
+    val following: Boolean,
+)
+
+@Serializable
+internal data class NativeListSummarySnapshot(
+    val id: String,
+    val ownerId: String? = null,
+    val ownerName: String,
+    val title: String,
+    val description: String,
+    val itemCount: Long,
+    val followerCount: Long,
+    val updatedAt: String,
+    val owned: Boolean,
+    val following: Boolean,
+)
+
+@Serializable
+internal data class NativeListItemSnapshot(
+    val subjectId: Long,
+    val title: String,
+    val posterUrl: String? = null,
+    val note: String? = null,
+    val position: Int,
+    val score: Double? = null,
+)
+
+@Serializable
+internal data class NativeListDetailSnapshot(
+    val summary: NativeListSummarySnapshot,
+    val items: List<NativeListItemSnapshot>,
+)
+
+@Serializable
+internal data class NativeFollowSnapshot(
+    val following: Boolean,
+)
+
+@Serializable
+internal data class NativeSyncStatusSnapshot(
+    val pendingCount: Long,
+    val failedCount: Long,
+    val conflictCount: Long,
+    val lastSuccessfulAt: String? = null,
+    val bangumiLinked: Boolean,
+)
+
+@Serializable
+internal data class NativeSyncConflictSnapshot(
+    val id: String,
+    val subjectId: Long,
+    val localVersion: Long,
+    val fieldName: String,
+    val localValue: String,
+    val remoteValue: String,
+    val detectedAt: String,
 )
 
 @Serializable
@@ -794,6 +1271,44 @@ private fun DiscoveryFeed.toNativeSnapshot(): NativeDiscoverySnapshot =
         },
         generatedAtEpochSeconds = generatedAt.epochSeconds,
     )
+
+private fun CalendarPage.toNativeSnapshot(): NativeCalendarSnapshot =
+    NativeCalendarSnapshot(
+        date = date.toString(),
+        items = items.map { it.toNativeSummary() },
+        generatedAtEpochSeconds = generatedAt.epochSeconds,
+    )
+
+private fun Episode.toNativeSnapshot(): NativeEpisodeSnapshot =
+    NativeEpisodeSnapshot(
+        id = id.value,
+        number = number,
+        title = title,
+        originalTitle = originalTitle,
+        type = type.name,
+        airDate = airDate?.toString(),
+        airStatus = airStatus.name,
+    )
+
+private fun CharacterCredit.toNativeSnapshot(): NativeCharacterSnapshot =
+    NativeCharacterSnapshot(
+        id = characterId.value,
+        name = name,
+        imageUrl = image.nativeUrl(),
+        relation = relation,
+        actors = actors.map { it.toNativeSnapshot() },
+    )
+
+private fun site.jokersh.anime.core.model.PersonCredit.toNativeSnapshot(): NativePersonSnapshot =
+    NativePersonSnapshot(
+        id = personId.value,
+        name = name,
+        imageUrl = image.nativeUrl(),
+        role = role,
+    )
+
+private fun SubjectRelation.toNativeSnapshot(): NativeRelationSnapshot =
+    NativeRelationSnapshot(subject = subject.toNativeSummary(), kind = kind.name, label = label)
 
 private fun SearchDiscovery.toNativeSnapshot(): NativeSearchDiscoverySnapshot =
     NativeSearchDiscoverySnapshot(
@@ -889,8 +1404,72 @@ private fun site.jokersh.anime.data.comment.CommunityRating.toNativeSnapshot(): 
 private fun CommunityReview.toNativeSnapshot(): NativeReviewSnapshot =
     NativeReviewSnapshot(id, subjectId, authorId, kind, title, body, spoiler, likeCount, createdAt, owned, bookmarkCount, editedAt, visibility)
 
+private fun CommunityReviewPage.toNativeSnapshot(): NativeReviewPageSnapshot =
+    NativeReviewPageSnapshot(items = items.map { it.toNativeSnapshot() }, nextCursor = nextCursor)
+
 private fun CommunityComment.toNativeSnapshot(): NativeCommentSnapshot =
     NativeCommentSnapshot(id, parentId, authorId, authorName, body, spoiler, createdAt, owned, likeCount, bookmarkCount)
+
+private fun CommunityUserProfile.toNativeSnapshot(): NativeUserProfileSnapshot =
+    NativeUserProfileSnapshot(
+        id = id,
+        displayName = displayName,
+        avatarUrl = avatarUrl,
+        createdAt = createdAt,
+        reviewCount = reviewCount,
+        ratingCount = ratingCount,
+        listCount = listCount,
+        followerCount = followerCount,
+        followingCount = followingCount,
+        following = following,
+    )
+
+private fun CommunityListSummary.toNativeSnapshot(): NativeListSummarySnapshot =
+    NativeListSummarySnapshot(
+        id = id,
+        ownerId = ownerId,
+        ownerName = ownerName,
+        title = title,
+        description = description,
+        itemCount = itemCount,
+        followerCount = followerCount,
+        updatedAt = updatedAt,
+        owned = owned,
+        following = following,
+    )
+
+private fun CommunityListItem.toNativeSnapshot(): NativeListItemSnapshot =
+    NativeListItemSnapshot(
+        subjectId = subjectId,
+        title = title,
+        posterUrl = posterUrl,
+        note = note,
+        position = position,
+        score = score,
+    )
+
+private fun CommunityListDetail.toNativeSnapshot(): NativeListDetailSnapshot =
+    NativeListDetailSnapshot(summary = summary.toNativeSnapshot(), items = items.map { it.toNativeSnapshot() })
+
+private fun BangumiSyncStatus.toNativeSnapshot(): NativeSyncStatusSnapshot =
+    NativeSyncStatusSnapshot(
+        pendingCount = pendingCount,
+        failedCount = failedCount,
+        conflictCount = conflictCount,
+        lastSuccessfulAt = lastSuccessfulAt,
+        bangumiLinked = bangumiLinked,
+    )
+
+private fun BangumiSyncConflict.toNativeSnapshot(): NativeSyncConflictSnapshot =
+    NativeSyncConflictSnapshot(
+        id = id,
+        subjectId = subjectId,
+        localVersion = localVersion,
+        fieldName = fieldName,
+        localValue = localValue,
+        remoteValue = remoteValue,
+        detectedAt = detectedAt,
+    )
 
 private fun CommunityReaction.toNativeSnapshot(): NativeReactionSnapshot =
     NativeReactionSnapshot(reaction, active, likeCount, bookmarkCount)

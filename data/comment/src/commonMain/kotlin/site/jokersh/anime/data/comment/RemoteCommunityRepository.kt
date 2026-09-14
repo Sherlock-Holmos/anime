@@ -102,7 +102,7 @@ public class RemoteCommunityRepository(
     ): Result<List<CommunityReview>> =
         runCatching {
             decode<ReviewPageDto>(
-                client.get("$baseUrl/api/v1/subjects/$subjectId/reviews?limit=$limit"),
+                client.get("$baseUrl/api/v1/subjects/$subjectId/reviews?limit=$limit") { optionalAuth() },
             ).items.map { it.toModel() }
         }
 
@@ -128,7 +128,7 @@ public class RemoteCommunityRepository(
 
     public override suspend fun review(id: String): Result<CommunityReview> =
         runCatching {
-            decode<ReviewDto>(client.get("$baseUrl/api/v1/reviews/$id")).toModel()
+            decode<ReviewDto>(client.get("$baseUrl/api/v1/reviews/$id") { optionalAuth() }).toModel()
         }
 
     public override suspend fun deleteReview(id: String): Result<Unit> =
@@ -192,13 +192,13 @@ public class RemoteCommunityRepository(
     public override suspend fun lists(limit: Int): Result<List<CommunityListSummary>> =
         runCatching {
             decode<List<ListSummaryDto>>(
-                client.get("$baseUrl/api/v1/community/lists?limit=$limit"),
+                client.get("$baseUrl/api/v1/community/lists?limit=$limit") { optionalAuth() },
             ).map { it.toModel() }
         }
 
     public override suspend fun list(id: String): Result<CommunityListDetail> =
         runCatching {
-            val dto = decode<ListDetailDto>(client.get("$baseUrl/api/v1/community/lists/$id"))
+            val dto = decode<ListDetailDto>(client.get("$baseUrl/api/v1/community/lists/$id") { optionalAuth() })
             CommunityListDetail(dto.toSummary(), dto.items.map { it.toModel() })
         }
 
@@ -310,12 +310,13 @@ public class RemoteCommunityRepository(
         title: String,
         description: String,
         subjectIds: List<Long>,
+        visibility: String,
     ): Result<CommunityListSummary> =
         runCatching {
             decode<ListSummaryDto>(
                 client.post("$baseUrl/api/v1/community/lists") {
                     auth()
-                    jsonBody(CreateListRequest(title, description, subjectIds))
+                    jsonBody(CreateListRequest(title, description, visibility, subjectIds))
                 },
             ).toModel()
         }
@@ -570,6 +571,7 @@ public class RemoteCommunityRepository(
 @Serializable private data class CreateListRequest(
     val title: String,
     val description: String,
+    val visibility: String = "public",
     @SerialName("subject_ids") val subjectIds: List<Long>,
 )
 
