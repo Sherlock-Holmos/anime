@@ -334,11 +334,14 @@ public class IosNativeAppFacade internal constructor(
     public fun searchSubjects(
         query: String,
         cursor: String?,
-        typesCsv: String?,
-        yearStart: Int?,
-        yearEnd: Int?,
-        airingCsv: String?,
-        sort: String,
+        completion: (String?, String?) -> Unit,
+    ) = searchSubjectsFiltered(query, cursor, "||||relevance", completion)
+
+    /** Keep the Swift-facing ABI small; filters use type|from|to|airing|sort. */
+    public fun searchSubjectsFiltered(
+        query: String,
+        cursor: String?,
+        filtersCsv: String,
         completion: (String?, String?) -> Unit,
     ) =
         launchTextOperation("search", completion) {
@@ -348,6 +351,12 @@ public class IosNativeAppFacade internal constructor(
             } else {
                 val result =
                     runCatching {
+                        val filters = filtersCsv.split('|')
+                        val typesCsv = filters.getOrNull(0)
+                        val yearStart = filters.getOrNull(1)?.toIntOrNull()
+                        val yearEnd = filters.getOrNull(2)?.toIntOrNull()
+                        val airingCsv = filters.getOrNull(3)
+                        val sort = filters.getOrNull(4).orEmpty()
                         val normalizedYearStart = yearStart?.takeIf { it >= 1900 }
                         val normalizedYearEnd = yearEnd?.takeIf { it >= 1900 }
                         require(yearStart == null || normalizedYearStart != null) { "开始年份无效" }
@@ -693,6 +702,13 @@ public class IosNativeAppFacade internal constructor(
         status: String?,
         episodeProgress: Int?,
         completion: (String?) -> Unit,
+    ) = setCollectionWithProgress(subjectId, status, episodeProgress ?: -1, completion)
+
+    public fun setCollectionWithProgress(
+        subjectId: Long,
+        status: String?,
+        episodeProgress: Int,
+        completion: (String?) -> Unit,
     ) {
         scope.launch {
             val result =
@@ -701,7 +717,7 @@ public class IosNativeAppFacade internal constructor(
                 } else {
                     nativeCollectionStatus(status)?.let { normalizedStatus ->
                         appContainer.communityRepository
-                            .setCollection(subjectId, normalizedStatus.apiValueForIos(), episodeProgress?.coerceAtLeast(0))
+                            .setCollection(subjectId, normalizedStatus.apiValueForIos(), episodeProgress.takeIf { it >= 0 })
                     } ?: Result.failure(IllegalArgumentException("不支持的收藏状态"))
                 }
             // The SwiftUI page reads the remote collection endpoint, while the shared

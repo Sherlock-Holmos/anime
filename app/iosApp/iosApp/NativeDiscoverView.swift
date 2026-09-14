@@ -273,15 +273,14 @@ final class NativeAppModel: ObservableObject {
         completion: ((NativeSearchResultsSnapshot?, String?) -> Void)? = nil,
     ) {
         start()
-        facade?.searchSubjects(
-            query: query,
-            cursor: cursor,
-            typesCsv: typesCsv,
-            yearStart: yearStart.map(Int32.init),
-            yearEnd: yearEnd.map(Int32.init),
-            airingCsv: airingCsv,
-            sort: sort,
-        ) { [weak self] rawSnapshot, error in
+        let filtersCsv = [
+            typesCsv ?? "",
+            yearStart.map(String.init) ?? "",
+            yearEnd.map(String.init) ?? "",
+            airingCsv ?? "",
+            sort,
+        ].joined(separator: "|")
+        facade?.searchSubjectsFiltered(query: query, cursor: cursor, filtersCsv: filtersCsv) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeSearchResultsSnapshot.self) }
@@ -582,7 +581,11 @@ final class NativeAppModel: ObservableObject {
     func setCollection(subjectId: Int64, status: String?, episodeProgress: Int? = nil, completion: ((String?) -> Void)? = nil) {
         start()
         if rejectSimpleWrite(completion) { return }
-        facade?.setCollection(subjectId: subjectId, status: status, episodeProgress: episodeProgress.map(Int32.init)) { error in
+        facade?.setCollectionWithProgress(
+            subjectId: subjectId,
+            status: status,
+            episodeProgress: Int32(episodeProgress ?? -1),
+        ) { error in
             Task { @MainActor in completion?(error) }
         }
     }
