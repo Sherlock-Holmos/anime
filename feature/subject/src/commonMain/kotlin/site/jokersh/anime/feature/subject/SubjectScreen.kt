@@ -85,6 +85,7 @@ public fun SubjectScreen(
     onEpisodesClick: () -> Unit,
     onCharactersClick: () -> Unit,
     onRelationsClick: () -> Unit,
+    onRatingClick: () -> Unit,
     onCommentsClick: () -> Unit,
     onReviewsClick: () -> Unit,
     onReviewClick: (String) -> Unit,
@@ -102,6 +103,7 @@ public fun SubjectScreen(
                     onEpisodesClick,
                     onCharactersClick,
                     onRelationsClick,
+                    onRatingClick,
                     onCommentsClick,
                     onReviewsClick,
                     onReviewClick,
@@ -141,6 +143,7 @@ private fun SubjectContent(
     onEpisodesClick: () -> Unit,
     onCharactersClick: () -> Unit,
     onRelationsClick: () -> Unit,
+    onRatingClick: () -> Unit,
     onCommentsClick: () -> Unit,
     onReviewsClick: () -> Unit,
     onReviewClick: (String) -> Unit,
@@ -210,7 +213,7 @@ private fun SubjectContent(
                     SubjectInformation(content, onEpisodesClick, onCharactersClick, onRelationsClick)
                 }
             }
-            CommunityPreview(state, onCommentsClick, onReviewsClick, onReviewClick, onListClick, wide)
+            CommunityPreview(state, onRatingClick, onCommentsClick, onReviewsClick, onReviewClick, onListClick, wide)
         }
     }
 }
@@ -432,7 +435,8 @@ private fun RatingSourceCard(
 @Composable
 private fun CommunityPreview(
     state: SubjectUiState,
-    onCompose: () -> Unit,
+    onRatingClick: () -> Unit,
+    onCommentsClick: () -> Unit,
     onReviewsClick: () -> Unit,
     onReviewClick: (String) -> Unit,
     onListClick: (String) -> Unit,
@@ -494,9 +498,10 @@ private fun CommunityPreview(
                             Text("还没有评价，来写下第一条记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
                         AnimeSecondaryButton("全部短评", onReviewsClick)
-                        AnimeSecondaryButton("写评价 / 参与讨论", onCompose)
+                        AnimeSecondaryButton("写评价", onRatingClick)
+                        AnimeSecondaryButton("参与讨论", onCommentsClick)
                     }
                 }
             }

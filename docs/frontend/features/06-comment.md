@@ -2,7 +2,7 @@
 
 ## 1. 路由与边界
 
-路由 `AppRoute.Comments(subjectId: Long, sort: CommentSort = CommentSort.Newest)`。评论为 Anime 自有社区数据；与 Bangumi 评论完全隔离。支持查看、分页、发一条顶级评论、回复一层、折叠剧透和删除自己的评论。不支持点赞、编辑、无限嵌套、图片和富文本。
+路由 `AppRoute.Comments(subjectId: Long, sort: CommentSort = CommentSort.Newest)`。评论为 Anime 自有社区数据；与 Bangumi 评论完全隔离。支持查看、分页、发一条顶级评论、回复一层、折叠剧透、编辑和删除自己的评论。不支持点赞、无限嵌套、图片和富文本。
 
 ## 2. Contract
 
@@ -24,6 +24,8 @@ sealed interface CommentIntent {
     data object Submit : CommentIntent
     data class DeleteClicked(val commentId: CommentId) : CommentIntent
     data object DeleteConfirmed : CommentIntent
+    data class EditClicked(val commentId: CommentId) : CommentIntent
+    data object EditConfirmed : CommentIntent
     data object LoadNextPage : CommentIntent
     data object Retry : CommentIntent
 }

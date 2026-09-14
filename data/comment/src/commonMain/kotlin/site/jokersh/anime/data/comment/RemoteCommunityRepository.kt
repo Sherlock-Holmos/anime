@@ -184,8 +184,19 @@ public class RemoteCommunityRepository(
 
     public override suspend fun rating(subjectId: Long): Result<CommunityRating> =
         runCatching {
-            decode<RatingSummaryDto>(client.get("$baseUrl/api/v1/subjects/$subjectId/community-rating")).let {
-                CommunityRating(it.score, it.votes)
+            decode<RatingSummaryDto>(
+                client.get("$baseUrl/api/v1/subjects/$subjectId/community-rating") {
+                    optionalAuth()
+                },
+            ).let {
+                CommunityRating(
+                    score = it.score,
+                    votes = it.votes,
+                    userScore = it.userScore,
+                    collectionStatus = it.collectionStatus,
+                    collectionEpisodeProgress = it.collectionEpisodeProgress,
+                    isCollected = it.isCollected,
+                )
             }
         }
 
@@ -505,6 +516,10 @@ public class RemoteCommunityRepository(
 @Serializable private data class RatingSummaryDto(
     val score: Double? = null,
     val votes: Long = 0,
+    @SerialName("user_score") val userScore: Int? = null,
+    @SerialName("collection_status") val collectionStatus: String? = null,
+    @SerialName("collection_episode_progress") val collectionEpisodeProgress: Int? = null,
+    @SerialName("is_collected") val isCollected: Boolean = false,
 )
 
 @Serializable private data class ListSummaryDto(

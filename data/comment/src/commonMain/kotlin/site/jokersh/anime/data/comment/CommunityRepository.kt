@@ -110,6 +110,10 @@ public data class CommunityListDetail(
 public data class CommunityRating(
     val score: Double?,
     val votes: Long,
+    val userScore: Int? = null,
+    val collectionStatus: String? = null,
+    val collectionEpisodeProgress: Int? = null,
+    val isCollected: Boolean = false,
 )
 
 public data class CommunityReaction(

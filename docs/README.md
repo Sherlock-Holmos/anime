@@ -2,7 +2,9 @@
 
 ## 规范性事实源
 
-项目设计以 [`anime项目完整详细设计文档.md`](anime项目完整详细设计文档.md) 为总体基线，以 [`frontend/00-specification-index.md`](frontend/00-specification-index.md) 为 CMP 实施入口，以 [`backend/00-backend-specification-index.md`](backend/00-backend-specification-index.md) 为后端实施入口。`frontend/`、`backend/`、`contracts/openapi/` 和 `contracts/database/` 共同构成 V1.4 可执行开发基线。它们位于主仓库并接受同一套版本审查。根目录和 `docs/` 中名称包含“探讨”的文档是历史研究材料，不作为开发约束，除非结论已经合并到规范性文档。
+项目当前状态、发布范围和跨仓库优先级以 [`product/01-product-management-baseline.md`](product/01-product-management-baseline.md) 为产品总控基线。产品定位以 [`product/00-product-vision.md`](product/00-product-vision.md) 为准，系统设计以 [`anime项目完整详细设计文档.md`](anime项目完整详细设计文档.md) 为快照，CMP 与 Rust 后端分别以各自规范索引为实施入口。主仓库 `contracts/` 与独立仓库 `anime-backend/openapi/`、`anime-backend/migrations/` 当前尚未完全收敛，生产事实源与同步规则见产品总控基线的契约治理章节。
+
+`frontend/`、`backend/`、`contracts/` 和产品文档共同接受版本审查。根目录和 `docs/` 中名称包含“探讨”的文档是历史研究材料，不作为开发约束，除非结论已经合并到规范性文档。
 
 Gitea Wiki 是面向阅读和导航的发布结果，不是第二个可编辑源。Wiki 页面顶部会包含源文件路径和 SHA-256，用于确认内容来自哪一版基线。
 
@@ -23,7 +25,7 @@ Gitea Wiki 是面向阅读和导航的发布结果，不是第二个可编辑源
 python scripts/sync_wiki.py
 ```
 
-生成结果位于 `build/wiki/`。脚本生成 51 个受管页面，只读取总体设计、`docs/frontend/` 和 `docs/backend/`，不读取历史探讨文档。OpenAPI 与 SQL migration 由后端页面链接并通过 `scripts/check_backend_contracts.py` 独立校验。
+生成结果位于 `build/wiki/`。脚本生成 59 个受管页面，覆盖产品、总体设计、`docs/frontend/` 和 `docs/backend/` 的规范文档，不读取历史探讨文档。OpenAPI 与 SQL migration 由后端页面链接并通过 `scripts/check_backend_contracts.py` 独立校验；该检查目前仍只覆盖主仓库契约。
 
 ## 检查在线 Wiki 是否同步
 
@@ -71,6 +73,9 @@ WIKI_SYNC_TOKEN
 
 | Wiki 页面 | 源章节 |
 |---|---|
+| 00 Product Management Baseline | `product/01-product-management-baseline.md` |
+| 00A Product Vision | `product/00-product-vision.md` |
+| 00B Community MVP Technical Plan | `product/02-community-mvp-technical-plan.md` |
 | 01 Project Overview | 0–3 |
 | 02 Requirements and Flows | 4–6 |
 | 03 System Architecture | 7 |
@@ -113,6 +118,11 @@ WIKI_SYNC_TOKEN
 | 40 Windows Desktop Baseline | `frontend/18-windows-desktop-baseline.md` |
 | 40A Apple Design Baseline | `frontend/19-apple-design-baseline.md` |
 | 40B Color and Layout Specification | `frontend/20-color-and-layout-specification.md` |
+| 40C iOS Host Baseline | `frontend/21-ios-host-baseline.md` |
+| 47 Client Backend Integration Plan | `frontend/22-client-backend-integration-plan.md` |
+| 48 Client UI Design | `frontend/23-client-ui-design.md` |
+| 49 Current UI Design and Development Spec | `frontend/24-current-ui-design-development-spec.md` |
+| 50 Community Feature Contract | `frontend/features/community.md` |
 | 41 Backend Specification Index | `backend/00-backend-specification-index.md` |
 | 42 Backend API Contract | `backend/01-api-contract.md` |
 | 43 Backend Database Contract | `backend/02-database-contract.md` |

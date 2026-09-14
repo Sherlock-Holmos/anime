@@ -5,6 +5,8 @@
 > 适用范围：Anime API、Bangumi 适配器、PostgreSQL、媒体存储与 CMP Remote Repository<br>
 > 核心决策：客户端只访问 Anime 服务；Bangumi API 与 `lain.bgm.tv` 只允许由服务端适配器访问。
 
+> 状态维护：第 1 节保留的是迁移期问题快照。2026-09 当前客户端与独立后端已经具备目录、搜索和详情的 Remote Repository/接口实现；剩余工作以产品总控基线中的契约收敛、真实环境回归和媒体链路验收为准。
+
 ## 1. 当前问题与根因
 
 当前应用处于半远程化状态：
@@ -13,7 +15,7 @@
 - 收藏 DTO 中的 `subject_id` 是 Bangumi ID，`poster_url` 仍是 Bangumi CDN 原始地址；
 - Desktop 使用 Coil 直接请求原始海报，因此在 Bangumi/CDN 不可达的网络中显示占位色；
 - 点击收藏条目后，真实 Bangumi ID 被交给 `FixtureCatalogRepository`，而该仓库只包含 Demo ID，详情页因此返回“无法显示作品”；
-- 发现、搜索和作品详情尚未接入后端目录接口，仍由 Fixture 驱动。
+- 发现、搜索和作品详情已具备后端目录接口与 Remote Repository；仍需完成生产网络、缓存命中、媒体代理和跨端回归验收。
 
 这不是 UI 或单张图片问题，必须统一 ID、目录事实源和媒体访问链路。
 

@@ -1,8 +1,10 @@
-# CMP Android 前端开发路线图与 Agent 协作边界
+# CMP 前端开发路线图与 Agent 协作边界
+
+> 历史路线说明：本文最初按“Android 先完成 Demo”编排。当前 R1 以 iOS IPA 侧载首发、Android 第二、Desktop/Web 预览测试为准；产品优先级、验收口径和冲突处理以 [产品管理基线](../product/01-product-management-baseline.md) 为准。
 
 ## 1. 总体策略
 
-先完成 Android 可玩 Demo，但从第一天使用 `commonMain` 的领域、Repository、状态管理和 UI；`androidMain` 只承载 Activity、平台能力和 Backdrop 适配。后端接入通过新增 Remote Repository 完成，不重写页面。
+先完成 iOS R1 核心路径和 IPA 侧载验收，再以同一套 `commonMain` 领域、Repository、状态管理和 UI 推进 Android 第二阶段；`androidMain` 只承载 Activity、平台能力和 Backdrop 适配。后端接入通过新增 Remote Repository 完成，不重写页面。Desktop/Web 只做预览、联调和回归测试。
 
 ```mermaid
 flowchart LR

@@ -441,6 +441,7 @@ fun AnimeApp(
                             onLogout = {
                                 sessionScope.launch { appContainer.sessionRepository.logout() }
                             },
+                            onLoginClick = { showAccountCenter = true },
                             onProtectedAction = requestProtectedAction,
                             onMessage = { transientMessage = it },
                             reduceMotion = reduceMotionEnabled,
@@ -689,6 +690,7 @@ private fun AppNavigationLayer(
     onAnimeRegister: (String, String, String) -> Unit,
     onBangumiLogin: () -> Unit,
     onLogout: () -> Unit,
+    onLoginClick: () -> Unit,
     onProtectedAction: (PendingAuthAction) -> Unit,
     onMessage: (String) -> Unit,
     reduceMotion: Boolean,
@@ -960,7 +962,8 @@ private fun AppNavigationLayer(
                                 onEpisodesClick = { navigator.push(AppRoute.Episodes(it)) },
                                 onCharactersClick = { navigator.push(AppRoute.Characters(it)) },
                                 onRelationsClick = { navigator.push(AppRoute.Relations(it)) },
-                                onCommentsClick = { onProtectedAction(PendingAuthAction.OpenComments(it)) },
+                                onRatingClick = { onProtectedAction(PendingAuthAction.OpenRating(it)) },
+                                onCommentsClick = { navigator.push(AppRoute.Comments(it)) },
                                 onReviewsClick = { navigator.push(AppRoute.SubjectReviews(it)) },
                                 onReviewClick = { navigator.push(AppRoute.Review(it)) },
                                 onListClick = { navigator.push(AppRoute.CuratedList(it)) },
@@ -1003,6 +1006,8 @@ private fun AppNavigationLayer(
                                         site.jokersh.anime.core.model.CommentSort.Newest
                                     },
                                 repository = appContainer.commentRepository,
+                                canWrite = sessionState is SessionState.Authenticated,
+                                onLoginClick = onLoginClick,
                                 onBack = { navigator.pop() },
                                 modifier = Modifier.statusBarsPadding(),
                             )

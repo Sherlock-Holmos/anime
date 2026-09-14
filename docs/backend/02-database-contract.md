@@ -1,8 +1,10 @@
 # PostgreSQL 数据库实施契约
 
+> 当前状态：本文是数据库语义与不变量合同。生产可执行迁移位于独立后端仓库 `migrations/`；主仓库 `contracts/database/` 尚未与其完成基线收敛，差异以产品总控基线为准。
+
 ## 1. 可执行结构
 
-`contracts/database/migrations/0001_initial.sql` 是初始 Schema 事实源。文档中的 ER 图用于阅读，不能替代 migration。后续 migration 只能向前追加，不得修改已经进入共享环境的文件。
+后端仓库的 `migrations/` 是生产 Schema 的可执行事实源。主仓库 `contracts/database/` 只作为设计镜像，不能替代 migration。后续 migration 只能向前追加，不得修改已经进入共享环境的文件。
 
 ## 2. 标识和时间
 

@@ -17,6 +17,11 @@ from typing import Iterable
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_RELATIVE = Path("docs") / "anime项目完整详细设计文档.md"
 SOURCE_PATH = REPO_ROOT / SOURCE_RELATIVE
+PRODUCT_PAGE_SOURCES = {
+    "00-Product-Management-Baseline.md": Path("docs/product/01-product-management-baseline.md"),
+    "00A-Product-Vision.md": Path("docs/product/00-product-vision.md"),
+    "00B-Community-MVP-Technical-Plan.md": Path("docs/product/02-community-mvp-technical-plan.md"),
+}
 FRONTEND_PAGE_SOURCES = {
     "15-Frontend-Product-and-Navigation.md": Path("docs/frontend/01-product-and-navigation.md"),
     "16-UI-Design-System.md": Path("docs/frontend/02-design-system.md"),
@@ -46,6 +51,11 @@ FRONTEND_PAGE_SOURCES = {
     "40-Windows-Desktop-Baseline.md": Path("docs/frontend/18-windows-desktop-baseline.md"),
     "40A-Apple-Design-Baseline.md": Path("docs/frontend/19-apple-design-baseline.md"),
     "40B-Color-and-Layout-Specification.md": Path("docs/frontend/20-color-and-layout-specification.md"),
+    "40C-iOS-Host-Baseline.md": Path("docs/frontend/21-ios-host-baseline.md"),
+    "47-Client-Backend-Integration-Plan.md": Path("docs/frontend/22-client-backend-integration-plan.md"),
+    "48-Client-UI-Design.md": Path("docs/frontend/23-client-ui-design.md"),
+    "49-Current-UI-Design-and-Development-Spec.md": Path("docs/frontend/24-current-ui-design-development-spec.md"),
+    "50-Community-Feature-Contract.md": Path("docs/frontend/features/community.md"),
 }
 BACKEND_PAGE_SOURCES = {
     "41-Backend-Specification-Index.md": Path("docs/backend/00-backend-specification-index.md"),
@@ -55,7 +65,7 @@ BACKEND_PAGE_SOURCES = {
     "45-Backend-Testing-and-Delivery.md": Path("docs/backend/04-testing-and-delivery.md"),
     "46-Catalog-Cache-and-Media.md": Path("docs/backend/05-catalog-cache-and-media.md"),
 }
-PAGE_SOURCES = {**FRONTEND_PAGE_SOURCES, **BACKEND_PAGE_SOURCES}
+PAGE_SOURCES = {**PRODUCT_PAGE_SOURCES, **FRONTEND_PAGE_SOURCES, **BACKEND_PAGE_SOURCES}
 
 MANAGED_PAGE_NAMES = (
     "Home.md",
@@ -190,9 +200,9 @@ def build_home(documentation_hash: str) -> str:
 
 {page_banner("docs/（总体设计、前端与后端规范受管集合）", documentation_hash)}
 
-> 文档版本：V1.4（CMP 与后端可执行契约基线）<br>
-> 编制日期：2026-07-21<br>
-> 当前开发阶段：F0 工程与技术验证
+> 文档版本：PM-2026-09（产品总控基线）<br>
+> 编制日期：2026-09-13<br>
+> 当前开发阶段：R1 发布范围冻结与契约收敛
 
 ## 项目简介
 
@@ -200,14 +210,13 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 
 ## 当前产品基线
 
-- 使用 Bangumi 官方 API 获取和同步动漫资料；
-- MVP 只展示 Bangumi 来源评分、投票数和评分分布；
-- 不建设 Anime 自有评分、加权榜单或评分写入；
-- Bangumi OAuth 是唯一登录方式；
-- 收藏状态与观看进度和 Bangumi 双向同步；
+- iOS IPA 是首发生产目标，允许侧载但暂不上架商店；Android 为第二生产目标；Desktop/Web 仅做预览测试；
+- R1 聚焦目录、搜索、详情、Bangumi 账号绑定、片库与进度同步、Bangumi 来源评分，以及 Anime 评分、短评和讨论；
+- Anime 长评、关注、反应、通知、片单和复杂动态能力待 R2；
+- 生产迁移以独立后端仓库的可执行 migrations 为准，API 必须收敛为一份共享 OpenAPI；
 - Android 使用液态玻璃视觉语言，并按系统与性能能力降级；
-- 首个可玩 Android 版本由确定性 Fixture 驱动，无需等待 Anime 后端；
-- 生产业务入口仅通过 Cloudflare Tunnel 域名提供。
+- R0 Demo 保留确定性 Fixture，不以 Demo 通过替代真实 API 验收；
+- 当前项目尚未达到 Release Candidate，质量门禁和契约收敛是发布阻断项。
 
 ## 技术栈
 
@@ -223,6 +232,9 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 
 | 页面 | 说明 |
 |---|---|
+| [00-Product-Management-Baseline](00-Product-Management-Baseline) | 当前产品范围、状态、优先级和跨仓库治理 |
+| [00A-Product-Vision](00A-Product-Vision) | 产品定位、闭环、非目标和指标 |
+| [00B-Community-MVP-Technical-Plan](00B-Community-MVP-Technical-Plan) | 社区评分、短评与讨论 R1 MVP 技术方案 |
 | [01-Project-Overview](01-Project-Overview) | 文档说明、产品概述、范围与权限 |
 | [02-Requirements-and-Flows](02-Requirements-and-Flows) | 用户流程、功能与非功能需求 |
 | [03-System-Architecture](03-System-Architecture) | 总体架构与模块化单体边界 |
@@ -264,6 +276,13 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 | [38-Profile-Settings-Diagnostics-Contract](38-Profile-Settings-Diagnostics-Contract) | 个人、设置与诊断完整合同 |
 | [39-Frontend-Implementation-Log](39-Frontend-Implementation-Log) | 已验证的前端实现增量 |
 | [40-Windows-Desktop-Baseline](40-Windows-Desktop-Baseline) | Windows CMP 工程、发行与验收基线 |
+| [40A-Apple-Design-Baseline](40A-Apple-Design-Baseline) | Apple 视觉与平台设计基线 |
+| [40B-Color-and-Layout-Specification](40B-Color-and-Layout-Specification) | 颜色与布局规范 |
+| [40C-iOS-Host-Baseline](40C-iOS-Host-Baseline) | iOS 宿主工程、CI 与交付边界 |
+| [47-Client-Backend-Integration-Plan](47-Client-Backend-Integration-Plan) | 客户端—后端集成计划 |
+| [48-Client-UI-Design](48-Client-UI-Design) | 客户端 UI 设计实施计划 |
+| [49-Current-UI-Design-and-Development-Spec](49-Current-UI-Design-and-Development-Spec) | 当前 UI 页面、入口、状态和验收快照 |
+| [50-Community-Feature-Contract](50-Community-Feature-Contract) | 社区功能合同 |
 | [41-Backend-Specification-Index](41-Backend-Specification-Index) | 后端规范优先级、技术边界与变更流程 |
 | [42-Backend-API-Contract](42-Backend-API-Contract) | OpenAPI、认证、分页、幂等和错误语义 |
 | [43-Backend-Database-Contract](43-Backend-Database-Contract) | PostgreSQL Schema、事务和 Migration 规则 |
@@ -273,7 +292,7 @@ Anime 是一款面向动漫爱好者的移动端资料与社区应用。当前�
 
 ## 维护原则
 
-- 主仓库 `docs/` 是唯一事实源；
+- 产品与客户端规范以主仓库 `docs/` 为源；独立后端的生产迁移和当前实现仍需按产品总控基线与主仓库契约收敛；
 - Wiki 页面由 `scripts/sync_wiki.py` 单向生成；
 - Wiki 不直接编辑；
 - 设计变更与相关代码在同一个提交或 Pull Request 中评审；

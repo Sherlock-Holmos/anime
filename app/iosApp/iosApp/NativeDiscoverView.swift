@@ -34,6 +34,15 @@ final class NativeAppModel: ObservableObject {
 
     private static let sessionCacheKey = "anime.ios.session.snapshot"
     private static let profileCacheKey = "anime.ios.profile.snapshot"
+    private static let ratingCachePrefix = "anime.ios.personal-rating"
+
+    var isAuthenticated: Bool {
+        isSessionReady && session.status == "authenticated"
+    }
+
+    var isRestoringSession: Bool {
+        !isSessionReady || session.status == "restoring"
+    }
 
     private func applySessionSnapshot(_ snapshot: NativeSessionSnapshot) {
         // A background restore may still finish after an interactive login. Once iOS has
@@ -342,6 +351,7 @@ final class NativeAppModel: ObservableObject {
 
     func updateReview(id: String, title: String?, body: String?, spoiler: Bool, visibility: String, completion: ((NativeReviewSnapshot?, String?) -> Void)? = nil) {
         start()
+        if rejectValueWrite(completion) { return }
         facade?.updateReview(id: id, title: title, body: body, spoiler: spoiler, visibility: visibility) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -352,11 +362,13 @@ final class NativeAppModel: ObservableObject {
 
     func deleteReview(id: String, completion: ((String?) -> Void)? = nil) {
         start()
+        if rejectSimpleWrite(completion) { return }
         facade?.deleteReview(id: id) { error in Task { @MainActor in completion?(error) } }
     }
 
     func updateComment(id: String, body: String, spoiler: Bool, completion: ((NativeCommentSnapshot?, String?) -> Void)? = nil) {
         start()
+        if rejectValueWrite(completion) { return }
         facade?.updateComment(id: id, body: body, spoiler: spoiler) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -367,11 +379,13 @@ final class NativeAppModel: ObservableObject {
 
     func deleteComment(id: String, completion: ((String?) -> Void)? = nil) {
         start()
+        if rejectSimpleWrite(completion) { return }
         facade?.deleteComment(id: id) { error in Task { @MainActor in completion?(error) } }
     }
 
     func reportComment(id: String, reasonCode: String = "abuse", details: String? = nil, completion: ((String?) -> Void)? = nil) {
         start()
+        if rejectSimpleWrite(completion) { return }
         facade?.reportComment(id: id, reasonCode: reasonCode, details: details) { error in Task { @MainActor in completion?(error) } }
     }
 
@@ -486,13 +500,18 @@ final class NativeAppModel: ObservableObject {
 
     func saveRating(subjectId: Int64, score: Int, completion: ((String?) -> Void)? = nil) {
         start()
+        if rejectSimpleWrite(completion) { return }
         facade?.saveRating(subjectId: subjectId, score: Int32(score)) { error in
-            Task { @MainActor in completion?(error) }
+            Task { @MainActor [weak self] in
+                if error == nil { self?.persistUserRating(score, subjectId: subjectId) }
+                completion?(error)
+            }
         }
     }
 
     func setCollection(subjectId: Int64, status: String?, completion: ((String?) -> Void)? = nil) {
         start()
+        if rejectSimpleWrite(completion) { return }
         facade?.setCollection(subjectId: subjectId, status: status) { error in
             Task { @MainActor in completion?(error) }
         }
@@ -500,6 +519,7 @@ final class NativeAppModel: ObservableObject {
 
     func createComment(subjectId: Int64, body: String, completion: ((NativeCommentSnapshot?, String?) -> Void)? = nil) {
         start()
+        if rejectValueWrite(completion) { return }
         facade?.createComment(subjectId: subjectId, body: body) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -511,6 +531,7 @@ final class NativeAppModel: ObservableObject {
 
     func createCommentAdvanced(subjectId: Int64, body: String, spoiler: Bool, parentId: String?, completion: ((NativeCommentSnapshot?, String?) -> Void)? = nil) {
         start()
+        if rejectValueWrite(completion) { return }
         facade?.createCommentAdvanced(subjectId: subjectId, body: body, spoiler: spoiler, parentId: parentId) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -526,6 +547,7 @@ final class NativeAppModel: ObservableObject {
         completion: ((NativeReviewSnapshot?, String?) -> Void)? = nil,
     ) {
         start()
+        if rejectValueWrite(completion) { return }
         facade?.createReview(subjectId: subjectId, title: title, body: body) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -537,7 +559,10 @@ final class NativeAppModel: ObservableObject {
 
     func createReviewAdvanced(subjectId: Int64, kind: String, title: String?, body: String, spoiler: Bool, visibility: String, completion: ((NativeReviewSnapshot?, String?) -> Void)? = nil) {
         start()
-        facade?.createReviewAdvanced(subjectId: subjectId, kind: kind, title: title, body: body, spoiler: spoiler, visibility: visibility) { [weak self] rawSnapshot, error in
+        if rejectValueWrite(completion) { return }
+        // R1 deliberately has one review shape. Keep legacy callers from
+        // accidentally re-introducing the long-review/title contract.
+        facade?.createReviewAdvanced(subjectId: subjectId, kind: "short", title: nil, body: body, spoiler: spoiler, visibility: visibility) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 completion?(rawSnapshot.flatMap { Self.decode($0, as: NativeReviewSnapshot.self) }, error)
@@ -552,6 +577,7 @@ final class NativeAppModel: ObservableObject {
         completion: ((NativeReactionSnapshot?, String?) -> Void)? = nil,
     ) {
         start()
+        if rejectValueWrite(completion) { return }
         facade?.reactComment(id: id, reaction: reaction, active: active) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -568,6 +594,7 @@ final class NativeAppModel: ObservableObject {
         completion: ((NativeReactionSnapshot?, String?) -> Void)? = nil,
     ) {
         start()
+        if rejectValueWrite(completion) { return }
         facade?.reactReview(id: id, reaction: reaction, active: active) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -718,6 +745,41 @@ final class NativeAppModel: ObservableObject {
     fileprivate static func decode<T: Decodable>(_ raw: String, as type: T.Type) -> T? {
         guard let data = raw.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
+    }
+
+    func cachedUserRating(subjectId: Int64) -> Int? {
+        guard let userId = session.userId else { return nil }
+        let value = UserDefaults.standard.integer(forKey: Self.ratingCacheKey(userId: userId, subjectId: subjectId))
+        return (1...10).contains(value) ? value : nil
+    }
+
+    private func persistUserRating(_ score: Int, subjectId: Int64) {
+        guard let userId = session.userId, (1...10).contains(score) else { return }
+        UserDefaults.standard.set(score, forKey: Self.ratingCacheKey(userId: userId, subjectId: subjectId))
+    }
+
+    private static func ratingCacheKey(userId: String, subjectId: Int64) -> String {
+        "\(ratingCachePrefix).\(userId).\(subjectId)"
+    }
+
+    private func writeErrorMessage() -> String? {
+        if !isSessionReady { return "正在恢复登录状态，请稍候" }
+        if session.status != "authenticated" { return "请先登录 Anime" }
+        return nil
+    }
+
+    @discardableResult
+    private func rejectSimpleWrite(_ completion: ((String?) -> Void)?) -> Bool {
+        guard let error = writeErrorMessage() else { return false }
+        completion?(error)
+        return true
+    }
+
+    @discardableResult
+    private func rejectValueWrite<Value>(_ completion: ((Value?, String?) -> Void)?) -> Bool {
+        guard let error = writeErrorMessage() else { return false }
+        completion?(nil, error)
+        return true
     }
 
     private static func loadCachedSession() -> NativeSessionSnapshot? {

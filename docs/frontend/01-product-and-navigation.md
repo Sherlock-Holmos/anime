@@ -1,8 +1,8 @@
 # CMP 前端产品范围与导航规范 V2.0
 
 > 状态：V2.0 规范性文档<br>
-> 适用范围：Android 优先的 Compose Multiplatform 客户端；iOS 后续复用<br>
-> 产品事实源：`docs/product/00-product-vision.md`<br>
+> 适用范围：iOS IPA 首发、Android 第二阶段的 Compose Multiplatform 客户端；Desktop/Web 仅预览测试<br>
+> 产品事实源：`docs/product/01-product-management-baseline.md`<br>
 > 目标：以 Fixture 先验证资料、档案、评价、片单和动态闭环，再接入真实后端
 
 ## 1. 本阶段交付边界
@@ -17,11 +17,11 @@
 | 短评 | 本地发布、删除自己的短评 | 服务端发布与治理 |
 | 登录 | 场景开关模拟 | OAuth / Anime 会话 |
 | 弱网、离线、冲突 | Demo 控制台一键复现 | 由真实网络与同步状态触发 |
-| Anime 评分 | 首发阶段不实现 | 后续独立阶段评审通过后再接入 |
+| Anime 评分 | 以 Fixture 验证 1–10 分评分和聚合 | R1 服务端写入，Bangumi 评分保持独立只读 |
 | 长评与片单 | 本地确定性内容与编辑预览 | 服务端发布、版本和治理 |
 | 关注与动态 | 本地关注流 Fixture | 服务端关系图与 Feed 游标 |
 
-Bangumi 评分为首发阶段唯一评分来源，只读且必须标注外部来源。Anime 个人评分和社区评分属于后续独立阶段，启用前不得在首发页面出现入口或占位卡片。
+Bangumi 评分是外部只读参考，必须标注来源；Anime 个人评分和社区评分属于 R1 核心能力，必须与 Bangumi 字段、接口和聚合链严格分离。R1 的公开社区内容包括短评和讨论，游客可读取，登录后才能写入。
 
 ## 2. 信息架构
 

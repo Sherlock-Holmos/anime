@@ -25,6 +25,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -243,6 +244,7 @@ public fun RatingEditorScreen(
     var kind by rememberSaveable { mutableStateOf("short") }
     var title by rememberSaveable { mutableStateOf("") }
     var body by rememberSaveable { mutableStateOf("") }
+    var spoiler by rememberSaveable { mutableStateOf(false) }
     var saving by rememberSaveable { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var saveSignal by rememberSaveable { mutableStateOf(0) }
@@ -259,7 +261,7 @@ public fun RatingEditorScreen(
                         }
 
                         kind == "comment" -> {
-                            repository.createComment(subjectId, body.trim(), false).map { Unit }
+                            repository.createComment(subjectId, body.trim(), spoiler).map { Unit }
                         }
 
                         else -> {
@@ -271,7 +273,7 @@ public fun RatingEditorScreen(
                                         kind == "long"
                                     },
                                     body.trim(),
-                                    false,
+                                    spoiler,
                                     visibility,
                                 ).map { Unit }
                         }
@@ -296,8 +298,8 @@ public fun RatingEditorScreen(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text("评分、评价与讨论", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("评分属于 Anime 社区；评价可作为短评或长评发布。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("评分、短评与讨论", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                Text("评分属于 Anime 社区；短评和讨论会显示在作品页面。", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         item {
@@ -327,7 +329,7 @@ public fun RatingEditorScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    listOf("short" to "短评", "long" to "长评", "comment" to "讨论").forEach { (value, label) ->
+                    listOf("short" to "短评", "comment" to "讨论").forEach { (value, label) ->
                         SelectChip(
                             label,
                             kind == value,
@@ -345,6 +347,10 @@ public fun RatingEditorScreen(
                     },
                     singleLine = false,
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = spoiler, onCheckedChange = { spoiler = it })
+                    Text("包含剧透")
+                }
                 Text("可见范围", fontWeight = FontWeight.SemiBold)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

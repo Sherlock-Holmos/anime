@@ -29,6 +29,8 @@ public fun CommentsScreen(
     subjectId: Long,
     initialSort: CommentSort,
     repository: CommentRepository,
+    canWrite: Boolean,
+    onLoginClick: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -94,9 +96,14 @@ public fun CommentsScreen(
             ) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     parentId?.let { Text("正在回复 · ${it.value.take(8)}", color = MaterialTheme.colorScheme.primary) }
+                    if (!canWrite) {
+                        Text("登录后可以参与讨论、回复和举报内容。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     BasicTextField(
                         value = text,
                         onValueChange = { text = it.take(300) },
+                        enabled = canWrite,
+                        readOnly = !canWrite,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
                         textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -116,30 +123,34 @@ public fun CommentsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Switch(checked = spoiler, onCheckedChange = { spoiler = it })
+                        Switch(enabled = canWrite, checked = spoiler, onCheckedChange = { spoiler = it })
                         Text("包含剧透", Modifier.weight(1f))
-                        if (parentId != null) AnimeSecondaryButton("取消回复", { parentId = null })
-                        AnimePrimaryButton("发布", {
-                            scope.launch {
-                                when (repository.create(id, parentId, text, spoiler)) {
-                                    is MutationResult.Accepted -> {
-                                        text = ""
-                                        spoiler = false
-                                        parentId = null
-                                        message =
-                                            "已发布"
-                                    }
+                        if (canWrite) {
+                            if (parentId != null) AnimeSecondaryButton("取消回复", { parentId = null })
+                            AnimePrimaryButton("发布", {
+                                scope.launch {
+                                    when (repository.create(id, parentId, text, spoiler)) {
+                                        is MutationResult.Accepted -> {
+                                            text = ""
+                                            spoiler = false
+                                            parentId = null
+                                            message =
+                                                "已发布"
+                                        }
 
-                                    is MutationResult.Rejected -> {
-                                        message = "内容需要 1–300 个字符"
-                                    }
+                                        is MutationResult.Rejected -> {
+                                            message = "内容需要 1–300 个字符"
+                                        }
 
-                                    else -> {
-                                        message = "发布失败，草稿已保留"
+                                        else -> {
+                                            message = "发布失败，草稿已保留"
+                                        }
                                     }
                                 }
-                            }
-                        })
+                            })
+                        } else {
+                            AnimePrimaryButton("登录后参与讨论", onLoginClick)
+                        }
                     }
                     message?.let {
                         Text(
@@ -194,6 +205,8 @@ public fun CommentsScreen(
             items(state.value.orEmpty(), key = { it.id.value }) { comment ->
                 CommentCard(
                     comment,
+                    canWrite = canWrite,
+                    onLoginClick = onLoginClick,
                     onReply = { parentId = comment.id },
                     onDelete = { scope.launch { repository.delete(comment.id) } },
                     onEdit = {
@@ -201,8 +214,6 @@ public fun CommentsScreen(
                         editBody = comment.body
                         editSpoiler = comment.spoiler
                     },
-                    onLike = { active -> scope.launch { repository.react(comment.id, "like", active) } },
-                    onBookmark = { active -> scope.launch { repository.react(comment.id, "bookmark", active) } },
                     onReport = {
                         reportTarget = comment
                         reportReason = null
@@ -367,16 +378,14 @@ private fun SortButton(
 @Composable
 private fun CommentCard(
     comment: Comment,
+    canWrite: Boolean,
+    onLoginClick: () -> Unit,
     onReply: () -> Unit,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
-    onLike: (Boolean) -> Unit,
-    onBookmark: (Boolean) -> Unit,
     onReport: () -> Unit,
 ) {
     var revealSpoiler by remember(comment.id) { mutableStateOf(false) }
-    var liked by remember(comment.id) { mutableStateOf(false) }
-    var bookmarked by remember(comment.id) { mutableStateOf(false) }
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -407,19 +416,10 @@ private fun CommentCard(
                 Text(comment.body, style = MaterialTheme.typography.bodyLarge)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                AnimeSecondaryButton("回复", onReply)
-                AnimeSecondaryButton(if (liked) "已喜欢" else "喜欢", onClick = {
-                    liked = !liked
-                    onLike(liked)
-                })
-                AnimeSecondaryButton(if (bookmarked) "已收藏" else "收藏", onClick = {
-                    bookmarked = !bookmarked
-                    onBookmark(bookmarked)
-                })
-                Text("${comment.likeCount} 喜欢 · ${comment.bookmarkCount} 收藏", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (comment.ownership == Ownership.Self) AnimeSecondaryButton("编辑", onEdit)
-                if (comment.ownership == Ownership.Self) AnimeSecondaryButton("删除", onDelete)
-                if (comment.ownership == Ownership.Other) AnimeSecondaryButton("举报", onReport)
+                AnimeSecondaryButton("回复", if (canWrite) onReply else onLoginClick)
+                if (comment.ownership == Ownership.Self) AnimeSecondaryButton("编辑", if (canWrite) onEdit else onLoginClick)
+                if (comment.ownership == Ownership.Self) AnimeSecondaryButton("删除", if (canWrite) onDelete else onLoginClick)
+                if (comment.ownership == Ownership.Other) AnimeSecondaryButton("举报", if (canWrite) onReport else onLoginClick)
             }
         }
     }

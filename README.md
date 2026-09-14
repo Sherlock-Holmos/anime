@@ -4,6 +4,8 @@
 
 ## 文档
 
+- [产品总控基线与全量文档地图](docs/product/01-product-management-baseline.md)
+- [社区评分与评论 R1 最小 MVP 技术方案](docs/product/02-community-mvp-technical-plan.md)
 - [产品愿景与功能架构 V2.0](docs/product/00-product-vision.md)
 - [完整设计基线](docs/anime项目完整详细设计文档.md)
 - [CMP 无歧义实施基线](docs/frontend/00-specification-index.md)
@@ -11,7 +13,7 @@
 - [文档维护与 Wiki 同步](docs/README.md)
 - [在线 Wiki](https://git.jokersh.site/Holmes/anime/wiki)
 
-主仓库中的总体设计、前后端规范、OpenAPI 和 PostgreSQL migration 共同构成项目事实源。在线 Wiki 由同步脚本自动生成，不直接人工维护。
+当前产品范围、跨仓库状态和发布判断以[产品总控基线](docs/product/01-product-management-baseline.md)为准。主仓库负责客户端与产品契约，`anime-backend` 负责 Rust API 和生产 migration；两者的 OpenAPI 与数据库文档必须通过同步检查收敛。在线 Wiki 由同步脚本自动生成，不直接人工维护。
 
 ## CMP 客户端工程
 
@@ -36,7 +38,7 @@ App Shell 已采用 iOS 26-inspired 的内容层与悬浮 Liquid Glass 功能层
 
 Demo APK 输出到 `app/android/build/outputs/apk/demo/debug/android-demo-debug.apk`，真实数据 Dev APK 输出到 `app/android/build/outputs/apk/dev/debug/android-dev-debug.apk`。Android 模拟器中的 Dev 版本默认访问宿主机 `http://10.0.2.2:8080`；真机或远程环境应使用 `-PANIME_API_BASE_URL=https://你的API域名` 构建。Android 已声明网络权限、接收 `anime://bangumi-auth` OAuth 回调，并使用 Android Keystore + AES-GCM 保护本地 Session。
 
-Windows 便携应用输出到 `app/desktop/build/compose/binaries/main/app/Anime`，EXE 安装包输出到 `app/desktop/build/compose/binaries/main/exe/Anime-0.1.0.exe`。桌面端当前使用 Demo/Fixture 配置，已支持宽屏玻璃侧栏、1/2/3 列搜索结果、常用快捷键和窗口状态持久化；完整焦点遍历、多环境显示与 GPU 性能矩阵仍待验收，不应把“可以构建运行”误认为“已完成桌面产品化”。
+Windows 便携应用输出到 `app/desktop/build/compose/binaries/main/app/Anime`，EXE 安装包输出到 `app/desktop/build/compose/binaries/main/exe/Anime-0.1.0.exe`。桌面端默认连接生产 API，开发时可通过环境变量或 Gradle 参数覆盖；已支持宽屏玻璃侧栏、1/2/3 列搜索结果、常用快捷键和窗口状态持久化。完整焦点遍历、多环境显示与 GPU 性能矩阵仍待验收，不应把“可以构建运行”误认为“已完成桌面产品化”。
 
 Web 开发服务器由 `wasmJsBrowserDevelopmentRun` 启动；源码目录中的 `index.html` 不能通过 `file://` 直接运行（Wasm、字体和 Compose 资源必须经 HTTP 提供）。开发静态文件输出到 `app/web/build/dist/wasmJs/developmentExecutable`，生产静态文件输出到 `app/web/build/dist/wasmJs/productionExecutable`。Web 已接入真实目录、搜索、详情、社区和 Session Repository，本地开发默认访问 `http://127.0.0.1:8080`；部署时默认使用页面同源 API，也可通过 `?api=https%3A%2F%2Fapi.example.com` 写入浏览器配置。Web OAuth 可解析返回页面中的 `?code=...&state=...`；Bangumi 开发者后台必须把回调地址登记为实际 Web HTTPS 地址，不能继续使用只适用于原生客户端的 `anime://bangumi-auth`。
 
@@ -50,4 +52,4 @@ Web 开发服务器由 `wasmJsBrowserDevelopmentRun` 启动；源码目录中的
 
 Android Dev/Prod 的 API 地址通过本机或 CI Gradle 属性 `ANIME_API_BASE_URL` 注入，不写入仓库；未注入时只有 Android Dev 使用模拟器宿主机默认值，Prod 仍要求显式配置 HTTPS 地址。
 
-后端开发以 `docs/backend/00-backend-specification-index.md` 为入口；HTTP 字段和状态码以 `contracts/openapi/anime-v1.yaml` 为机器事实源，PostgreSQL 初始结构以 `contracts/database/migrations/0001_initial.sql` 为可执行事实源。运行 `python scripts/check_backend_contracts.py` 可在实现前检查文档、OpenAPI 引用、公开路径和核心表是否完整。
+后端开发以 `docs/backend/00-backend-specification-index.md` 为入口；主仓库 `contracts/` 与独立 `anime-backend` 仓库的 OpenAPI、migration 当前正在收敛，生产部署以产品总控基线的契约治理规则为准。运行 `python scripts/check_backend_contracts.py` 可检查主仓库文档、OpenAPI 引用、公开路径和核心表，但目前尚未覆盖独立后端仓库。

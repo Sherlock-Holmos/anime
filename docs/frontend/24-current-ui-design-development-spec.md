@@ -2,7 +2,7 @@
 
 > 文档编号：`FUI-2026-09`  
 > 版本：`1.0`  
-> 事实快照：`2026-09-11`  
+> 事实快照：`2026-09-13`
 > 适用范围：Compose Multiplatform 共享 UI、Android/Desktop/Web 宿主、iOS SwiftUI 宿主  
 > 文档性质：当前代码实现的页面地图、UI 设计合同、渲染框架与验收基线
 
@@ -221,7 +221,7 @@ flowchart TD
 | `Library(query?)` | `SearchScreen` | 资料库入口、搜索输入、历史和推荐 | ◐ 当前与搜索复用 |
 | `SearchResults(request)` | `SearchScreen` | 筛选、分页、结果列表 | ✅ |
 | `Activity(feed)` | `ActivityScreen` | 动态、通知、讨论、片单 | ◐ `feed` 参数未完全反映到页面控件 |
-| `Collection(filter?)` | `CollectionScreen` | 收藏状态、进度、评分、移除 | ◐ 从“我的”进入；仍使用 `SessionRepository` |
+| `Collection(filter?)` | `CollectionScreen` | 收藏状态、进度、评分、移除 | ◐ 列表已使用 `CollectionRepository`；概览仍依赖 `SessionState` |
 | `Profile` | `ProfileScreen` | 账号、同步、片库摘要、外观设置 | ✅ |
 | `Subject(subjectId)` | `SubjectScreen` | 作品详情、收藏、社区摘要 | ✅ |
 | `Episodes(subjectId)` | `EpisodesScreen` | 分集信息和放送状态 | ✅ |
@@ -233,11 +233,11 @@ flowchart TD
 | `Review(reviewId)` | `ReviewDetailScreen` | 阅读评价全文、跳转作品 | ✅ |
 | `CuratedList(listId)` | `CuratedListScreen` | 查看片单、关注、作品列表 | ✅ |
 | `CuratedList("new")` | `CreateListScreen` | 创建片单 | ✅ |
-| `User(userId)` | 无页面入口 | 用户详情 | ⚠️ |
+| `User(userId)` | `UserProfileScreen` | 用户详情、评价、片单 | ✅ |
 | `Login(requestId)` | `AnimeAccountCenter` 对话框 | 登录/注册 | ◐ 路由未实现，弹窗已实现 |
 | `OAuthResult(ticket)` | 平台回调桥接 | OAuth 结果回传 | ◐ 依赖宿主回调，未作为独立页面渲染 |
 | `Settings` | `ProfileScreen` 内嵌设置区 | 主题、玻璃效果、减少动效 | ⚠️ 独立路由未实现 |
-| `Diagnostics` | 无页面入口 | 诊断信息 | ⚠️ 路由已注册但未实现 |
+| `Diagnostics` | `DiagnosticsScreen` | 诊断信息 | ✅ |
 
 ## 6. 页面详细设计与低保真线框图
 
@@ -432,7 +432,7 @@ flowchart TD
 
 功能：按收藏状态过滤、展示进度和评分、移除收藏、加载更多、空库时返回发现、离线缓存提示。
 
-当前实现注意：页面从“我的”进入，主要读取 `SessionRepository`；新的收藏写入路径已经存在 `CollectionRepository`，但 UI 尚未完全迁移。迁移完成前不得让两个 Repository 对同一状态产生不同显示结果。
+当前实现注意：列表和写入已通过 `CollectionRepository`，用户概览仍来自 `SessionState` 中的缓存资料。需要继续定义资料库与个人资料的刷新边界，避免两个状态源对同一统计数据产生不同显示结果。
 
 ### 6.8 作品详情 `SubjectScreen`
 
@@ -658,8 +658,8 @@ flowchart TD
 
 ### P0：影响功能闭环
 
-1. `AppRoute.User`、`Settings`、`Diagnostics` 和独立 `Login` 在 `AnimeApp` 中没有对应 `entry`。
-2. `CollectionScreen` 仍以 `SessionRepository` 为主，而新的收藏写入和领域抽象已经存在，容易出现读写状态分裂。
+1. `Settings` 仍是 `ProfileScreen` 的嵌入区域，独立路由和登录弹窗的边界需要产品确认。
+2. `CollectionScreen` 已切换列表数据到 `CollectionRepository`，但个人资料概览仍取 `SessionState`，需要统一刷新和统计口径。
 3. `ActivityFeedRoute.Following/Popular` 与 `ActivityScreen` 的“全站/讨论”控件不是同一套概念，深链参数可能失效。
 
 ### P1：影响一致性与可维护性
@@ -680,10 +680,10 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A[统一路由与页面状态合同] --> B[CollectionRepository 完成迁移]
+    A[统一路由与页面状态合同] --> B[统一 Collection 与 Profile 刷新口径]
     B --> C[统一 Activity feed 参数]
     C --> D[抽离社区页面 ViewModel/Reducer]
-    D --> E[补齐 Login/OAuth/Settings/Diagnostics/User]
+    D --> E[收敛 Login/OAuth/Settings 的入口边界]
     E --> F[截图、无障碍和跨平台验收]
 ```
 

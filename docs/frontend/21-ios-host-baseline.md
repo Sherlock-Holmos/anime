@@ -4,6 +4,8 @@
 > 生效日期：2026-08-14  
 > 状态：源码已实现，macOS 发布验证待执行
 
+> 当前产品 R1 口径：iOS IPA 侧载首发，不上架 App Store；Android 为第二交付顺序；Desktop/Web 仅用于预览和测试。本文的 macOS/Xcode/App Store Archive 条目属于平台能力与后续阶段说明，不改变 R1 交付边界。
+
 ## 1. 交付边界
 
 `app/iosApp` 是 SwiftUI 宿主，业务页面、导航状态机、Repository 和领域模型继续由 `shared/app` 与 `commonMain` 提供；根导航栏由宿主使用 iOS 26+ 官方 SwiftUI Liquid Glass 渲染，并通过 `IosBridge` 与共享导航状态同步。共享框架名固定为 `AnimeShared`，目标固定为 `iosArm64` 和 `iosSimulatorArm64`，最低系统版本为 iOS 26。

@@ -6,7 +6,7 @@
 
 | ID | 决策 | 理由 | 影响 |
 |---|---|---|---|
-| FED-001 | Android 首发，但业务/UI 放在 CMP commonMain | 快速获得可玩成果，同时保留后续多端能力 | 平台能力必须经 Port |
+| FED-001 | Android 首发（历史决策，已由 FED-027 替代） | 原始开发顺序；当前 R1 平台顺序已调整 | 仅保留历史追溯，不得作为当前发布顺序 |
 | FED-002 | Kotlin 2.4.10 + CMP 1.11.1 + AGP 9.3.0 固定版本 | 形成可重复构建，避免 Agent 自行升级 | 升级单独 PR/决策 |
 | FED-003 | 使用 Navigation 3，四根栈 | 类型安全并保持各根状态 | 不引入 Decompose/Voyager |
 | FED-004 | UDF + ViewModel + Reducer | 状态转换可测试、适合并行协作 | 不引入第三方 MVI 框架 |
@@ -31,7 +31,9 @@
 | FED-023 | Anime 评分与 Bangumi 评分并存但严格隔离 | 同时保留本站社区价值与外部资料参考 | UI 必须显示来源；模型、接口与聚合均不可复用同一字段 |
 | FED-024 | 社区能力采用模块化单体领域边界 | 当前规模不需要微服务，但需要防止评论、关系和 Feed 相互污染 | Rating、Review、CuratedList、Social、Activity/Feed 分模型和仓储演进 |
 | FED-025 | Remote 模式的 Bangumi 元数据与图片统一经 Anime 后端镜像和缓存 | 客户端网络可能无法访问 Bangumi；直链会造成海报失败、延迟与多端行为不一致 | 客户端禁止直连 Bangumi API/CDN；公开 Subject ID 统一为 Bangumi ID；Fixture 只允许 Demo/测试使用 |
-| FED-026 | 首发阶段不实现 Anime 自有个人评分或社区聚合评分，详情页只读展示 Bangumi 评分 | 先验证资料浏览、收藏和社区阅读闭环，避免评分规则、聚合口径和 UI 入口在产品尚未确定时污染首发体验 | 暂不展示“记录评分”或 Anime 评分卡；`RatingEditor` 保留为后续独立阶段能力，启用前必须新增评分契约与验收矩阵 |
+| FED-026 | R1 将 Anime 自有评分、短评和讨论作为社区最小 MVP | Anime 社区表达是产品核心差异化；先用清晰的 1–10 评分、短评和一层讨论形成最小闭环，长评和完整社交能力后置 | 详情页同时展示 Anime/Bangumi 两套评分；评分、短评和讨论写入需要登录，游客可读取公开内容；具体接口和验收以 `docs/product/02-community-mvp-technical-plan.md` 为准 |
+| FED-027 | R1 平台顺序为 iOS IPA 侧载首发、Android 第二、Desktop/Web 仅预览测试 | 先验证 iOS 首发用户价值，再复用 CMP 能力覆盖 Android；控制 Desktop/Web 的发布承诺 | iOS R1 不上架 App Store；Desktop/Web 不作为 R1 发布阻断项 |
+| FED-028 | R1 采用 Anime 本地账号 + 可选 Bangumi OAuth 绑定的双入口模型 | 本地账号降低社区参与门槛；Bangumi OAuth 只承担用户主动授权后的收藏/进度同步 | 两条链路统一换成 Anime access/refresh token；OAuth-only 不得作为默认实现 |
 
 ## 2. 性能降级判定
 
@@ -43,9 +45,9 @@
 |---|---|---|
 | FED-D02 | 视频播放/下载 | 剧集只展示元数据 |
 | FED-D03 | 私信 | 不创建空接口；关注与动态已由 FED-021 转为 Approved |
-| FED-D04 | 评论点赞、编辑、图片、深层回复 | 不出现在 UI |
+| FED-D04 | 评论点赞/反应、图片、深层回复 | R1 保留评论编辑、删除和举报；点赞/反应、图片和深层回复不出现在 UI |
 | FED-D05 | 推送通知 | 不请求通知权限 |
-| FED-D06 | Desktop/iOS 发布 | 代码保持可移植，但不作为首发验收 |
+| FED-D06 | Desktop/Web 生产发布与 iOS App Store 上架 | 代码保持可移植；R1 只交付 iOS IPA 侧载，Desktop/Web 不作为首发验收 |
 | FED-D07 | 多语言完整翻译 | 资源化，只有 zh-CN 作为门禁 |
 | FED-D08 | 用户自定义收藏夹与批量操作 | 不实现隐藏入口 |
 

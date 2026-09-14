@@ -3,7 +3,7 @@
 > 基线编号：`FES-2.1`<br>
 > 生效日期：2026-08-12<br>
 > 适用范围：Compose Multiplatform 的 Desktop、Android、Web 与 iOS 客户端<br>
-> 规范状态：Approved
+> 规范状态：Approved（实现状态和发布范围受 `docs/product/01-product-management-baseline.md` 统筹）
 
 ## 1. 目标
 
@@ -13,13 +13,14 @@
 
 发生冲突时按以下顺序处理：
 
-1. `product/00-product-vision.md` 产品愿景与领域边界；
-2. 已批准的 ADR/决策记录；
-3. 本索引和 `10`–`20` 实施规范；
-4. `features/` 下的逐 Feature 契约；
-5. `01`–`09` 产品、视觉、页面和测试规范；
-6. 总体设计文档；
-7. 名称中含“探讨”的研究材料。
+1. `product/01-product-management-baseline.md` 当前产品范围、发布分层和状态；
+2. `product/00-product-vision.md` 产品愿景与领域边界；
+3. 已批准的 ADR/决策记录；
+4. 本索引和 `10`–`20` 实施规范；
+5. `features/` 下的逐 Feature 契约；
+6. `01`–`09` 产品、视觉、页面和测试规范；
+7. 总体设计文档；
+8. 名称中含“探讨”的研究材料。
 
 同一优先级以基线编号较新的内容为准。仍无法判断时不得自行猜测，应登记 `OPEN-*` 决策项并暂停受影响的接口合并。
 
@@ -44,7 +45,7 @@
 
 | 术语 | 唯一定义 |
 |---|---|
-| Subject | 动画条目；Android 首发阶段不扩展为书籍、游戏等其他类型 |
+| Subject | 动画条目；R1 iOS IPA 首发、Android 第二阶段不扩展为书籍、游戏等其他类型 |
 | Anime 评分 | 用户在 Anime 内提交的 1–10 分个人评分及其社区聚合 |
 | Bangumi 评分 | Bangumi 返回的只读外部评分和人数，必须显示来源 |
 | Collection | 当前用户对 Subject 的收藏状态及观看进度 |

@@ -1,8 +1,10 @@
 # Anime API v1 实施契约
 
+> 当前状态：本文规定目标 API 语义；主仓库 `contracts/openapi/anime-v1.yaml` 与独立后端仓库 `openapi/anime-v1.yaml` 尚未完成收敛。两者差异和发布阻断项以 [`../product/01-product-management-baseline.md`](../product/01-product-management-baseline.md) 为准。
+
 ## 1. 机器契约
 
-`contracts/openapi/anime-v1.yaml` 是 API 字段、必填性、枚举、状态码和安全要求的唯一机器可读事实源。本文件解释不能仅靠 Schema 表达的运行时规则。
+目标状态是由一份共享 OpenAPI 统一规定 API 字段、必填性、枚举、状态码和安全要求；当前主仓库版本是产品契约入口，后端仓库版本是实现镜像，尚未完成同步。本文件解释不能仅靠 Schema 表达的运行时规则。
 
 ## 2. 通用规则
 
@@ -30,6 +32,8 @@ API Response DTO -> CMP Mapper -> CMP Domain
 枚举的线上值固定为 OpenAPI 中的小写 `snake_case`。未知上游枚举只能映射为既有 `unknown/other`，不得把 Bangumi 原始整数透传为 Anime API 枚举。
 
 ## 4. 认证与 OAuth
+
+R1 已确认同时支持 Anime 本地账号会话和 Bangumi OAuth 绑定：本地账号可进行社区操作，只有完成 Bangumi 绑定的用户才能进行需要授权的 Bangumi 双向同步。两条身份链路最终都换成 Anime access/refresh token；OAuth-only 不作为 R1 方案。
 
 1. App 调用 `/auth/bangumi/start`，携带 HTTPS 回调地址和可选 pending action；
 2. 服务端保存一次性 state，返回 Bangumi HTTPS 授权 URL；

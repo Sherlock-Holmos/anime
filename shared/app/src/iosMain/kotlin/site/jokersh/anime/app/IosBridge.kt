@@ -425,10 +425,17 @@ public class IosNativeAppFacade internal constructor(
             val failure = rating.exceptionOrNull() ?: reviews.exceptionOrNull() ?: comments.exceptionOrNull()
             val snapshot =
                 if (failure == null) {
+                    // community-rating is readable by guests and, when an optional
+                    // token is present, is the source of truth for the viewer's
+                    // rating and collection state. Do not infer personal state from
+                    // a bounded collection page: a rated-but-not-collected subject
+                    // must also restore correctly across devices.
+                    val communityRating = rating.getOrThrow()
                     NativeSubjectCommunitySnapshot(
-                        rating = rating.getOrThrow().toNativeSnapshot(),
+                        rating = communityRating.toNativeSnapshot(),
                         reviews = reviews.getOrThrow().map(CommunityReview::toNativeSnapshot),
                         comments = comments.getOrThrow().map(CommunityComment::toNativeSnapshot),
+                        personal = communityRating.toNativePersonalSnapshot(),
                     )
                 } else {
                     null
@@ -667,10 +674,12 @@ public class IosNativeAppFacade internal constructor(
                 if (status == null) {
                     appContainer.communityRepository.deleteCollection(subjectId).exceptionOrNull()?.message
                 } else {
-                    appContainer.communityRepository
-                        .setCollection(subjectId, status, null)
-                        .exceptionOrNull()
-                        ?.message
+                    nativeCollectionStatus(status)?.let { normalizedStatus ->
+                        appContainer.communityRepository
+                            .setCollection(subjectId, normalizedStatus.apiValueForIos(), null)
+                            .exceptionOrNull()
+                            ?.message
+                    } ?: "不支持的收藏状态"
                 }
             completion(message)
         }
@@ -706,7 +715,9 @@ public class IosNativeAppFacade internal constructor(
         body: String,
         completion: (String?, String?) -> Unit,
     ) {
-        createReviewAdvanced(subjectId, "review", title, body, false, "public", completion)
+        // R1 exposes short reviews only. Keep this compatibility wrapper aligned
+        // with the public iOS composer instead of sending the legacy kind value.
+        createReviewAdvanced(subjectId, "short", null, body, false, "public", completion)
     }
 
     public fun createReviewAdvanced(
@@ -1158,6 +1169,15 @@ internal data class NativeSubjectCommunitySnapshot(
     val rating: NativeRatingSnapshot,
     val reviews: List<NativeReviewSnapshot>,
     val comments: List<NativeCommentSnapshot>,
+    val personal: NativeSubjectPersonalStateSnapshot? = null,
+)
+
+@Serializable
+internal data class NativeSubjectPersonalStateSnapshot(
+    val userRating: Int? = null,
+    val collectionStatus: String? = null,
+    val collectionEpisodeProgress: Int? = null,
+    val isCollected: Boolean = false,
 )
 
 @Serializable
@@ -1417,6 +1437,14 @@ private fun ServiceDiagnostic.toNativeSnapshot(): NativeDiagnosticSnapshot =
 private fun site.jokersh.anime.data.comment.CommunityRating.toNativeSnapshot(): NativeRatingSnapshot =
     NativeRatingSnapshot(score, votes)
 
+private fun site.jokersh.anime.data.comment.CommunityRating.toNativePersonalSnapshot(): NativeSubjectPersonalStateSnapshot =
+    NativeSubjectPersonalStateSnapshot(
+        userRating = userScore?.takeIf { it in 1..10 },
+        collectionStatus = collectionStatus?.let(::nativeCollectionStatus)?.apiValueForIos(),
+        collectionEpisodeProgress = collectionEpisodeProgress,
+        isCollected = isCollected,
+    )
+
 private fun CommunityReview.toNativeSnapshot(): NativeReviewSnapshot =
     NativeReviewSnapshot(id, subjectId, authorId, kind, title, body, spoiler, likeCount, createdAt, owned, bookmarkCount, editedAt, visibility)
 
@@ -1538,13 +1566,22 @@ private fun AppError?.nativeMessage(): String? =
     }
 
 private fun nativeCollectionStatus(value: String): CollectionStatus? =
-    when (value.lowercase()) {
-        "wish" -> CollectionStatus.Wish
-        "watching" -> CollectionStatus.Watching
-        "completed" -> CollectionStatus.Completed
-        "on_hold", "onhold" -> CollectionStatus.OnHold
-        "dropped" -> CollectionStatus.Dropped
+    when (value.trim().lowercase()) {
+        "wish", "想看" -> CollectionStatus.Wish
+        "watching", "在看" -> CollectionStatus.Watching
+        "completed", "看过" -> CollectionStatus.Completed
+        "on_hold", "onhold", "搁置" -> CollectionStatus.OnHold
+        "dropped", "抛弃" -> CollectionStatus.Dropped
         else -> null
+    }
+
+private fun CollectionStatus.apiValueForIos(): String =
+    when (this) {
+        CollectionStatus.Wish -> "wish"
+        CollectionStatus.Watching -> "watching"
+        CollectionStatus.Completed -> "completed"
+        CollectionStatus.OnHold -> "on_hold"
+        CollectionStatus.Dropped -> "dropped"
     }
 
 private fun createIosContainer(

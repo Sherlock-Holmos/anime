@@ -6,13 +6,14 @@
 
 ## 1. 规范事实源
 
-后端实现同时受以下三类文件约束：
+后端实现同时受以下文件约束；当前主仓库与独立后端仓库尚在 P0 契约收敛期：
 
-1. 本分册规定模块边界、事务、同步、测试和交付规则；
-2. `contracts/openapi/anime-v1.yaml` 是 HTTP 请求与响应的唯一机器可读契约；
-3. `contracts/database/migrations/0001_initial.sql` 是 PostgreSQL 初始结构的可执行事实源。
+1. `docs/product/01-product-management-baseline.md` 规定当前产品范围、发布分层和跨仓库事实源；
+2. 本分册规定模块边界、事务、同步、测试和交付规则；
+3. 目标状态是只有一份共享 OpenAPI；目前主仓库 `contracts/openapi/anime-v1.yaml` 与 `anime-backend/openapi/anime-v1.yaml` 存在差异，未完成收敛前不得宣称接口合同完成；
+4. 生产数据库以 `anime-backend/migrations/` 的可执行迁移为准；主仓库 `contracts/database/` 目前是设计镜像，必须通过迁移演练和同步检查收敛。
 
-总体产品边界仍以 `docs/anime项目完整详细设计文档.md` 为准。字段或接口发生冲突时，已批准 ADR 优先，其次是本分册与机器契约，再其次是总体设计。不得只修改 Wiki。
+总体产品边界以 `docs/product/01-product-management-baseline.md` 和 `docs/product/00-product-vision.md` 为准。字段或接口发生冲突时，已批准 ADR 优先，其次是本分册与最终共享机器契约，再其次是总体设计。不得只修改 Wiki。
 
 ## 2. 开发入口
 
@@ -30,7 +31,7 @@
 - Rust + Axum + Tokio，模块化单体，单一 API 二进制；
 - PostgreSQL 是事实源，Redis 只允许缓存、限流和短租约；
 - 客户端只访问 Anime API；Bangumi API 与图片 CDN 只能由服务端适配器经受控代理访问；
-- Bangumi OAuth 是唯一用户登录方式，Bangumi Token 只保存在服务端；
+- R1 已确认采用双入口认证：Anime 本地账号作为社区身份，Bangumi OAuth 作为可选绑定和同步凭据，Bangumi Token 只保存在服务端；OAuth-only 不作为 R1 方案；
 - Anime 建设独立的个人评分与社区聚合；Bangumi 评分作为只读外部快照，API 字段与聚合链严格隔离；
 - 所有公开 API 位于 `/api/v1`，ID 以字符串传输，时间使用 RFC 3339 UTC；
 - 公开列表使用不透明 Cursor；写接口使用 `Idempotency-Key` 或明确的资源幂等语义；

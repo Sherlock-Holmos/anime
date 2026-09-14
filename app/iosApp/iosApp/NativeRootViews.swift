@@ -102,6 +102,34 @@ struct NativeSubjectCommunitySnapshot: Codable {
     let rating: NativeRatingSnapshot
     let reviews: [NativeReviewSnapshot]
     let comments: [NativeCommentSnapshot]
+    let personal: NativeSubjectPersonalStateSnapshot?
+
+    init(
+        rating: NativeRatingSnapshot,
+        reviews: [NativeReviewSnapshot],
+        comments: [NativeCommentSnapshot],
+        personal: NativeSubjectPersonalStateSnapshot? = nil,
+    ) {
+        self.rating = rating
+        self.reviews = reviews
+        self.comments = comments
+        self.personal = personal
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        rating = try container.decode(NativeRatingSnapshot.self, forKey: .rating)
+        reviews = try container.decode([NativeReviewSnapshot].self, forKey: .reviews)
+        comments = try container.decode([NativeCommentSnapshot].self, forKey: .comments)
+        personal = try container.decodeIfPresent(NativeSubjectPersonalStateSnapshot.self, forKey: .personal)
+    }
+}
+
+struct NativeSubjectPersonalStateSnapshot: Codable {
+    let userRating: Int?
+    let collectionStatus: String?
+    let collectionEpisodeProgress: Int?
+    let isCollected: Bool
 }
 
 struct NativeCalendarSnapshot: Codable {
@@ -1027,6 +1055,9 @@ struct NativeReviewDetailView: View {
     @State private var message: String?
     @State private var showingEditor = false
     @State private var showingDeleteConfirmation = false
+    @State private var showingAccount = false
+    @State private var isReacting = false
+    @State private var isDeleting = false
 
     var body: some View {
         ScrollView {
@@ -1056,15 +1087,19 @@ struct NativeReviewDetailView: View {
                             .fixedSize(horizontal: false, vertical: true)
                         HStack(spacing: 18) {
                             Button {
+                                guard authorizeWrite() else { return }
                                 react("like")
                             } label: {
                                 Label("\(review.likeCount)", systemImage: isLiked ? "heart.fill" : "heart")
                             }
+                            .disabled(model.isRestoringSession || isReacting)
                             Button {
+                                guard authorizeWrite() else { return }
                                 react("bookmark")
                             } label: {
                                 Label("\(review.bookmarkCount)", systemImage: isBookmarked ? "bookmark.fill" : "bookmark")
                             }
+                            .disabled(model.isRestoringSession || isReacting)
                         }
                         .foregroundStyle(.tint)
                     }
@@ -1095,11 +1130,17 @@ struct NativeReviewDetailView: View {
         .navigationTitle("评价")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if let review, review.owned {
+            if let review, review.owned, review.kind == "short" {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("编辑") { showingEditor = true }
-                        Button("删除评价", role: .destructive) { showingDeleteConfirmation = true }
+                        Button("编辑") {
+                            guard authorizeWrite() else { return }
+                            showingEditor = true
+                        }
+                        Button("删除评价", role: .destructive) {
+                            guard authorizeWrite() else { return }
+                            showingDeleteConfirmation = true
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -1116,9 +1157,15 @@ struct NativeReviewDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingAccount) {
+            NativeAccountSheet(model: model)
+        }
         .confirmationDialog("确定删除这条评价吗？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
             Button("删除评价", role: .destructive) {
+                guard authorizeWrite(), !isDeleting else { return }
+                isDeleting = true
                 model.deleteReview(id: reviewId) { error in
+                    isDeleting = false
                     if let error { message = "删除失败：\(error)" }
                     else { message = "评价已删除"; review = nil }
                 }
@@ -1149,8 +1196,11 @@ struct NativeReviewDetailView: View {
     }
 
     private func react(_ reaction: String) {
+        guard !isReacting else { return }
         let active = reaction == "like" ? !isLiked : !isBookmarked
+        isReacting = true
         model.reactReview(id: reviewId, reaction: reaction, active: active) { value, error in
+            isReacting = false
             if let value {
                 if reaction == "like" { isLiked = value.active }
                 if reaction == "bookmark" { isBookmarked = value.active }
@@ -1160,6 +1210,18 @@ struct NativeReviewDetailView: View {
             }
         }
     }
+
+    private func authorizeWrite() -> Bool {
+        if model.isRestoringSession {
+            message = "正在恢复登录状态，请稍候"
+            return false
+        }
+        guard model.isAuthenticated else {
+            showingAccount = true
+            return false
+        }
+        return true
+    }
 }
 
 private struct NativeReviewEditor: View {
@@ -1167,7 +1229,6 @@ private struct NativeReviewEditor: View {
     @ObservedObject var model: NativeAppModel
     let onComplete: (NativeReviewSnapshot?, String?) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var title: String
     @State private var reviewText: String
     @State private var spoiler: Bool
     @State private var visibility: String
@@ -1177,7 +1238,6 @@ private struct NativeReviewEditor: View {
         self.review = review
         self.model = model
         self.onComplete = onComplete
-        _title = State(initialValue: review.title ?? "")
         _reviewText = State(initialValue: review.body)
         _spoiler = State(initialValue: review.spoiler)
         _visibility = State(initialValue: review.visibility)
@@ -1186,7 +1246,6 @@ private struct NativeReviewEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("标题", text: $title)
                 TextEditor(text: $reviewText).frame(minHeight: 170)
                 Toggle("包含剧透", isOn: $spoiler)
                 Picker("可见性", selection: $visibility) {
@@ -1204,11 +1263,14 @@ private struct NativeReviewEditor: View {
     }
 
     private func save() {
+        guard !isSaving else { return }
+        let body = reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
         isSaving = true
         model.updateReview(
             id: review.id,
-            title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : title,
-            body: reviewText.trimmingCharacters(in: .whitespacesAndNewlines),
+            title: nil,
+            body: body,
             spoiler: spoiler,
             visibility: visibility,
         ) { updated, error in
@@ -1642,10 +1704,16 @@ struct NativeSubjectCommunityView: View {
     @State private var localReviews: [NativeReviewSnapshot] = []
     @State private var commentReactions: [String: NativeReactionSnapshot] = [:]
     @State private var reviewReactions: [String: NativeReactionSnapshot] = [:]
+    @State private var pendingReactionKeys: Set<String> = []
+    @State private var pendingReportIds: Set<String> = []
     @State private var message: String?
     @State private var showingReviewComposer = false
+    @State private var showingAccount = false
     @State private var editingComment: NativeCommentSnapshot?
     @State private var deletingCommentId: String?
+    @State private var replyTargetId: String?
+    @State private var didLoadCommentDraft = false
+    @FocusState private var commentEditorFocused: Bool
 
     private let collectionStatuses = [
         ("Watching", "在看"),
@@ -1672,11 +1740,21 @@ struct NativeSubjectCommunityView: View {
                 .accessibilityLabel("刷新社区内容")
             }
 
+            if model.isRestoringSession {
+                Label("正在恢复账号状态…", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+            } else if !model.isAuthenticated {
+                Label("登录后可评分、收藏、写评价和参与讨论", systemImage: "lock.open")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+
             if let errorMessage {
                 NativeInlineError(message: errorMessage, retry: onReload)
             } else if let community {
                 ratingAndCollection(community.rating)
-                reviewSection(community.reviews + localReviews)
+                reviewSection(mergedReviews(community.reviews))
                 commentSection(community.comments)
             } else {
                 ProgressView("正在加载社区内容")
@@ -1689,11 +1767,36 @@ struct NativeSubjectCommunityView: View {
                     .foregroundStyle(message.contains("失败") ? .red : .secondary)
             }
         }
-        .onChange(of: community?.comments.count ?? 0) { _, _ in
-            localComments.removeAll()
+        .onAppear {
+            restorePersonalState()
+            loadCommentDraft()
         }
-        .onChange(of: community?.reviews.count ?? 0) { _, _ in
-            localReviews.removeAll()
+        .onChange(of: community?.comments.map(\.id) ?? []) { _, ids in
+            // Keep an optimistic local insertion until the server returns it, then
+            // reconcile by id instead of clearing all local content on every refresh.
+            localComments.removeAll { ids.contains($0.id) }
+        }
+        .onChange(of: community?.reviews.map(\.id) ?? []) { _, ids in
+            localReviews.removeAll { ids.contains($0.id) }
+        }
+        .onChange(of: community?.personal?.userRating) { _, _ in
+            restorePersonalState()
+        }
+        .onChange(of: community?.personal?.collectionStatus) { _, _ in
+            restorePersonalState()
+        }
+        .onChange(of: model.isSessionReady) { _, ready in
+            if ready, model.isAuthenticated {
+                restorePersonalState()
+                onReload()
+            }
+        }
+        .onChange(of: model.session.status) { _, status in
+            if status != "authenticated" {
+                selectedScore = 0
+                selectedCollectionStatus = nil
+                replyTargetId = nil
+            }
         }
         .sheet(isPresented: $showingReviewComposer) {
             NativeReviewComposer(subjectId: subjectId, model: model) { review, error in
@@ -1706,9 +1809,20 @@ struct NativeSubjectCommunityView: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $showingAccount) {
+            NativeAccountSheet(model: model)
+        }
         .sheet(item: $editingComment) { comment in
-            NativeCommentEditor(comment: comment, model: model) { _, error in
-                if let error { message = "更新失败：\(error)" } else { message = "讨论已更新"; onReload() }
+            NativeCommentEditor(comment: comment, model: model) { updated, error in
+                if let error {
+                    message = "更新失败：\(error)"
+                } else {
+                    if let updated, let index = localComments.firstIndex(where: { $0.id == updated.id }) {
+                        localComments[index] = updated
+                    }
+                    message = "讨论已更新"
+                    onReload()
+                }
             }
         }
         .confirmationDialog("确定删除这条讨论吗？", isPresented: Binding(
@@ -1719,6 +1833,10 @@ struct NativeSubjectCommunityView: View {
                 guard let deletingCommentId else { return }
                 model.deleteComment(id: deletingCommentId) { error in
                     message = error.map { "删除失败：\($0)" } ?? "讨论已删除"
+                    if error == nil {
+                        localComments.removeAll { $0.id == deletingCommentId }
+                        if replyTargetId == deletingCommentId { cancelReply() }
+                    }
                     self.deletingCommentId = nil
                     if error == nil { onReload() }
                 }
@@ -1731,10 +1849,15 @@ struct NativeSubjectCommunityView: View {
             HStack(alignment: .firstTextBaseline) {
                 Image(systemName: "star.fill")
                     .foregroundStyle(.orange)
-                Text(rating.score.map { String(format: "%.1f", $0) } ?? "暂无评分")
-                    .font(.title3.weight(.bold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("社区平均分")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    Text(rating.score.map { String(format: "%.1f", $0) } ?? "暂无评分")
+                        .font(.title3.weight(.bold))
+                }
                 Text("· \(rating.votes) 人评分")
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
@@ -1742,31 +1865,39 @@ struct NativeSubjectCommunityView: View {
             HStack(spacing: 10) {
                 Menu {
                     ForEach(1...10, id: \.self) { score in
-                        Button("评分 \(score)") {
+                        Button(score == selectedScore ? "✓ 我的评分 \(score)" : "我的评分 \(score)") {
+                            guard authorizeWrite() else { return }
+                            let previousScore = selectedScore
                             selectedScore = score
-                            saveRating(score)
+                            saveRating(score, previousScore: previousScore)
                         }
                     }
                 } label: {
                     Label(
-                        selectedScore == 0 ? "给作品评分" : "我的评分 \(selectedScore)",
-                        systemImage: "star",
+                        selectedScore == 0 ? "我的评分" : "我的评分 \(selectedScore)/10",
+                        systemImage: selectedScore == 0 ? "star" : "star.fill",
                     )
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isSavingRating)
+                .disabled(isRestoringSession || isSavingRating)
 
                 Menu {
                     ForEach(collectionStatuses, id: \.0) { status in
-                        Button(status.1) { saveCollection(status.0) }
+                        Button(status.1) {
+                            guard authorizeWrite() else { return }
+                            saveCollection(status.0)
+                        }
                     }
                     Divider()
-                    Button("移出片库", role: .destructive) { saveCollection(nil) }
+                    Button("移出片库", role: .destructive) {
+                        guard authorizeWrite() else { return }
+                        saveCollection(nil)
+                    }
                 } label: {
-                    Label(selectedCollectionStatus?.displayName ?? "收藏", systemImage: "plus.circle")
+                    Label(selectedCollectionStatus?.displayName ?? "收藏状态", systemImage: selectedCollectionStatus == nil ? "plus.circle" : "checkmark.circle.fill")
                 }
                 .buttonStyle(.bordered)
-                .disabled(isSavingCollection)
+                .disabled(isRestoringSession || isSavingCollection)
             }
         }
         .padding(16)
@@ -1780,7 +1911,11 @@ struct NativeSubjectCommunityView: View {
                 Text("评价")
                     .font(.title3.weight(.bold))
                 Spacer()
-                Button("写评价") { showingReviewComposer = true }
+                Button("写短评价") {
+                    guard authorizeWrite() else { return }
+                    showingReviewComposer = true
+                }
+                .disabled(isRestoringSession)
                     .font(.subheadline.weight(.semibold))
                 Text("\(reviews.count)")
                     .foregroundStyle(.secondary)
@@ -1821,10 +1956,15 @@ struct NativeSubjectCommunityView: View {
                     title: "\(reviewReaction(review.id, kind: "like")?.likeCount ?? review.likeCount)",
                     systemImage: reviewReaction(review.id, kind: "like")?.active == true ? "heart.fill" : "heart",
                     tint: reviewReaction(review.id, kind: "like")?.active == true ? .pink : .secondary,
+                    disabled: isRestoringSession || pendingReactionKeys.contains(reactionKey(review.id, kind: "like")),
                 ) {
+                    guard authorizeWrite() else { return }
                     let key = reactionKey(review.id, kind: "like")
+                    guard !pendingReactionKeys.contains(key) else { return }
                     let active = reviewReactions[key]?.active != true
+                    pendingReactionKeys.insert(key)
                     model.reactReview(id: review.id, reaction: "like", active: active) { reaction, error in
+                        pendingReactionKeys.remove(key)
                         if let reaction { reviewReactions[key] = reaction }
                         message = error.map { "操作失败：\($0)" }
                     }
@@ -1833,10 +1973,15 @@ struct NativeSubjectCommunityView: View {
                     title: "\(reviewReaction(review.id, kind: "bookmark")?.bookmarkCount ?? review.bookmarkCount)",
                     systemImage: reviewReaction(review.id, kind: "bookmark")?.active == true ? "bookmark.fill" : "bookmark",
                     tint: reviewReaction(review.id, kind: "bookmark")?.active == true ? .blue : .secondary,
+                    disabled: isRestoringSession || pendingReactionKeys.contains(reactionKey(review.id, kind: "bookmark")),
                 ) {
+                    guard authorizeWrite() else { return }
                     let key = reactionKey(review.id, kind: "bookmark")
+                    guard !pendingReactionKeys.contains(key) else { return }
                     let active = reviewReactions[key]?.active != true
+                    pendingReactionKeys.insert(key)
                     model.reactReview(id: review.id, reaction: "bookmark", active: active) { reaction, error in
+                        pendingReactionKeys.remove(key)
                         if let reaction { reviewReactions[key] = reaction }
                         message = error.map { "操作失败：\($0)" }
                     }
@@ -1855,15 +2000,28 @@ struct NativeSubjectCommunityView: View {
                 Text("讨论")
                     .font(.title3.weight(.bold))
                 Spacer()
-                Text("\(comments.count + localComments.count)")
+                Text("\(mergedComments(comments).count)")
                     .foregroundStyle(.secondary)
             }
 
             VStack(spacing: 10) {
+                if let replyTarget {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrowshape.turn.up.left")
+                        Text("回复 \(replyTarget.authorName)")
+                            .font(.caption.weight(.medium))
+                        Spacer()
+                        Button("取消") { cancelReply() }
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(.secondary)
+                }
                 TextEditor(text: $commentText)
                     .frame(minHeight: 84)
                     .padding(8)
                     .scrollContentBackground(.hidden)
+                    .focused($commentEditorFocused)
+                    .disabled(isRestoringSession)
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(alignment: .topLeading) {
                         if commentText.isEmpty {
@@ -1880,24 +2038,35 @@ struct NativeSubjectCommunityView: View {
                     Spacer()
                     Button(isSubmitting ? "发布中…" : "发布") { submitComment() }
                         .buttonStyle(.borderedProminent)
-                        .disabled(isSubmitting || commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(isRestoringSession || isSubmitting || commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
 
-            let visibleComments = comments + localComments
+            let visibleComments = mergedComments(comments)
             if visibleComments.isEmpty {
                 Text("还没有讨论，欢迎开启话题。")
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
             } else {
-                ForEach(visibleComments) { comment in
-                    commentCard(comment)
+                let commentIndex = Dictionary(uniqueKeysWithValues: visibleComments.map { ($0.id, $0) })
+                let rootComments = visibleComments.filter { comment in
+                    guard let parentId = comment.parentId else { return true }
+                    // Only one reply level is rendered. Unexpected deeper replies
+                    // are shown as standalone comments and cannot start another reply.
+                    return commentIndex[parentId]?.parentId != nil || commentIndex[parentId] == nil
+                }
+                ForEach(rootComments) { comment in
+                    commentCard(comment, isReply: false)
+                    ForEach(visibleComments.filter { $0.parentId == comment.id }) { reply in
+                        commentCard(reply, isReply: true)
+                            .padding(.leading, 20)
+                    }
                 }
             }
         }
     }
 
-    private func commentCard(_ comment: NativeCommentSnapshot) -> some View {
+    private func commentCard(_ comment: NativeCommentSnapshot, isReply: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(comment.authorName)
@@ -1913,11 +2082,21 @@ struct NativeSubjectCommunityView: View {
                     .foregroundStyle(.secondary)
                 Menu {
                     if comment.owned {
-                        Button("编辑") { editingComment = comment }
-                        Button("删除", role: .destructive) { deletingCommentId = comment.id }
+                        Button("编辑") {
+                            guard authorizeWrite() else { return }
+                            editingComment = comment
+                        }
+                        Button("删除", role: .destructive) {
+                            guard authorizeWrite() else { return }
+                            deletingCommentId = comment.id
+                        }
                     } else {
                         Button("举报") {
+                            guard authorizeWrite() else { return }
+                            guard !pendingReportIds.contains(comment.id) else { return }
+                            pendingReportIds.insert(comment.id)
                             model.reportComment(id: comment.id) { error in
+                                pendingReportIds.remove(comment.id)
                                 message = error.map { "举报失败：\($0)" } ?? "举报已提交"
                             }
                         }
@@ -1930,14 +2109,23 @@ struct NativeSubjectCommunityView: View {
             Text(comment.body)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 16) {
+                if !isReply, comment.parentId == nil {
+                    Button("回复") { beginReply(to: comment) }
+                        .foregroundStyle(.tint)
+                }
                 reactionButton(
                     title: "\(commentReaction(comment.id, kind: "like")?.likeCount ?? comment.likeCount)",
                     systemImage: commentReaction(comment.id, kind: "like")?.active == true ? "heart.fill" : "heart",
                     tint: commentReaction(comment.id, kind: "like")?.active == true ? .pink : .secondary,
+                    disabled: isRestoringSession || pendingReactionKeys.contains(reactionKey(comment.id, kind: "like")),
                 ) {
+                    guard authorizeWrite() else { return }
                     let key = reactionKey(comment.id, kind: "like")
+                    guard !pendingReactionKeys.contains(key) else { return }
                     let active = commentReactions[key]?.active != true
+                    pendingReactionKeys.insert(key)
                     model.reactComment(id: comment.id, reaction: "like", active: active) { reaction, error in
+                        pendingReactionKeys.remove(key)
                         if let reaction { commentReactions[key] = reaction }
                         message = error.map { "操作失败：\($0)" }
                     }
@@ -1946,10 +2134,15 @@ struct NativeSubjectCommunityView: View {
                     title: "\(commentReaction(comment.id, kind: "bookmark")?.bookmarkCount ?? comment.bookmarkCount)",
                     systemImage: commentReaction(comment.id, kind: "bookmark")?.active == true ? "bookmark.fill" : "bookmark",
                     tint: commentReaction(comment.id, kind: "bookmark")?.active == true ? .blue : .secondary,
+                    disabled: isRestoringSession || pendingReactionKeys.contains(reactionKey(comment.id, kind: "bookmark")),
                 ) {
+                    guard authorizeWrite() else { return }
                     let key = reactionKey(comment.id, kind: "bookmark")
+                    guard !pendingReactionKeys.contains(key) else { return }
                     let active = commentReactions[key]?.active != true
+                    pendingReactionKeys.insert(key)
                     model.reactComment(id: comment.id, reaction: "bookmark", active: active) { reaction, error in
+                        pendingReactionKeys.remove(key)
                         if let reaction { commentReactions[key] = reaction }
                         message = error.map { "操作失败：\($0)" }
                     }
@@ -1960,6 +2153,26 @@ struct NativeSubjectCommunityView: View {
         .padding(14)
         .id("comment-\(comment.id)")
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var replyTarget: NativeCommentSnapshot? {
+        guard let replyTargetId else { return nil }
+        let comments = mergedComments(community?.comments ?? [])
+        return comments.first { $0.id == replyTargetId && $0.parentId == nil }
+    }
+
+    private func mergedComments(_ comments: [NativeCommentSnapshot]) -> [NativeCommentSnapshot] {
+        var result = comments
+        let ids = Set(comments.map(\.id))
+        result.append(contentsOf: localComments.filter { !ids.contains($0.id) })
+        return result
+    }
+
+    private func mergedReviews(_ reviews: [NativeReviewSnapshot]) -> [NativeReviewSnapshot] {
+        var result = reviews
+        let ids = Set(reviews.map(\.id))
+        result.append(contentsOf: localReviews.filter { !ids.contains($0.id) })
+        return result
     }
 
     private func reactionKey(_ id: String, kind: String) -> String {
@@ -1978,6 +2191,7 @@ struct NativeSubjectCommunityView: View {
         title: String,
         systemImage: String,
         tint: Color,
+        disabled: Bool = false,
         action: @escaping () -> Void,
     ) -> some View {
         Button(action: action) {
@@ -1985,19 +2199,93 @@ struct NativeSubjectCommunityView: View {
                 .foregroundStyle(tint)
         }
         .buttonStyle(.plain)
+        .disabled(disabled)
     }
 
-    private func saveRating(_ score: Int) {
+    private func authorizeWrite() -> Bool {
+        if model.isRestoringSession {
+            message = "正在恢复登录状态，请稍候"
+            return false
+        }
+        guard model.isAuthenticated else {
+            showingAccount = true
+            return false
+        }
+        return true
+    }
+
+    private func beginReply(to comment: NativeCommentSnapshot) {
+        guard comment.parentId == nil, authorizeWrite() else { return }
+        replyTargetId = comment.id
+        commentEditorFocused = true
+        persistCommentDraft()
+    }
+
+    private func cancelReply() {
+        replyTargetId = nil
+        commentEditorFocused = false
+        persistCommentDraft()
+    }
+
+    private func restorePersonalState() {
+        guard model.isAuthenticated else {
+            selectedScore = 0
+            selectedCollectionStatus = nil
+            return
+        }
+        selectedScore = community?.personal?.userRating ?? model.cachedUserRating(subjectId: subjectId) ?? 0
+        selectedCollectionStatus = community?.personal?.isCollected == false
+            ? nil
+            : community?.personal?.collectionStatus
+    }
+
+    private var commentDraftKey: String {
+        "anime.ios.comment-draft.\(subjectId)"
+    }
+
+    private func loadCommentDraft() {
+        guard !didLoadCommentDraft else { return }
+        didLoadCommentDraft = true
+        guard
+            let data = UserDefaults.standard.data(forKey: commentDraftKey),
+            let draft = try? JSONDecoder().decode(NativeCommentDraft.self, from: data)
+        else { return }
+        commentText = draft.text
+        commentSpoiler = draft.spoiler
+        replyTargetId = draft.parentId
+    }
+
+    private func persistCommentDraft() {
+        guard didLoadCommentDraft else { return }
+        let text = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty || replyTargetId != nil else {
+            UserDefaults.standard.removeObject(forKey: commentDraftKey)
+            return
+        }
+        let draft = NativeCommentDraft(text: commentText, spoiler: commentSpoiler, parentId: replyTargetId)
+        if let data = try? JSONEncoder().encode(draft) {
+            UserDefaults.standard.set(data, forKey: commentDraftKey)
+        }
+    }
+
+    private func saveRating(_ score: Int, previousScore: Int? = nil) {
+        guard !isSavingRating else { return }
         isSavingRating = true
         message = nil
         model.saveRating(subjectId: subjectId, score: score) { error in
             isSavingRating = false
-            message = error.map { "评分失败：\($0)" } ?? "评分已保存"
+            if let error {
+                selectedScore = previousScore ?? 0
+                message = "评分失败：\(error)"
+            } else {
+                message = "评分已保存"
+            }
             if error == nil { onReload() }
         }
     }
 
     private func saveCollection(_ status: String?) {
+        guard !isSavingCollection else { return }
         isSavingCollection = true
         message = nil
         model.setCollection(subjectId: subjectId, status: status) { error in
@@ -2014,20 +2302,34 @@ struct NativeSubjectCommunityView: View {
     private func submitComment() {
         let body = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
+        guard authorizeWrite(), !isSubmitting else { return }
+        let allComments = mergedComments(community?.comments ?? [])
+        let parentId = replyTargetId.flatMap { targetId in
+            allComments.first { $0.id == targetId && $0.parentId == nil }?.id
+        }
         isSubmitting = true
         message = nil
-        model.createCommentAdvanced(subjectId: subjectId, body: body, spoiler: commentSpoiler, parentId: nil) { comment, error in
+        model.createCommentAdvanced(subjectId: subjectId, body: body, spoiler: commentSpoiler, parentId: parentId) { comment, error in
             isSubmitting = false
             if let comment {
                 localComments.insert(comment, at: 0)
                 commentText = ""
                 commentSpoiler = false
+                replyTargetId = nil
+                commentEditorFocused = false
+                persistCommentDraft()
                 message = "讨论已发布"
             } else if let error {
                 message = "发布失败：\(error)"
             }
         }
     }
+}
+
+private struct NativeCommentDraft: Codable {
+    let text: String
+    let spoiler: Bool
+    let parentId: String?
 }
 
 private struct NativeCommentEditor: View {
@@ -2063,8 +2365,11 @@ private struct NativeCommentEditor: View {
     }
 
     private func save() {
+        guard !isSaving else { return }
+        let body = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
         isSaving = true
-        model.updateComment(id: comment.id, body: commentText.trimmingCharacters(in: .whitespacesAndNewlines), spoiler: spoiler) { value, error in
+        model.updateComment(id: comment.id, body: body, spoiler: spoiler) { value, error in
             isSaving = false
             onComplete(value, error)
             if value != nil { dismiss() }
@@ -2300,7 +2605,6 @@ private struct NativeReviewComposer: View {
     @ObservedObject var model: NativeAppModel
     let onComplete: (NativeReviewSnapshot?, String?) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var title = ""
     @State private var reviewBody = ""
     @State private var spoiler = false
     @State private var visibility = "public"
@@ -2310,9 +2614,6 @@ private struct NativeReviewComposer: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("评价标题") {
-                    TextField("例如：节奏很舒服的一季", text: $title)
-                }
                 Section("你的感受") {
                     TextEditor(text: $reviewBody)
                         .frame(minHeight: 160)
@@ -2347,13 +2648,13 @@ private struct NativeReviewComposer: View {
     private func submit() {
         let normalizedBody = reviewBody.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedBody.isEmpty else { return }
+        guard !isSubmitting else { return }
         isSubmitting = true
         errorMessage = nil
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         model.createReviewAdvanced(
             subjectId: subjectId,
-            kind: "review",
-            title: normalizedTitle.isEmpty ? nil : normalizedTitle,
+            kind: "short",
+            title: nil,
             body: normalizedBody,
             spoiler: spoiler,
             visibility: visibility,
@@ -2720,11 +3021,11 @@ private extension NativeSessionSnapshot {
 private extension String {
     var displayName: String {
         switch self {
-        case "Wish": return "想看"
-        case "Watching": return "在看"
-        case "Completed": return "看过"
-        case "OnHold": return "搁置"
-        case "Dropped": return "抛弃"
+        case "Wish", "wish", "想看": return "想看"
+        case "Watching", "watching", "在看": return "在看"
+        case "Completed", "completed", "看过": return "看过"
+        case "OnHold", "on_hold", "onhold", "搁置": return "搁置"
+        case "Dropped", "dropped", "抛弃": return "抛弃"
         default: return self
         }
     }
