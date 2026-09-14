@@ -894,6 +894,7 @@ final class NativeAppModel: ObservableObject {
 
 struct NativeDiscoverView: View {
     @ObservedObject var model: NativeAppModel
+    @State private var discoverTitleOpacity = 1.0
 
     var body: some View {
         NavigationStack {
@@ -930,23 +931,26 @@ struct NativeDiscoverView: View {
             .refreshable {
                 model.refresh(force: true)
             }
-            .navigationTitle("发现")
-            .toolbarTitleDisplayMode(.large)
-            .toolbar {
-                // Keep the compact title slot empty. The large title scrolls away,
-                // while the trailing calendar action remains a native bar item.
-                ToolbarItem(placement: .title) {
-                    Color.clear
-                        .frame(width: 1, height: 1)
-                        .accessibilityHidden(true)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                let fadeDistance: CGFloat = 56
+                let nextOpacity = 1 - min(max(offset / fadeDistance, 0), 1)
+                if abs(nextOpacity - discoverTitleOpacity) > 0.01 {
+                    discoverTitleOpacity = nextOpacity
                 }
-
-                ToolbarItem(placement: .largeTitle) {
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
                     Text("发现")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                        .opacity(discoverTitleOpacity)
                         .accessibilityAddTraits(.isHeader)
                 }
+                .sharedBackgroundVisibility(.hidden)
 
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
