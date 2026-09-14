@@ -88,7 +88,11 @@ public fun DiagnosticsScreen(
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(diagnostic.endpoint, fontWeight = FontWeight.SemiBold)
                         Text(
-                            if (diagnostic.healthy) "正常 · HTTP ${diagnostic.statusCode}" else "异常 · HTTP ${diagnostic.statusCode ?: "无法连接"}",
+                            if (diagnostic.healthy) {
+                                "正常 · ${diagnostic.latencyMs?.let { "${it} ms · " } ?: ""}HTTP ${diagnostic.statusCode}"
+                            } else {
+                                "异常 · ${diagnostic.latencyMs?.let { "${it} ms · " } ?: ""}${diagnostic.errorMessage ?: "HTTP ${diagnostic.statusCode ?: "无法连接"}"}"
+                            },
                             color = if (diagnostic.healthy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
                         if (diagnostic.body.isNotBlank()) {

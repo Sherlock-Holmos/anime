@@ -8,6 +8,8 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -74,6 +76,7 @@ import site.jokersh.anime.data.session.RemoteSessionRepository
 import site.jokersh.anime.data.session.BangumiSyncConflict
 import site.jokersh.anime.data.session.BangumiSyncStatus
 import site.jokersh.anime.data.session.ServiceDiagnostic
+import site.jokersh.anime.data.session.ServiceDiagnosticEndpoint
 import site.jokersh.anime.data.session.SessionTokenStore
 import site.jokersh.anime.data.session.StoredSessionToken
 import site.jokersh.anime.data.session.SyncConflictChoice
@@ -302,9 +305,12 @@ public class IosNativeAppFacade internal constructor(
             val repository = appContainer.catalogRepository
             val id = SubjectId(subjectId)
             val policy = if (force) RefreshPolicy.Force else RefreshPolicy.IfStale
-            val episodeResult = repository.refreshSection(id, SubjectSection.Episodes, policy)
-            val creditResult = repository.refreshSection(id, SubjectSection.Credits, policy)
-            val relationResult = repository.refreshSection(id, SubjectSection.Relations, policy)
+            val (episodeResult, creditResult, relationResult) = coroutineScope {
+                val episode = async { repository.refreshSection(id, SubjectSection.Episodes, policy) }
+                val credits = async { repository.refreshSection(id, SubjectSection.Credits, policy) }
+                val relations = async { repository.refreshSection(id, SubjectSection.Relations, policy) }
+                Triple(episode.await(), credits.await(), relations.await())
+            }
             val episodes = repository.observeEpisodes(id).first().value
             val credits = repository.observeCredits(id).first().value
             val relations = repository.observeRelations(id).first().value
@@ -1241,6 +1247,8 @@ internal data class NativeDiagnosticSnapshot(
     val statusCode: Int? = null,
     val healthy: Boolean,
     val body: String,
+    val latencyMs: Long? = null,
+    val errorMessage: String? = null,
 )
 
 @Serializable
@@ -1511,7 +1519,7 @@ private fun UserProfile.toNativeSnapshot(): NativeProfileSnapshot =
     )
 
 private fun ServiceDiagnostic.toNativeSnapshot(): NativeDiagnosticSnapshot =
-    NativeDiagnosticSnapshot(endpoint, statusCode, healthy, body)
+    NativeDiagnosticSnapshot(endpoint, statusCode, healthy, body, latencyMs, errorMessage)
 
 private fun site.jokersh.anime.data.comment.CommunityRating.toNativeSnapshot(): NativeRatingSnapshot =
     NativeRatingSnapshot(score, votes)
@@ -1684,7 +1692,17 @@ private fun createIosContainer(
             removeSecret = removeSecret,
             clearLocalUserData = { IosLocalUserDataStore().clear() },
         )
-    val remoteSession = RemoteSessionRepository(client, baseUrl, tokenStore)
+    val remoteSession =
+        RemoteSessionRepository(
+            client = client,
+            apiBaseUrl = baseUrl,
+            tokenStore = tokenStore,
+            diagnosticEndpoints =
+                listOf(
+                    ServiceDiagnosticEndpoint("Cloudflare 入口", PRODUCTION_API_BASE_URL),
+                    ServiceDiagnosticEndpoint("腾讯云直连", DIRECT_API_BASE_URL),
+                ),
+        )
     val remoteCommunity =
         RemoteCommunityRepository(
             client = client,
@@ -1884,6 +1902,7 @@ private class IosRatingOutboxStore :
 }
 
 private const val PRODUCTION_API_BASE_URL = "https://api.jokersh.site"
+private const val DIRECT_API_BASE_URL = "https://124.223.14.130"
 private const val SESSION_RECORD_ACCOUNT = "session-record"
 private const val ACCESS_TOKEN_ACCOUNT = "access-token"
 private const val REFRESH_TOKEN_ACCOUNT = "refresh-token"

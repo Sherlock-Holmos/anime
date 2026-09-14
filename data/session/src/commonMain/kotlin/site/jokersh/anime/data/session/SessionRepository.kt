@@ -73,6 +73,14 @@ public data class ServiceDiagnostic(
     val statusCode: Int?,
     val healthy: Boolean,
     val body: String,
+    val latencyMs: Long? = null,
+    val errorMessage: String? = null,
+)
+
+/** An API entrance that can be probed from the client diagnostics screen. */
+public data class ServiceDiagnosticEndpoint(
+    val name: String,
+    val baseUrl: String,
 )
 
 public data class BangumiSyncStatus(

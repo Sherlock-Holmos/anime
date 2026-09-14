@@ -12,6 +12,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLParameter
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.SerialName
@@ -34,6 +37,7 @@ import site.jokersh.anime.core.model.UserSummary
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlin.time.TimeSource
 
 public interface SessionTokenStore {
     public fun load(): StoredSessionToken?
@@ -57,6 +61,8 @@ public class RemoteSessionRepository(
     private val client: HttpClient,
     apiBaseUrl: String,
     private val tokenStore: SessionTokenStore,
+    private val diagnosticEndpoints: List<ServiceDiagnosticEndpoint> =
+        listOf(ServiceDiagnosticEndpoint("当前服务", apiBaseUrl)),
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) : SessionRepository {
     private val baseUrl: String = apiBaseUrl.trimEnd('/')
@@ -66,6 +72,12 @@ public class RemoteSessionRepository(
     init {
         require(baseUrl.startsWith("http://") || baseUrl.startsWith("https://")) {
             "apiBaseUrl must use HTTP or HTTPS"
+        }
+        require(diagnosticEndpoints.isNotEmpty()) { "diagnosticEndpoints must not be empty" }
+        diagnosticEndpoints.forEach { endpoint ->
+            require(endpoint.baseUrl.startsWith("http://") || endpoint.baseUrl.startsWith("https://")) {
+                "diagnostic endpoint ${endpoint.name} must use HTTP or HTTPS"
+            }
         }
     }
 
@@ -248,16 +260,43 @@ public class RemoteSessionRepository(
 
     override suspend fun diagnostics(): Result<List<ServiceDiagnostic>> =
         runCatching {
-            listOf("/meta", "/health/live", "/health/ready").map { path ->
-                val response = client.get("$baseUrl$path")
-                ServiceDiagnostic(
-                    endpoint = path,
-                    statusCode = response.status.value,
-                    healthy = response.status.value in 200..299,
-                    body = response.bodyAsText().take(600),
-                )
+            val paths = listOf("/health/live", "/health/ready", "/api/v1/meta")
+            coroutineScope {
+                diagnosticEndpoints
+                    .flatMap { endpoint -> paths.map { path -> endpoint to path } }
+                    .map { (endpoint, path) ->
+                        async { probeDiagnostic(endpoint, path) }
+                    }
+                    .awaitAll()
             }
         }
+
+    private suspend fun probeDiagnostic(
+        endpoint: ServiceDiagnosticEndpoint,
+        path: String,
+    ): ServiceDiagnostic {
+        val mark = TimeSource.Monotonic.markNow()
+        val url = "${endpoint.baseUrl.trimEnd('/')}$path"
+        return runCatching {
+            val response = client.get(url)
+            ServiceDiagnostic(
+                endpoint = "${endpoint.name} · $path",
+                statusCode = response.status.value,
+                healthy = response.status.value in 200..299,
+                body = response.bodyAsText().take(600),
+                latencyMs = mark.elapsedNow().inWholeMilliseconds,
+            )
+        }.getOrElse { error ->
+            ServiceDiagnostic(
+                endpoint = "${endpoint.name} · $path",
+                statusCode = null,
+                healthy = false,
+                body = "",
+                latencyMs = mark.elapsedNow().inWholeMilliseconds,
+                errorMessage = error.message ?: error::class.simpleName,
+            )
+        }
+    }
 
     override suspend fun exportMyData(): Result<String> =
         runCatching {

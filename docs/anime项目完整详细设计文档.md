@@ -43,12 +43,12 @@
 | B-06 | 动漫元数据来自 Bangumi 官方 API，不自行爬取 HTML | 已确认 |
 | B-07 | 液态玻璃使用 Kyant Backdrop，不从零实现底层效果 | 已确认 |
 | B-08 | 服务部署在 4 核 4 GB VPS 上，VPS 已运行 Gitea | 已确认 |
-| B-09 | 已配置 Cloudflare Tunnel；正式方案只允许通过 Cloudflare 域名访问业务服务 | 已确认 |
+| B-09 | 已配置 Cloudflare Tunnel；正式方案保留 Cloudflare 主入口，并允许腾讯云 IP 的 HTTPS 直连入口用于性能对比 | 已确认 |
 | B-10 | 项目由个人与 AI Agent 协作开发，设计需重视可理解性、可验证性和低运维成本 | 已确认 |
 | B-11 | MVP 只展示动画条目 | 已确认 |
 | B-12 | Anime 与 Bangumi 对收藏状态和观看进度进行双向同步 | 已确认 |
 | B-13 | R1 采用 Anime 本地账号 + 可选 Bangumi OAuth 绑定；OAuth-only 不作为 R1 方案 | 已确认 |
-| B-14 | 生产访问入口仅使用 Cloudflare Tunnel 域名，不提供公网 IP 入口 | 已确认 |
+| B-14 | 生产业务默认使用 Cloudflare Tunnel 域名；直连入口使用腾讯云 IP、有效 IP 证书和 443，仅用于性能对比，不暴露 Rust 8000 端口 | 已确认 |
 | B-15 | 短评是公开社区内容 | 已确认 |
 | B-16 | Android 最低版本为 Android 8.0（API 26） | 已确认 |
 | B-17 | Anime 建设独立的 1–10 分个人评分与社区聚合；Bangumi 评分仅作明确标源的只读外部参考，二者不得混算 | V2.0 已确认 |
@@ -63,7 +63,7 @@
 |---|---|---|
 | D-01 | 首版采用模块化单体，不拆微服务 | 4C4G、个人维护、业务规模未知，拆服务只会增加通信和运维成本 |
 | D-02 | 客户端与服务端采用 HTTPS REST + JSON | Ktor Client 在 Android/iOS 均有官方支持；比自建跨平台 gRPC 链路更易调试和演进 |
-| D-03 | 生产和远程调试流量只走 Cloudflare；本机诊断使用 localhost/SSH，不提供公网 IP 业务入口 | 防止绕过 Cloudflare 直接攻击源站 |
+| D-03 | 生产保留 Cloudflare 安全入口，同时提供受控的 HTTPS 直连入口；客户端服务诊断比较两条路径，业务默认仍走 Cloudflare | 在保留源站隐藏和 WAF 能力的同时，用真实设备数据验证直连延迟收益；直连只开放 443 |
 | D-04 | PostgreSQL 是业务数据唯一事实来源，Redis 只做可丢失缓存和限流状态 | 防止缓存与主数据职责混乱 |
 | D-05 | Bangumi 数据保存在本地镜像表，并保留原始 JSON | 减少上游依赖、支持搜索、方便兼容字段变化 |
 | D-06 | 收藏状态和观看进度与 Bangumi 双向同步；Anime 公开短评不与 Bangumi 评论互相映射 | 满足双向同步要求，同时避免混淆两个社区的公开内容 |
@@ -341,7 +341,7 @@ P0 状态表表示代码与本地验证完成；生产服务只有在对应版�
 - 单 VPS 架构不承诺高可用，目标月可用性为 99.0%，不含计划维护。
 - Bangumi API 不可用时，资料读取继续使用本地数据库。
 - Redis 不可用时，读取回退 PostgreSQL；收藏、进度和评论等写操作不得依赖 Redis 才能正确完成。
-- Cloudflare Tunnel 不可用时，不自动向公众开放源站 IP。
+- Cloudflare Tunnel 不可用时，客户端可在诊断页显示直连状态，但不自动切换写请求；直连入口由独立 HTTPS 443 服务控制，不能直接暴露源站 IP:8000。
 - Backdrop 效果不可用时，界面自动退化为半透明 Material Surface。
 
 ### 6.3 安全
@@ -380,9 +380,11 @@ P0 状态表表示代码与本地验证完成；生产服务只有在对应版�
 
 ```mermaid
 flowchart LR
-    A[Android App<br/>Compose Multiplatform] -->|HTTPS REST/JSON| CF[Cloudflare Edge]
+    A[Android/iOS App<br/>Compose Multiplatform] -->|HTTPS REST/JSON| CF[Cloudflare Edge]
+    A -->|HTTPS REST/JSON<br/>diagnostics comparison| DE[Direct HTTPS Edge]
     CF --> T[cloudflared Tunnel]
     T --> API[Rust 模块化单体<br/>Axum + Tokio]
+    DE --> API
     API --> PG[(PostgreSQL)]
     API --> R[(Redis)]
     API -->|受控调用| B[Bangumi API v0]
@@ -1901,8 +1903,8 @@ MVP 使用 PostgreSQL：
 
 ```text
 不可信移动网络
- -> Cloudflare
- -> cloudflared 本机连接
+ -> Cloudflare / Direct HTTPS Edge
+ -> cloudflared 本机连接 / Compose 私有网络
  -> Rust API
  -> PostgreSQL/Redis 私有容器网络
  -> Bangumi 外部 API
@@ -1913,7 +1915,7 @@ MVP 使用 PostgreSQL：
 - `cloudflared` 通过出站连接建立 Tunnel；
 - Rust 服务优先仅监听 `127.0.0.1` 或 Docker 私有网络；
 - 防火墙默认拒绝业务端口的公网入站；
-- 不提供公网 IP 调试模式；远程诊断通过 SSH 端口转发、Cloudflare Access 或本机 CLI 完成；
+- 直连入口只能使用 HTTPS、有效 IP 证书和 443；不提供公网 IP:8000 调试模式；远程诊断仍通过 SSH 端口转发、Cloudflare Access 或本机 CLI 完成；
 - 不把 `noTLSVerify=true` 当作生产默认值；若 Tunnel 到源站使用 HTTPS，应配置正确证书或 CA；
 - 只有来自可信代理网段时才接受 `CF-Connecting-IP`、`X-Forwarded-For` 等头；
 - Cloudflare WAF 是补充，服务端仍必须认证、校验和限流。
@@ -2237,7 +2239,7 @@ iOS 测试在获得 macOS Runner 后才进入门禁；此前不得以“预留�
 | Q-01 | MVP 内容范围 | 只展示动画；数据模型保留类型字段但 UI 不暴露其他类型 |
 | Q-02 | Bangumi 同步 | 收藏状态和观看进度双向同步 |
 | Q-03 | 登录方式 | R1 采用 Anime 本地账号 + 可选 Bangumi OAuth 绑定；OAuth-only 不作为 R1 方案 |
-| Q-04 | 访问入口 | 仅 Cloudflare Tunnel 域名，无公网 IP 业务入口 |
+| Q-04 | 访问入口 | Cloudflare Tunnel 为默认业务入口；腾讯云 IP 的 HTTPS 直连入口仅用于客户端服务诊断和性能对比，不暴露 IP:8000 |
 | Q-05 | 短评模式 | 公开社区短评，支持删除、举报和治理 |
 | Q-06 | Android 最低版本 | Android 8.0（API 26）；玻璃效果按系统能力降级 |
 | Q-07 | 评分策略 | 建设 Anime 独立评分；Bangumi 评分为只读外部参考；字段、来源标签和聚合严格隔离 |
@@ -2256,7 +2258,7 @@ iOS 测试在获得 macOS Runner 后才进入门禁；此前不得以“预留�
 - ADR-002：REST + JSON 而非 gRPC；
 - ADR-003：PostgreSQL + `pg_trgm` 的 MVP 搜索；
 - ADR-004：Bangumi OAuth 与本地用户映射；
-- ADR-005：Cloudflare Tunnel 为唯一生产入口；
+- ADR-005：Cloudflare Tunnel 为默认生产入口，独立 HTTPS 直连入口仅用于性能对比；
 - ADR-006：Backdrop 能力分级与降级标准；
 - ADR-007：本地 KMP 数据库选择；
 - ADR-008：Anime 数据与 Bangumi 用户数据的同步边界。

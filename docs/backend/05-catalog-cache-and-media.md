@@ -260,7 +260,7 @@ Machine contract、后端 Handler、Remote Repository 与合同测试必须在�
 3. 引入新鲜度与 stale-while-revalidate UI；
 4. 为 Remote 与 Fixture 运行同一套 Repository contract tests。
 
-实施进度（2026-08-10）：P1-A 已完成真实 `/home`、服务端代理搜索、本地搜索降级、Desktop Remote Search 注入，以及收藏同步后的限批后台主题补齐。剧集/人物/关联补齐、完整新鲜度 UI 和 Remote 传输合同测试保留在 P1-B。
+实施进度（2026-09-15）：P1-A 已完成真实 `/home`、服务端代理搜索、本地搜索降级、Desktop Remote Search 注入，以及收藏同步后的限批后台主题补齐。P1-B 已补入 PostgreSQL 共享上游响应缓存：搜索 10 分钟、日历 30 分钟、剧集 1 小时、角色/制作人员 7 天、关联作品 30 天；缓存命中不再重复请求 Bangumi 或重复回填目录。完整新鲜度 UI、跨实例任务去重和 Remote 传输合同测试仍保留在后续阶段。
 
 ### P2：生产化缓存
 

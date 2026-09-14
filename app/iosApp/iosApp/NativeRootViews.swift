@@ -94,6 +94,8 @@ struct NativeDiagnosticSnapshot: Codable, Identifiable {
     let statusCode: Int?
     let healthy: Bool
     let body: String
+    let latencyMs: Int64?
+    let errorMessage: String?
 
     var id: String { endpoint }
 }
@@ -2864,7 +2866,19 @@ struct NativeDiagnosticsView: View {
     var body: some View {
         List {
             Section {
-                Button("重新检查") { model.loadDiagnostics() }
+                Button {
+                    model.loadDiagnostics()
+                } label: {
+                    if model.isLoadingDiagnostics {
+                        HStack {
+                            ProgressView()
+                            Text("测试中…")
+                        }
+                    } else {
+                        Text("重新测试")
+                    }
+                }
+                .disabled(model.isLoadingDiagnostics)
             }
             Section("服务") {
                 ForEach(model.diagnostics) { item in
@@ -2873,7 +2887,7 @@ struct NativeDiagnosticsView: View {
                             .foregroundStyle(item.healthy ? .green : .red)
                         VStack(alignment: .leading) {
                             Text(item.endpoint).font(.headline)
-                            Text(item.statusCode.map(String.init) ?? "无响应")
+                            Text(diagnosticStatusText(item))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -2884,6 +2898,17 @@ struct NativeDiagnosticsView: View {
         .scrollIndicators(.hidden)
         .navigationTitle("服务诊断")
         .task { if model.diagnostics.isEmpty { model.loadDiagnostics() } }
+    }
+
+    private func diagnosticStatusText(_ item: NativeDiagnosticSnapshot) -> String {
+        let latency = item.latencyMs.map { "\($0) ms" } ?? "无响应"
+        if item.healthy {
+            return "\(latency) · HTTP \(item.statusCode.map(String.init) ?? "—")"
+        }
+        if let error = item.errorMessage, !error.isEmpty {
+            return "\(latency) · \(error)"
+        }
+        return "\(latency) · HTTP \(item.statusCode.map(String.init) ?? "—")"
     }
 }
 

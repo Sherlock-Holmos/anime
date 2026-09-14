@@ -34,6 +34,7 @@
 | FED-026 | R1 将 Anime 自有评分、短评和讨论作为社区最小 MVP | Anime 社区表达是产品核心差异化；先用清晰的 1–10 评分、短评和一层讨论形成最小闭环，长评和完整社交能力后置 | 详情页同时展示 Anime/Bangumi 两套评分；评分、短评和讨论写入需要登录，游客可读取公开内容；具体接口和验收以 `docs/product/02-community-mvp-technical-plan.md` 为准 |
 | FED-027 | R1 平台顺序为 iOS IPA 侧载首发、Android 第二、Desktop/Web 仅预览测试 | 先验证 iOS 首发用户价值，再复用 CMP 能力覆盖 Android；控制 Desktop/Web 的发布承诺 | iOS R1 不上架 App Store；Desktop/Web 不作为 R1 发布阻断项 |
 | FED-028 | R1 采用 Anime 本地账号 + 可选 Bangumi OAuth 绑定的双入口模型 | 本地账号降低社区参与门槛；Bangumi OAuth 只承担用户主动授权后的收藏/进度同步 | 两条链路统一换成 Anime access/refresh token；OAuth-only 不得作为默认实现 |
+| FED-029 | API 保留 Cloudflare 主入口，并增加腾讯云 IP 的 HTTPS 直连入口用于网络性能对比 | Cloudflare 隐藏源站并提供边缘安全能力；腾讯云直连可在合适网络下减少一跳，延迟必须由真实设备测量而不是假设 | 主业务默认仍走 `api.jokersh.site`；`https://124.223.14.130` 仅在 443/IP 证书配置完成后参与诊断；客户端不使用 HTTP 或 8000 端口 |
 
 ## 2. 性能降级判定
 

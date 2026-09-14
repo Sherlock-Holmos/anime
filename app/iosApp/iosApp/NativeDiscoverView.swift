@@ -17,6 +17,7 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var profile: NativeProfileSnapshot?
     @Published private(set) var subjectCommunity: [Int64: NativeSubjectCommunitySnapshot] = [:]
     @Published private(set) var diagnostics: [NativeDiagnosticSnapshot] = []
+    @Published private(set) var isLoadingDiagnostics = false
     @Published private(set) var calendar: NativeCalendarSnapshot?
     @Published private(set) var subjectSections: [Int64: NativeSubjectSectionsSnapshot] = [:]
     @Published private(set) var userProfiles: [String: NativeUserProfileSnapshot] = [:]
@@ -805,11 +806,13 @@ final class NativeAppModel: ObservableObject {
 
     func loadDiagnostics(completion: (([NativeDiagnosticSnapshot]?, String?) -> Void)? = nil) {
         start()
+        isLoadingDiagnostics = true
         facade?.diagnostics { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let snapshot = rawSnapshot.flatMap { Self.decode($0, as: [NativeDiagnosticSnapshot].self) }
                 self.diagnostics = snapshot ?? []
+                self.isLoadingDiagnostics = false
                 completion?(snapshot, error)
             }
         }

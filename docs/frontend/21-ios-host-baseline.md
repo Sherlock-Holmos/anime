@@ -16,7 +16,7 @@ Windows 上“完成”仅指依赖可解析、iOS metadata 可编译、公共�
 
 | 能力 | iOS 实现 | 安全约束 |
 |---|---|---|
-| HTTP | Ktor Darwin，生产地址 `https://api.jokersh.site` | 禁止 ATS 明文放行 |
+| HTTP | Ktor Darwin，业务主入口 `https://api.jokersh.site`；服务诊断同时探测 `https://124.223.14.130` | 两个入口均必须 HTTPS；直连入口使用有效 IP 证书，不允许 HTTP、自签证书或 8000 端口 |
 | Anime 会话 | Keychain 保存 access/refresh token | token 不进入 `NSUserDefaults` 或日志 |
 | 非敏感缓存 | `NSUserDefaults` | 只保存设置、草稿、离线队列和缓存 JSON |
 | Bangumi 绑定 | `ASWebAuthenticationSession` 应用内安全授权页 | 客户端不收集 Bangumi 密码；访问由 Anime 服务端代理 |
