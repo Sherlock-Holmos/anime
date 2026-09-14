@@ -1879,7 +1879,7 @@ struct NativeSubjectCommunityView: View {
                     )
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isRestoringSession || isSavingRating)
+                .disabled(model.isRestoringSession || isSavingRating)
 
                 Menu {
                     ForEach(collectionStatuses, id: \.0) { status in
@@ -1897,7 +1897,7 @@ struct NativeSubjectCommunityView: View {
                     Label(selectedCollectionStatus?.displayName ?? "收藏状态", systemImage: selectedCollectionStatus == nil ? "plus.circle" : "checkmark.circle.fill")
                 }
                 .buttonStyle(.bordered)
-                .disabled(isRestoringSession || isSavingCollection)
+                .disabled(model.isRestoringSession || isSavingCollection)
             }
         }
         .padding(16)
@@ -1915,7 +1915,7 @@ struct NativeSubjectCommunityView: View {
                     guard authorizeWrite() else { return }
                     showingReviewComposer = true
                 }
-                .disabled(isRestoringSession)
+                .disabled(model.isRestoringSession)
                     .font(.subheadline.weight(.semibold))
                 Text("\(reviews.count)")
                     .foregroundStyle(.secondary)
@@ -1956,7 +1956,7 @@ struct NativeSubjectCommunityView: View {
                     title: "\(reviewReaction(review.id, kind: "like")?.likeCount ?? review.likeCount)",
                     systemImage: reviewReaction(review.id, kind: "like")?.active == true ? "heart.fill" : "heart",
                     tint: reviewReaction(review.id, kind: "like")?.active == true ? .pink : .secondary,
-                    disabled: isRestoringSession || pendingReactionKeys.contains(reactionKey(review.id, kind: "like")),
+                    disabled: model.isRestoringSession || pendingReactionKeys.contains(reactionKey(review.id, kind: "like")),
                 ) {
                     guard authorizeWrite() else { return }
                     let key = reactionKey(review.id, kind: "like")
@@ -1973,7 +1973,7 @@ struct NativeSubjectCommunityView: View {
                     title: "\(reviewReaction(review.id, kind: "bookmark")?.bookmarkCount ?? review.bookmarkCount)",
                     systemImage: reviewReaction(review.id, kind: "bookmark")?.active == true ? "bookmark.fill" : "bookmark",
                     tint: reviewReaction(review.id, kind: "bookmark")?.active == true ? .blue : .secondary,
-                    disabled: isRestoringSession || pendingReactionKeys.contains(reactionKey(review.id, kind: "bookmark")),
+                    disabled: model.isRestoringSession || pendingReactionKeys.contains(reactionKey(review.id, kind: "bookmark")),
                 ) {
                     guard authorizeWrite() else { return }
                     let key = reactionKey(review.id, kind: "bookmark")
@@ -2021,7 +2021,7 @@ struct NativeSubjectCommunityView: View {
                     .padding(8)
                     .scrollContentBackground(.hidden)
                     .focused($commentEditorFocused)
-                    .disabled(isRestoringSession)
+                    .disabled(model.isRestoringSession)
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(alignment: .topLeading) {
                         if commentText.isEmpty {
@@ -2038,7 +2038,7 @@ struct NativeSubjectCommunityView: View {
                     Spacer()
                     Button(isSubmitting ? "发布中…" : "发布") { submitComment() }
                         .buttonStyle(.borderedProminent)
-                        .disabled(isRestoringSession || isSubmitting || commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(model.isRestoringSession || isSubmitting || commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
 
@@ -2117,7 +2117,7 @@ struct NativeSubjectCommunityView: View {
                     title: "\(commentReaction(comment.id, kind: "like")?.likeCount ?? comment.likeCount)",
                     systemImage: commentReaction(comment.id, kind: "like")?.active == true ? "heart.fill" : "heart",
                     tint: commentReaction(comment.id, kind: "like")?.active == true ? .pink : .secondary,
-                    disabled: isRestoringSession || pendingReactionKeys.contains(reactionKey(comment.id, kind: "like")),
+                    disabled: model.isRestoringSession || pendingReactionKeys.contains(reactionKey(comment.id, kind: "like")),
                 ) {
                     guard authorizeWrite() else { return }
                     let key = reactionKey(comment.id, kind: "like")
@@ -2134,7 +2134,7 @@ struct NativeSubjectCommunityView: View {
                     title: "\(commentReaction(comment.id, kind: "bookmark")?.bookmarkCount ?? comment.bookmarkCount)",
                     systemImage: commentReaction(comment.id, kind: "bookmark")?.active == true ? "bookmark.fill" : "bookmark",
                     tint: commentReaction(comment.id, kind: "bookmark")?.active == true ? .blue : .secondary,
-                    disabled: isRestoringSession || pendingReactionKeys.contains(reactionKey(comment.id, kind: "bookmark")),
+                    disabled: model.isRestoringSession || pendingReactionKeys.contains(reactionKey(comment.id, kind: "bookmark")),
                 ) {
                     guard authorizeWrite() else { return }
                     let key = reactionKey(comment.id, kind: "bookmark")
