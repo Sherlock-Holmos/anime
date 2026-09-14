@@ -894,7 +894,6 @@ final class NativeAppModel: ObservableObject {
 
 struct NativeDiscoverView: View {
     @ObservedObject var model: NativeAppModel
-    @State private var discoverTitleOpacity = 1.0
 
     var body: some View {
         NavigationStack {
@@ -924,50 +923,38 @@ struct NativeDiscoverView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 32)
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: NativeDiscoverScrollOffsetKey.self,
-                            value: proxy.frame(in: .named("native-discover-scroll")).minY,
-                        )
-                    }
-                }
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .coordinateSpace(name: "native-discover-scroll")
             .refreshable {
                 model.refresh(force: true)
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                HStack(alignment: .center, spacing: 16) {
+            .navigationTitle("发现")
+            .toolbarTitleDisplayMode(.large)
+            .toolbar {
+                // Keep the compact title slot empty. The large title scrolls away,
+                // while the trailing calendar action remains a native bar item.
+                ToolbarItem(placement: .title) {
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .accessibilityHidden(true)
+                }
+
+                ToolbarItem(placement: .largeTitle) {
                     Text("发现")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(.primary)
-                        .opacity(discoverTitleOpacity)
+                        .fixedSize(horizontal: true, vertical: false)
                         .accessibilityAddTraits(.isHeader)
+                }
 
-                    Spacer(minLength: 0)
-
+                ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         NativeCalendarView(model: model)
                     } label: {
                         Image(systemName: "calendar")
-                            .frame(width: 52, height: 52)
                     }
-                    .buttonStyle(.glass)
                     .accessibilityLabel("播出日历")
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .onPreferenceChange(NativeDiscoverScrollOffsetKey.self) { offset in
-                let fadeDistance: CGFloat = 52
-                let nextOpacity = min(max((offset + fadeDistance) / fadeDistance, 0), 1)
-                if abs(nextOpacity - discoverTitleOpacity) > 0.01 {
-                    discoverTitleOpacity = nextOpacity
                 }
             }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
@@ -990,14 +977,6 @@ struct NativeDiscoverView: View {
                 .filter { seen.insert($0.id).inserted }
                 .prefix(5)
         )
-    }
-}
-
-private struct NativeDiscoverScrollOffsetKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 
