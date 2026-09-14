@@ -297,6 +297,7 @@ struct NativeReactionSnapshot: Codable {
 
 struct NativeLibraryView: View {
     @ObservedObject var model: NativeAppModel
+    @State private var libraryTitleOpacity = 1.0
     @State private var query = ""
     @State private var results: [NativeSubjectSummary] = []
     @State private var nextCursor: String?
@@ -336,12 +337,30 @@ struct NativeLibraryView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                let fadeDistance: CGFloat = 56
+                let nextOpacity = 1 - min(max(offset / fadeDistance, 0), 1)
+                if abs(nextOpacity - libraryTitleOpacity) > 0.01 {
+                    libraryTitleOpacity = nextOpacity
+                }
+            }
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索作品")
             .onSubmit(of: .search, submitSearch)
             .refreshable { await refreshRecommendations() }
-            .navigationTitle("资料库")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("资料库")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                        .opacity(libraryTitleOpacity)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                .sharedBackgroundVisibility(.hidden)
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingFilters = true
@@ -942,6 +961,7 @@ struct NativeSubjectSectionsView: View {
 
 struct NativeActivityView: View {
     @ObservedObject var model: NativeAppModel
+    @State private var activityTitleOpacity = 1.0
     @State private var selectedMode = "动态"
     @State private var selectedFeed = "public"
     @State private var errorMessage: String?
@@ -968,10 +988,28 @@ struct NativeActivityView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                let fadeDistance: CGFloat = 56
+                let nextOpacity = 1 - min(max(offset / fadeDistance, 0), 1)
+                if abs(nextOpacity - activityTitleOpacity) > 0.01 {
+                    activityTitleOpacity = nextOpacity
+                }
+            }
             .refreshable { await refresh() }
-            .navigationTitle("动态")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("动态")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                        .opacity(activityTitleOpacity)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                .sharedBackgroundVisibility(.hidden)
+
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         NativeListsView(model: model)
@@ -1098,6 +1136,7 @@ struct NativeActivityView: View {
 
 struct NativeProfileView: View {
     @ObservedObject var model: NativeAppModel
+    @State private var profileTitleOpacity = 1.0
     @State private var showingAccount = false
     @State private var message: String?
 
@@ -1125,9 +1164,27 @@ struct NativeProfileView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .navigationTitle("我的")
-            .navigationBarTitleDisplayMode(.large)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                let fadeDistance: CGFloat = 56
+                let nextOpacity = 1 - min(max(offset / fadeDistance, 0), 1)
+                if abs(nextOpacity - profileTitleOpacity) > 0.01 {
+                    profileTitleOpacity = nextOpacity
+                }
+            }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("我的")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                        .opacity(profileTitleOpacity)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                .sharedBackgroundVisibility(.hidden)
+
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         NativeSettingsView(model: model)
