@@ -400,7 +400,8 @@ final class NativeAppModel: ObservableObject {
 
     func createList(title: String, description: String, visibility: String, subjectIds: [Int64], completion: ((NativeListSummarySnapshot?, String?) -> Void)? = nil) {
         start()
-        facade?.createList(title: title, description: description, visibility: visibility, subjectIds: subjectIds) { [weak self] rawSnapshot, error in
+        let subjectIdsCsv = subjectIds.map(String.init).joined(separator: ",")
+        facade?.createList(title: title, description: description, visibility: visibility, subjectIdsCsv: subjectIdsCsv) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 completion?(rawSnapshot.flatMap { Self.decode($0, as: NativeListSummarySnapshot.self) }, error)
@@ -410,7 +411,8 @@ final class NativeAppModel: ObservableObject {
 
     func updateList(id: String, title: String, description: String, visibility: String, subjectIds: [Int64], completion: ((NativeListSummarySnapshot?, String?) -> Void)? = nil) {
         start()
-        facade?.updateList(id: id, title: title, description: description, visibility: visibility, subjectIds: subjectIds) { [weak self] rawSnapshot, error in
+        let subjectIdsCsv = subjectIds.map(String.init).joined(separator: ",")
+        facade?.updateList(id: id, title: title, description: description, visibility: visibility, subjectIdsCsv: subjectIdsCsv) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 completion?(rawSnapshot.flatMap { Self.decode($0, as: NativeListSummarySnapshot.self) }, error)

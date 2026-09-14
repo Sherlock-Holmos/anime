@@ -557,11 +557,16 @@ public class IosNativeAppFacade internal constructor(
         title: String,
         description: String,
         visibility: String,
-        subjectIds: List<Long>,
+        subjectIdsCsv: String,
         completion: (String?, String?) -> Unit,
     ) =
         launchTextOperation("create list", completion) {
-            val result = appContainer.communityRepository.createList(title, description, subjectIds, visibility)
+            val result = appContainer.communityRepository.createList(
+                title,
+                description,
+                parseSubjectIds(subjectIdsCsv),
+                visibility,
+            )
             result.getOrNull()?.let { json.encodeToString(NativeListSummarySnapshot.serializer(), it.toNativeSnapshot()) } to
                 result.exceptionOrNull()?.message
         }
@@ -571,11 +576,17 @@ public class IosNativeAppFacade internal constructor(
         title: String,
         description: String,
         visibility: String,
-        subjectIds: List<Long>,
+        subjectIdsCsv: String,
         completion: (String?, String?) -> Unit,
     ) =
         launchTextOperation("update list:$id", completion) {
-            val result = appContainer.communityRepository.updateList(id, title, description, visibility, subjectIds)
+            val result = appContainer.communityRepository.updateList(
+                id,
+                title,
+                description,
+                visibility,
+                parseSubjectIds(subjectIdsCsv),
+            )
             result.getOrNull()?.let { json.encodeToString(NativeListSummarySnapshot.serializer(), it.toNativeSnapshot()) } to
                 result.exceptionOrNull()?.message
         }
@@ -917,6 +928,11 @@ public class IosNativeAppFacade internal constructor(
         }
     }
 }
+
+private fun parseSubjectIds(subjectIdsCsv: String): List<Long> =
+    subjectIdsCsv
+        .split(',')
+        .mapNotNull { it.trim().takeIf(String::isNotEmpty)?.toLongOrNull() }
 
 private fun String.toSyncConflictChoice(): SyncConflictChoice =
     when (lowercase()) {
