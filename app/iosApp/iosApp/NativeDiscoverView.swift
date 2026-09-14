@@ -894,36 +894,20 @@ final class NativeAppModel: ObservableObject {
 
 struct NativeDiscoverView: View {
     @ObservedObject var model: NativeAppModel
+    @State private var discoverTitleOpacity = 1.0
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 28) {
-                    HStack(alignment: .center, spacing: 16) {
-                        Text("发现")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-                            .accessibilityAddTraits(.isHeader)
-
-                        Spacer(minLength: 0)
-
-                        NavigationLink {
-                            NativeCalendarView(model: model)
-                        } label: {
-                            Image(systemName: "calendar")
-                                .font(.system(size: 20, weight: .semibold))
-                                .frame(width: 52, height: 52)
-                                .background(.thinMaterial, in: Circle())
-                                .overlay {
-                                    Circle()
-                                        .strokeBorder(.primary.opacity(0.12), lineWidth: 1)
-                                }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("播出日历")
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(
+                                key: NativeDiscoverScrollOffsetKey.self,
+                                value: proxy.frame(in: .named("native-discover-scroll")).minY,
+                            )
                     }
-                    .padding(.top, 4)
-                    .padding(.bottom, 4)
+                    .frame(height: 0)
 
                     if model.isLoading && model.discovery == nil {
                         ProgressView()
@@ -953,8 +937,33 @@ struct NativeDiscoverView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
+            .coordinateSpace(name: "native-discover-scroll")
             .refreshable {
                 model.refresh(force: true)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("发现")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .opacity(discoverTitleOpacity)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        NativeCalendarView(model: model)
+                    } label: {
+                        Image(systemName: "calendar")
+                    }
+                    .accessibilityLabel("播出日历")
+                }
+            }
+            .onPreferenceChange(NativeDiscoverScrollOffsetKey.self) { offset in
+                let fadeDistance: CGFloat = 52
+                let nextOpacity = min(max((offset + fadeDistance) / fadeDistance, 0), 1)
+                if abs(nextOpacity - discoverTitleOpacity) > 0.01 {
+                    discoverTitleOpacity = nextOpacity
+                }
             }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
                 NativeSubjectDetailView(summary: subject, model: model)
@@ -976,6 +985,14 @@ struct NativeDiscoverView: View {
                 .filter { seen.insert($0.id).inserted }
                 .prefix(5)
         )
+    }
+}
+
+private struct NativeDiscoverScrollOffsetKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
