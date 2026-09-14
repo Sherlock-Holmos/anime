@@ -555,16 +555,19 @@ private data class ChangePasswordRequest(
 private data class RemoteCollectionSummary(
     @SerialName("subject_id") val subjectId: Long,
     val title: String,
-    @SerialName("original_title") val originalTitle: String,
-    @SerialName("poster_url") val posterUrl: String?,
-    @SerialName("air_date") val airDate: String?,
-    val score: Double,
-    val status: String,
-    @SerialName("user_rating") val userRating: Int,
-    val comment: String,
-    @SerialName("episode_progress") val episodeProgress: Int,
-    @SerialName("total_episodes") val totalEpisodes: Int,
-    @SerialName("updated_at") val updatedAt: String,
+    // Collection records created by older server versions may omit optional
+    // metadata. A single incomplete poster record must not invalidate the
+    // whole collection response.
+    @SerialName("original_title") val originalTitle: String? = null,
+    @SerialName("poster_url") val posterUrl: String? = null,
+    @SerialName("air_date") val airDate: String? = null,
+    val score: Double? = null,
+    val status: String? = null,
+    @SerialName("user_rating") val userRating: Int? = null,
+    val comment: String? = null,
+    @SerialName("episode_progress") val episodeProgress: Int? = null,
+    @SerialName("total_episodes") val totalEpisodes: Int? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 ) {
     fun toModel(baseUrl: String): UserCollectionSummary =
         UserCollectionSummary(
@@ -572,16 +575,16 @@ private data class RemoteCollectionSummary(
                 site.jokersh.anime.core.model
                     .SubjectId(subjectId),
             title = title,
-            originalTitle = originalTitle,
+            originalTitle = originalTitle.orEmpty(),
             posterUrl = posterUrl?.let { resolveUrl(baseUrl, it) },
             airDate = airDate,
-            score = score,
-            status = collectionStatus(status) ?: CollectionStatus.Wish,
-            userRating = userRating,
-            comment = comment,
-            episodeProgress = episodeProgress,
-            totalEpisodes = totalEpisodes,
-            updatedAt = updatedAt,
+            score = score ?: 0.0,
+            status = collectionStatus(status.orEmpty()) ?: CollectionStatus.Wish,
+            userRating = userRating ?: 0,
+            comment = comment.orEmpty(),
+            episodeProgress = episodeProgress ?: 0,
+            totalEpisodes = totalEpisodes ?: 0,
+            updatedAt = updatedAt.orEmpty(),
         )
 }
 

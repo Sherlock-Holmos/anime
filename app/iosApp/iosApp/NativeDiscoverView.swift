@@ -8,8 +8,10 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var session: NativeSessionSnapshot
+    @Published private(set) var isSessionReady = false
     @Published private(set) var searchDiscovery: NativeSearchDiscoverySnapshot?
     @Published private(set) var collectionPage: NativeCollectionPageSnapshot?
+    @Published private(set) var isLoadingCollection = false
     @Published private(set) var activityPage: NativeActivityPageSnapshot?
     @Published private(set) var notifications: [NativeNotificationSnapshot] = []
     @Published private(set) var profile: NativeProfileSnapshot?
@@ -28,6 +30,7 @@ final class NativeAppModel: ObservableObject {
     private var facade: IosNativeAppFacade?
     private var hasStarted = false
     private var hasAuthenticatedSession = false
+    private var collectionRequestID = 0
 
     private static let sessionCacheKey = "anime.ios.session.snapshot"
     private static let profileCacheKey = "anime.ios.profile.snapshot"
@@ -45,23 +48,31 @@ final class NativeAppModel: ObservableObject {
         if snapshot.status == "failed", hasAuthenticatedSession {
             // A temporary network failure is not a logout. Keep the cached account
             // visible and let the next refresh retry instead of flashing to guest.
+            isSessionReady = true
             return
         }
 
         if snapshot.status == "authenticated" {
             if session.userId != snapshot.userId {
                 profile = Self.loadCachedProfile(for: snapshot.userId)
+                collectionRequestID += 1
+                collectionPage = nil
             }
             hasAuthenticatedSession = true
             session = snapshot
+            isSessionReady = true
             Self.persist(snapshot)
             return
         }
 
         hasAuthenticatedSession = snapshot.status == "authenticated"
         session = snapshot
+        isSessionReady = true
         if snapshot.status == "guest" || snapshot.status == "expired" {
             profile = nil
+            collectionRequestID += 1
+            collectionPage = nil
+            isLoadingCollection = false
             Self.clearPersistedUserSnapshot()
         }
     }
@@ -70,6 +81,9 @@ final class NativeAppModel: ObservableObject {
         let cachedSession = Self.loadCachedSession()
         session = cachedSession ?? NativeSessionSnapshot(status: "restoring")
         hasAuthenticatedSession = cachedSession != nil
+        // A cached snapshot is only a rendering hint. Authenticated API requests must
+        // wait until the KMP repository has validated or refreshed the Keychain token.
+        isSessionReady = false
         profile = cachedSession.flatMap { Self.loadCachedProfile(for: $0.userId) }
     }
 
@@ -204,10 +218,33 @@ final class NativeAppModel: ObservableObject {
 
     func loadCollection(status: String?, cursor: String? = nil, append: Bool = false, completion: ((NativeCollectionPageSnapshot?, String?) -> Void)? = nil) {
         start()
-        facade?.loadCollection(status: status, cursor: cursor) { [weak self] rawSnapshot, error in
+        guard isSessionReady else {
+            completion?(nil, nil)
+            return
+        }
+        guard session.status == "authenticated" else {
+            completion?(nil, "请先登录 Anime")
+            return
+        }
+        guard let facade else {
+            completion?(nil, "iOS 原生页面尚未准备完成")
+            return
+        }
+        collectionRequestID += 1
+        let requestID = collectionRequestID
+        if !append {
+            collectionPage = nil
+        }
+        isLoadingCollection = true
+        facade.loadCollection(status: status, cursor: cursor) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                guard requestID == self.collectionRequestID else { return }
+                self.isLoadingCollection = false
                 let page = rawSnapshot.flatMap { Self.decode($0, as: NativeCollectionPageSnapshot.self) }
+                let resolvedError =
+                    error ??
+                    (rawSnapshot != nil && page == nil ? "片库数据格式异常，请重试" : nil)
                 let snapshot: NativeCollectionPageSnapshot?
                 if append, let page, let current = self.collectionPage {
                     snapshot = NativeCollectionPageSnapshot(items: current.items + page.items, nextCursor: page.nextCursor)
@@ -215,7 +252,7 @@ final class NativeAppModel: ObservableObject {
                     snapshot = page
                 }
                 if let snapshot { self.collectionPage = snapshot }
-                completion?(snapshot, error)
+                completion?(snapshot, resolvedError)
             }
         }
     }
@@ -603,6 +640,9 @@ final class NativeAppModel: ObservableObject {
                 guard let self else { return }
                 if error == nil {
                     self.profile = nil
+                    self.collectionRequestID += 1
+                    self.collectionPage = nil
+                    self.isLoadingCollection = false
                     Self.clearPersistedUserSnapshot()
                 }
                 completion?(error)
@@ -653,6 +693,9 @@ final class NativeAppModel: ObservableObject {
                 guard let self else { return }
                 if error == nil {
                     self.profile = nil
+                    self.collectionRequestID += 1
+                    self.collectionPage = nil
+                    self.isLoadingCollection = false
                     Self.clearPersistedUserSnapshot()
                 }
                 completion?(error)
@@ -747,6 +790,7 @@ struct NativeDiscoverView: View {
                 .padding(.bottom, 32)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
             .refreshable {
                 model.refresh(force: true)
@@ -991,6 +1035,7 @@ struct NativeSubjectDetailView: View {
                 loadCommunity()
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle(summary.title)
             .navigationBarTitleDisplayMode(.inline)

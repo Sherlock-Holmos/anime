@@ -300,6 +300,7 @@ struct NativeLibraryView: View {
                 .padding(.bottom, 36)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索作品")
             .onSubmit(of: .search, submitSearch)
@@ -458,7 +459,7 @@ struct NativeCollectionView: View {
                             .frame(maxWidth: .infinity)
                             .buttonStyle(.bordered)
                         }
-                    } else if model.session.status == "restoring" {
+                    } else if !model.isSessionReady || model.isLoadingCollection {
                         ProgressView("正在恢复片库")
                             .frame(maxWidth: .infinity, minHeight: 220)
                     } else {
@@ -470,6 +471,7 @@ struct NativeCollectionView: View {
                 .padding(.bottom, 36)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle("片库")
             .navigationBarTitleDisplayMode(.large)
@@ -483,7 +485,19 @@ struct NativeCollectionView: View {
             }
             .task {
                 model.start()
-                if model.collectionPage == nil { loadCollection(selectedStatus) }
+                if model.isSessionReady, model.session.status == "authenticated", model.collectionPage == nil {
+                    loadCollection(selectedStatus)
+                }
+            }
+            .onChange(of: model.isSessionReady) { _, ready in
+                if ready, model.session.status == "authenticated", model.collectionPage == nil {
+                    loadCollection(selectedStatus)
+                }
+            }
+            .onChange(of: model.session.status) { _, status in
+                if status == "authenticated", model.isSessionReady, model.collectionPage == nil {
+                    loadCollection(selectedStatus)
+                }
             }
         }
     }
@@ -541,6 +555,7 @@ struct NativeCalendarView: View {
             .padding(16)
         }
         .background(Color(uiColor: .systemGroupedBackground))
+        .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle("播出日历")
         .navigationBarTitleDisplayMode(.inline)
@@ -626,6 +641,7 @@ struct NativeSubjectSectionsView: View {
             .padding(16)
         }
         .background(Color(uiColor: .systemGroupedBackground))
+        .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle("作品资料")
         .navigationBarTitleDisplayMode(.inline)
@@ -758,6 +774,7 @@ struct NativeActivityView: View {
                 .padding(.bottom, 36)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
             .refreshable { await refresh() }
             .navigationTitle("动态")
@@ -914,6 +931,7 @@ struct NativeProfileView: View {
                 .padding(.bottom, 36)
             }
             .background(Color(uiColor: .systemGroupedBackground))
+            .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle("我的")
             .navigationBarTitleDisplayMode(.large)
@@ -1072,6 +1090,7 @@ struct NativeReviewDetailView: View {
             .padding(16)
         }
         .background(Color(uiColor: .systemGroupedBackground))
+        .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle("评价")
         .navigationBarTitleDisplayMode(.inline)
@@ -1276,6 +1295,7 @@ struct NativeUserProfileView: View {
             .padding(16)
         }
         .background(Color(uiColor: .systemGroupedBackground))
+        .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle("用户")
         .navigationBarTitleDisplayMode(.inline)
@@ -1381,6 +1401,7 @@ struct NativeListsView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .scrollIndicators(.hidden)
         .navigationTitle("片单")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1483,6 +1504,7 @@ struct NativeListDetailView: View {
             .padding(16)
         }
         .background(Color(uiColor: .systemGroupedBackground))
+        .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle("片单")
         .navigationBarTitleDisplayMode(.inline)
@@ -2219,6 +2241,7 @@ struct NativeSyncView: View {
                 }
             }
         }
+        .scrollIndicators(.hidden)
         .navigationTitle("Bangumi 同步")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -2266,6 +2289,7 @@ struct NativeDiagnosticsView: View {
                 }
             }
         }
+        .scrollIndicators(.hidden)
         .navigationTitle("服务诊断")
         .task { if model.diagnostics.isEmpty { model.loadDiagnostics() } }
     }
