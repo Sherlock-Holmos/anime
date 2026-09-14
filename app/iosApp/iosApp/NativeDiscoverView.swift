@@ -934,60 +934,86 @@ private struct NativeSubjectCard: View {
 struct NativeSubjectDetailView: View {
     let summary: NativeSubjectSummary
     @ObservedObject var model: NativeAppModel
+    let focusCommentId: String?
     @State private var detail: NativeSubjectDetailSnapshot?
     @State private var community: NativeSubjectCommunitySnapshot?
     @State private var errorMessage: String?
     @State private var communityError: String?
     @State private var isLoading = true
 
+    init(
+        summary: NativeSubjectSummary,
+        model: NativeAppModel,
+        focusCommentId: String? = nil,
+    ) {
+        self.summary = summary
+        self.model = model
+        self.focusCommentId = focusCommentId
+    }
+
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 22) {
-                NativeDetailHero(summary: detail?.summary ?? summary)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 22) {
+                    NativeDetailHero(summary: detail?.summary ?? summary)
 
-                if isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                }
+                    if isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    }
 
-                if let detail {
-                    detailBody(detail)
-                } else if let errorMessage {
-                    NativeEmptyState(
-                        title: "详情加载失败",
-                        message: errorMessage,
-                        actionTitle: "重试",
-                        action: { load(force: true) },
+                    if let detail {
+                        detailBody(detail)
+                    } else if let errorMessage {
+                        NativeEmptyState(
+                            title: "详情加载失败",
+                            message: errorMessage,
+                            actionTitle: "重试",
+                            action: { load(force: true) },
+                        )
+                    }
+                    NativeSubjectCommunityView(
+                        subjectId: summary.id,
+                        community: community,
+                        errorMessage: communityError,
+                        model: model,
+                        onReload: loadCommunity,
                     )
                 }
-                NativeSubjectCommunityView(
-                    subjectId: summary.id,
-                    community: community,
-                    errorMessage: communityError,
-                    model: model,
-                    onReload: loadCommunity,
-                )
+                .padding(16)
+                .padding(.bottom, 32)
             }
-            .padding(16)
-            .padding(.bottom, 32)
-        }
-        .background(Color(uiColor: .systemGroupedBackground))
-        .scrollEdgeEffectStyle(.soft, for: .top)
-        .navigationTitle(summary.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    NativeSubjectSectionsView(subjectId: summary.id, model: model)
-                } label: {
-                    Image(systemName: "list.bullet.rectangle")
+            .onChange(of: community?.comments.map(\.id) ?? []) { _, _ in
+                scrollToFocusedComment(using: proxy)
+            }
+            .task {
+                load()
+                loadCommunity()
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .navigationTitle(summary.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        NativeSubjectSectionsView(subjectId: summary.id, model: model)
+                    } label: {
+                        Image(systemName: "list.bullet.rectangle")
+                    }
+                    .accessibilityLabel("作品资料")
                 }
-                .accessibilityLabel("作品资料")
             }
         }
-        .task {
-            load()
-            loadCommunity()
+    }
+
+    private func scrollToFocusedComment(using proxy: ScrollViewProxy) {
+        guard let focusCommentId else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(.easeInOut(duration: 0.35)) {
+                proxy.scrollTo("comment-\(focusCommentId)", anchor: .center)
+            }
         }
     }
 

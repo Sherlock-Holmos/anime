@@ -859,7 +859,13 @@ struct NativeActivityView: View {
             return AnyView(NativeReviewDetailView(reviewId: reviewId, model: model))
         }
         if let commentId = notification.commentId, let subjectId = notification.subjectId {
-            return AnyView(NativeSubjectDetailView(summary: NativeSubjectSummary.placeholder(id: subjectId, title: "讨论"), model: model))
+            return AnyView(
+                NativeSubjectDetailView(
+                    summary: NativeSubjectSummary.placeholder(id: subjectId, title: "讨论"),
+                    model: model,
+                    focusCommentId: commentId,
+                )
+            )
         }
         if let listId = notification.listId {
             return AnyView(NativeListDetailView(listId: listId, model: model))
@@ -1790,24 +1796,26 @@ struct NativeSubjectCommunityView: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 16) {
                 reactionButton(
-                    title: "\(reviewReactions[review.id]?.likeCount ?? review.likeCount)",
-                    systemImage: reviewReactions[review.id]?.active == true ? "heart.fill" : "heart",
-                    tint: reviewReactions[review.id]?.active == true ? .pink : .secondary,
+                    title: "\(reviewReaction(review.id, kind: "like")?.likeCount ?? review.likeCount)",
+                    systemImage: reviewReaction(review.id, kind: "like")?.active == true ? "heart.fill" : "heart",
+                    tint: reviewReaction(review.id, kind: "like")?.active == true ? .pink : .secondary,
                 ) {
-                    let active = reviewReactions[review.id]?.active != true
+                    let key = reactionKey(review.id, kind: "like")
+                    let active = reviewReactions[key]?.active != true
                     model.reactReview(id: review.id, reaction: "like", active: active) { reaction, error in
-                        if let reaction { reviewReactions[review.id] = reaction }
+                        if let reaction { reviewReactions[key] = reaction }
                         message = error.map { "操作失败：\($0)" }
                     }
                 }
                 reactionButton(
-                    title: "\(reviewReactions[review.id]?.bookmarkCount ?? review.bookmarkCount)",
-                    systemImage: "bookmark",
-                    tint: .secondary,
+                    title: "\(reviewReaction(review.id, kind: "bookmark")?.bookmarkCount ?? review.bookmarkCount)",
+                    systemImage: reviewReaction(review.id, kind: "bookmark")?.active == true ? "bookmark.fill" : "bookmark",
+                    tint: reviewReaction(review.id, kind: "bookmark")?.active == true ? .blue : .secondary,
                 ) {
-                    let active = reviewReactions[review.id]?.active != true
+                    let key = reactionKey(review.id, kind: "bookmark")
+                    let active = reviewReactions[key]?.active != true
                     model.reactReview(id: review.id, reaction: "bookmark", active: active) { reaction, error in
-                        if let reaction { reviewReactions[review.id] = reaction }
+                        if let reaction { reviewReactions[key] = reaction }
                         message = error.map { "操作失败：\($0)" }
                     }
                 }
@@ -1901,24 +1909,26 @@ struct NativeSubjectCommunityView: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 16) {
                 reactionButton(
-                    title: "\(commentReactions[comment.id]?.likeCount ?? comment.likeCount)",
-                    systemImage: commentReactions[comment.id]?.active == true ? "heart.fill" : "heart",
-                    tint: commentReactions[comment.id]?.active == true ? .pink : .secondary,
+                    title: "\(commentReaction(comment.id, kind: "like")?.likeCount ?? comment.likeCount)",
+                    systemImage: commentReaction(comment.id, kind: "like")?.active == true ? "heart.fill" : "heart",
+                    tint: commentReaction(comment.id, kind: "like")?.active == true ? .pink : .secondary,
                 ) {
-                    let active = commentReactions[comment.id]?.active != true
+                    let key = reactionKey(comment.id, kind: "like")
+                    let active = commentReactions[key]?.active != true
                     model.reactComment(id: comment.id, reaction: "like", active: active) { reaction, error in
-                        if let reaction { commentReactions[comment.id] = reaction }
+                        if let reaction { commentReactions[key] = reaction }
                         message = error.map { "操作失败：\($0)" }
                     }
                 }
                 reactionButton(
-                    title: "\(commentReactions[comment.id]?.bookmarkCount ?? comment.bookmarkCount)",
-                    systemImage: "bookmark",
-                    tint: .secondary,
+                    title: "\(commentReaction(comment.id, kind: "bookmark")?.bookmarkCount ?? comment.bookmarkCount)",
+                    systemImage: commentReaction(comment.id, kind: "bookmark")?.active == true ? "bookmark.fill" : "bookmark",
+                    tint: commentReaction(comment.id, kind: "bookmark")?.active == true ? .blue : .secondary,
                 ) {
-                    let active = commentReactions[comment.id]?.active != true
+                    let key = reactionKey(comment.id, kind: "bookmark")
+                    let active = commentReactions[key]?.active != true
                     model.reactComment(id: comment.id, reaction: "bookmark", active: active) { reaction, error in
-                        if let reaction { commentReactions[comment.id] = reaction }
+                        if let reaction { commentReactions[key] = reaction }
                         message = error.map { "操作失败：\($0)" }
                     }
                 }
@@ -1926,7 +1936,20 @@ struct NativeSubjectCommunityView: View {
             .font(.caption.weight(.medium))
         }
         .padding(14)
+        .id("comment-\(comment.id)")
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func reactionKey(_ id: String, kind: String) -> String {
+        "\(id):\(kind)"
+    }
+
+    private func reviewReaction(_ id: String, kind: String) -> NativeReactionSnapshot? {
+        reviewReactions[reactionKey(id, kind: kind)]
+    }
+
+    private func commentReaction(_ id: String, kind: String) -> NativeReactionSnapshot? {
+        commentReactions[reactionKey(id, kind: kind)]
     }
 
     private func reactionButton(
