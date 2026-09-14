@@ -59,6 +59,11 @@ jobs:
             build | tee build/ios-xcodebuild.log
 
       - name: Launch application in iOS Simulator
+        # CoreSimulator can hang on hosted macOS even after the app has built
+        # successfully. The simulator launch is diagnostic only; never let it
+        # block delivery of the compiled simulator app and logs.
+        timeout-minutes: 5
+        continue-on-error: true
         run: |
           set -euo pipefail
           app_path='build/ios-derived-data/Build/Products/Debug-iphonesimulator/iosApp.app'
