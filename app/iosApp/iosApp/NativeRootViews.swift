@@ -1164,9 +1164,7 @@ private struct NativeCalendarRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            NativeRemoteImage(url: subject.posterURL)
-                .frame(width: 58, height: 78)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            NativePosterImage(url: subject.posterURL, width: 60, height: 80, cornerRadius: 12)
             VStack(alignment: .leading, spacing: 5) {
                 Text(subject.title)
                     .font(.headline)
@@ -2190,9 +2188,7 @@ struct NativeListDetailView: View {
                                 NativeSubjectDetailView(summary: NativeSubjectSummary.placeholder(id: item.subjectId, title: item.title), model: model)
                             } label: {
                                 HStack(spacing: 12) {
-                                    NativeRemoteImage(url: item.posterURL)
-                                        .frame(width: 54, height: 74)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    NativePosterImage(url: item.posterURL, width: 56, height: 75, cornerRadius: 10)
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(item.title).font(.headline).lineLimit(2)
                                         if let note = item.note, !note.isEmpty {
@@ -3514,10 +3510,7 @@ private struct NativeCatalogCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            NativeRemoteImage(url: subject.posterURL)
-                .aspectRatio(3 / 4, contentMode: .fill)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            NativePosterImage(url: subject.posterURL, aspectRatio: 3 / 4, cornerRadius: 16)
             Text(subject.title)
                 .font(.headline)
                 .lineLimit(2)
@@ -3538,10 +3531,7 @@ private struct NativeCollectionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            NativeRemoteImage(url: item.posterURL)
-                .aspectRatio(3 / 4, contentMode: .fill)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            NativePosterImage(url: item.posterURL, aspectRatio: 3 / 4, cornerRadius: 16)
             Text(item.title)
                 .font(.headline)
                 .lineLimit(2)
@@ -3562,9 +3552,7 @@ private struct NativeRatingRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            NativeRemoteImage(url: rating.posterURL)
-                .frame(width: 56, height: 78)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            NativePosterImage(url: rating.posterURL, width: 56, height: 75, cornerRadius: 10)
             VStack(alignment: .leading, spacing: 6) {
                 Text(rating.title).font(.headline).lineLimit(2)
                 Label("\(rating.score) / 10", systemImage: "star.fill")
@@ -3688,7 +3676,38 @@ private struct NativeInlineError: View {
     }
 }
 
-private struct NativeRemoteImage: View {
+struct NativePosterImage: View {
+    let url: URL?
+    let width: CGFloat?
+    let height: CGFloat?
+    let aspectRatio: CGFloat?
+    let cornerRadius: CGFloat
+
+    init(
+        url: URL?,
+        width: CGFloat? = nil,
+        height: CGFloat? = nil,
+        aspectRatio: CGFloat? = nil,
+        cornerRadius: CGFloat = 14,
+    ) {
+        self.url = url
+        self.width = width
+        self.height = height
+        self.aspectRatio = aspectRatio
+        self.cornerRadius = cornerRadius
+    }
+
+    var body: some View {
+        NativeRemoteImage(url: url, contentMode: .fill)
+            .frame(width: width, height: height)
+            .aspectRatio(aspectRatio, contentMode: .fill)
+            .frame(maxWidth: width == nil ? .infinity : nil)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+struct NativeRemoteImage: View {
     let url: URL?
     var contentMode: ContentMode = .fit
 

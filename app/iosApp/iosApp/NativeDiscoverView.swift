@@ -1250,14 +1250,7 @@ private struct NativeHeroCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(url: subject.posterURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    Color.secondary.opacity(0.2)
-                }
-            }
+            NativeRemoteImage(url: subject.posterURL, contentMode: .fill)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .clipped()
             LinearGradient(
@@ -1302,22 +1295,13 @@ private struct NativeSubjectCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            AsyncImage(url: subject.posterURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.secondary.opacity(0.14))
-                        Image(systemName: "photo")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .frame(width: fixedWidth, height: fixedWidth.map { $0 * 4 / 3 } ?? 218)
-            .frame(maxWidth: fixedWidth == nil ? .infinity : nil)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            NativePosterImage(
+                url: subject.posterURL,
+                width: fixedWidth,
+                height: fixedWidth.map { $0 * 4 / 3 } ?? 218,
+                aspectRatio: fixedWidth == nil ? 3 / 4 : nil,
+                cornerRadius: 16,
+            )
 
             Text(subject.title)
                 .font(.headline)
@@ -1491,14 +1475,7 @@ private struct NativeDetailHero: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            AsyncImage(url: summary.posterURL) { phase in
-                switch phase {
-                case .success(let image): image.resizable().scaledToFit()
-                default: Color.secondary.opacity(0.15)
-                }
-            }
-            .frame(width: 132, height: 188)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            NativePosterImage(url: summary.posterURL, width: 132, height: 176, cornerRadius: 18)
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(summary.title)
