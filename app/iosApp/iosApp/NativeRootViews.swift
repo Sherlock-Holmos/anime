@@ -433,7 +433,7 @@ struct NativeLibraryView: View {
             .searchable(
                 text: $query,
                 isPresented: $isSearchPresented,
-                placement: .navigationBarDrawer(displayMode: .always),
+                placement: .navigationBarDrawer(displayMode: .automatic),
                 prompt: AnimeL10n.key(.searchPrompt),
             )
             .onSubmit(of: .search, submitSearch)
@@ -441,7 +441,9 @@ struct NativeLibraryView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        if isSearchPresented {
+                        if hasSubmittedSearch && !isSearchPresented {
+                            showingFilters = true
+                        } else if isSearchPresented {
                             showingFilters = true
                         } else {
                             isSearchPresented = true
@@ -1078,8 +1080,7 @@ private struct FlowLayout<Data: RandomAccessCollection, Content: View>: View whe
         LazyVGrid(
             columns: [GridItem(.adaptive(minimum: 96), alignment: .leading)],
             alignment: .leading,
-            horizontalSpacing: 8,
-            verticalSpacing: 8,
+            spacing: 8,
         ) {
             ForEach(items, id: \.self) { item in content(item) }
         }
