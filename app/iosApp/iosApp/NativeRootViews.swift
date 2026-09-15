@@ -1,5 +1,7 @@
 import SwiftUI
 import Foundation
+import PhotosUI
+import UIKit
 
 struct NativeSearchDiscoverySnapshot: Codable {
     let trending: [String]
@@ -74,6 +76,26 @@ struct NativeAdminCommentSnapshot: Codable, Identifiable {
     let moderationStatus: String
     let createdAt: String
     let editedAt: String?
+}
+
+struct NativeAdminReportSnapshot: Codable, Identifiable {
+    let id: String
+    let commentId: String
+    let reporterId: String
+    let reporterName: String
+    let authorId: String
+    let authorName: String
+    let subjectId: Int64?
+    let subjectTitle: String?
+    let body: String
+    let spoiler: Bool
+    let moderationStatus: String
+    let reasonCode: String
+    let details: String?
+    let status: String
+    let assignedTo: String?
+    let createdAt: String
+    let resolvedAt: String?
 }
 
 struct NativeActivityPageSnapshot: Codable {
@@ -695,8 +717,7 @@ struct NativeCollectionView: View {
     private let filters = ["Watching", "Wish", "Completed", "OnHold", "Dropped"]
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -773,7 +794,6 @@ struct NativeCollectionView: View {
                 if status == "authenticated", model.isSessionReady, model.collectionPage == nil {
                     loadCollection(selectedStatus)
                 }
-            }
         }
     }
 
@@ -792,8 +812,7 @@ struct NativeRatingsView: View {
     @State private var message: String?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 LazyVStack(spacing: 12) {
                     if let page = model.myRatingsPage, !page.items.isEmpty {
                         ForEach(page.items) { rating in
@@ -843,7 +862,6 @@ struct NativeRatingsView: View {
                         deletingRating = nil
                     }
                 }
-            }
         }
     }
 
@@ -925,8 +943,7 @@ struct NativeAdminView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     if let overview = model.adminOverview {
                         Text("维护者工作台").font(.title2.weight(.bold))
@@ -937,6 +954,47 @@ struct NativeAdminView: View {
                             NativeMetric(value: Int(overview.reviewsPublished), title: "已发布评价")
                             NativeMetric(value: Int(overview.commentsPublished), title: "已发布评论")
                             NativeMetric(value: Int(overview.openCommentReports), title: "待处理举报")
+                        }
+                        Text("举报队列")
+                            .font(.headline)
+                            .padding(.top, 8)
+                        if model.adminReports.isEmpty {
+                            Text("当前没有待处理举报")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(model.adminReports) { report in
+                                VStack(alignment: .leading, spacing: 9) {
+                                    HStack {
+                                        Text(report.reasonCode.reportDisplayName).font(.headline)
+                                        Spacer()
+                                        Text(report.status.adminReportDisplayName)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Text("举报人：\(report.reporterName) · 作者：\(report.authorName)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    if let subjectTitle = report.subjectTitle {
+                                        Text(subjectTitle).font(.caption).foregroundStyle(.tint)
+                                    }
+                                    Text(report.body).lineLimit(4)
+                                    HStack(spacing: 8) {
+                                        Button("认领") { reportAction(report, action: "claim") }
+                                            .buttonStyle(.bordered)
+                                            .disabled(report.status != "open")
+                                        Button("保留") { reportAction(report, action: "resolve", contentAction: "published") }
+                                            .buttonStyle(.bordered)
+                                        Button("隐藏", role: .destructive) { reportAction(report, action: "resolve", contentAction: "hidden") }
+                                            .buttonStyle(.bordered)
+                                        Button("驳回") { reportAction(report, action: "dismiss") }
+                                            .buttonStyle(.bordered)
+                                    }
+                                }
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
                         }
                         Text("评论审核")
                             .font(.headline)
@@ -987,8 +1045,8 @@ struct NativeAdminView: View {
                     }
                 }
                 .padding(16)
-            }
-            .background(Color(uiColor: .systemGroupedBackground))
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("管理后台")
             .navigationBarTitleDisplayMode(.large)
             .task { load() }
@@ -1000,11 +1058,18 @@ struct NativeAdminView: View {
         errorMessage = nil
         model.loadAdminOverview { _, error in errorMessage = error }
         model.loadAdminComments { _, error in if errorMessage == nil { errorMessage = error } }
+        model.loadAdminReports { _, error in if errorMessage == nil { errorMessage = error } }
     }
 
     private func moderate(_ id: String, action: String) {
         model.moderateComment(id: id, action: action) { error in
             if let error { errorMessage = error }
+        }
+    }
+
+    private func reportAction(_ report: NativeAdminReportSnapshot, action: String, contentAction: String? = nil) {
+        model.adminReportAction(id: report.id, action: action, contentAction: contentAction) { error in
+            if let error { errorMessage = "操作失败：\(error)" }
         }
     }
 
@@ -1014,7 +1079,10 @@ struct NativeAdminView: View {
                 errorMessage = error
                 model.loadAdminComments { _, commentsError in
                     if errorMessage == nil { errorMessage = commentsError }
-                    continuation.resume()
+                    model.loadAdminReports { _, reportsError in
+                        if errorMessage == nil { errorMessage = reportsError }
+                        continuation.resume()
+                    }
                 }
             }
         }
@@ -1324,11 +1392,11 @@ struct NativeActivityView: View {
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
                 NativeSubjectDetailView(summary: subject, model: model)
             }
-            .confirmationDialog("删除这条动态对应的内容？", isPresented: Binding(
+            .confirmationDialog("撤回这条动态？", isPresented: Binding(
                 get: { activityToDelete != nil },
                 set: { if !$0 { activityToDelete = nil } },
             ), titleVisibility: .visible) {
-                Button("删除", role: .destructive) { deleteActivity() }
+                Button("撤回", role: .destructive) { deleteActivity() }
             }
         }
         .task {
@@ -1417,25 +1485,17 @@ struct NativeActivityView: View {
     }
 
     private func isDeletable(_ item: NativeActivityItemSnapshot) -> Bool {
-        item.reviewId != nil || item.commentId != nil || item.listId != nil || item.kind == "rated"
+        item.owned
     }
 
     private func deleteActivity() {
         guard let item = activityToDelete else { return }
         let finish: (String?) -> Void = { error in
             if let error { activityMessage = "删除失败：\(error)" }
-            else { activityMessage = "内容已删除"; loadCurrentMode() }
+            else { activityMessage = "动态已撤回"; loadCurrentMode() }
             activityToDelete = nil
         }
-        if let reviewId = item.reviewId {
-            model.deleteReview(id: reviewId, completion: finish)
-        } else if let commentId = item.commentId {
-            model.deleteComment(id: commentId, completion: finish)
-        } else if let listId = item.listId {
-            model.deleteList(id: listId, completion: finish)
-        } else if item.kind == "rated", let subjectId = item.subjectId {
-            model.deleteRating(subjectId: subjectId, completion: finish)
-        }
+        model.withdrawActivity(id: item.id, completion: finish)
     }
 
     private func notificationDestination(for notification: NativeNotificationSnapshot) -> AnyView? {
@@ -3092,10 +3152,27 @@ struct NativeAccountManagementView: View {
     @State private var message: String?
     @State private var exportText: String?
     @State private var showingDeleteConfirmation = false
+    @State private var selectedAvatar: PhotosPickerItem?
+    @State private var isUploadingAvatar = false
 
     var body: some View {
         Form {
             Section("个人资料") {
+                HStack(spacing: 12) {
+                    NativeAvatar(url: model.profile?.avatarURL ?? model.session.avatarURL, name: model.profile?.displayName ?? model.session.displayName)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("个人头像").font(.headline)
+                        Text("仅支持 JPEG、PNG 或 WebP，最大 5 MB")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    PhotosPicker(selection: $selectedAvatar, matching: .images) {
+                        Image(systemName: "camera.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isUploadingAvatar)
+                }
                 TextField("显示名称", text: $displayName)
                 Button("保存显示名称") {
                     model.updateProfile(displayName: displayName) { error in
@@ -3146,6 +3223,26 @@ struct NativeAccountManagementView: View {
         .task {
             displayName = model.profile?.displayName ?? model.session.displayName ?? ""
             if model.profile == nil { model.loadProfile() }
+        }
+        .onChange(of: selectedAvatar) { _, item in
+            guard let item else { return }
+            Task {
+                do {
+                    guard let data = try await item.loadTransferable(type: Data.self) else {
+                        message = "头像读取失败"
+                        return
+                    }
+                    isUploadingAvatar = true
+                    let jpegData = UIImage(data: data)?.jpegData(compressionQuality: 0.86) ?? data
+                    model.uploadAvatar(base64: jpegData.base64EncodedString(), contentType: "image/jpeg") { error in
+                        isUploadingAvatar = false
+                        message = error.map { "头像上传失败：\($0)" } ?? "头像已更新"
+                        if error == nil { selectedAvatar = nil }
+                    }
+                } catch {
+                    message = "头像读取失败：\(error.localizedDescription)"
+                }
+            }
         }
         .confirmationDialog("确定注销账号吗？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
             Button("永久注销", role: .destructive) {
@@ -3419,7 +3516,7 @@ private struct NativeCatalogCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             NativeRemoteImage(url: subject.posterURL)
-                .aspectRatio(2 / 3, contentMode: .fit)
+                .aspectRatio(3 / 4, contentMode: .fill)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             Text(subject.title)
@@ -3443,7 +3540,7 @@ private struct NativeCollectionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             NativeRemoteImage(url: item.posterURL)
-                .aspectRatio(2 / 3, contentMode: .fit)
+                .aspectRatio(3 / 4, contentMode: .fill)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             Text(item.title)
@@ -3507,7 +3604,7 @@ private struct NativeActivityCard: View {
         .buttonStyle(.plain)
         .contextMenu {
             if let onDelete {
-                Button("删除内容", role: .destructive, action: onDelete)
+                Button("撤回动态", role: .destructive, action: onDelete)
             }
         }
     }
@@ -3767,6 +3864,27 @@ private extension String {
         case "published": return "已发布"
         case "hidden": return "已隐藏"
         case "deleted": return "已删除"
+        default: return self
+        }
+    }
+
+    var reportDisplayName: String {
+        switch self {
+        case "spam": return "垃圾内容"
+        case "harassment": return "骚扰攻击"
+        case "spoiler": return "恶意剧透"
+        case "illegal": return "违法内容"
+        case "other": return "其他举报"
+        default: return self
+        }
+    }
+
+    var adminReportDisplayName: String {
+        switch self {
+        case "open": return "待处理"
+        case "claimed": return "处理中"
+        case "resolved": return "已解决"
+        case "dismissed": return "已驳回"
         default: return self
         }
     }

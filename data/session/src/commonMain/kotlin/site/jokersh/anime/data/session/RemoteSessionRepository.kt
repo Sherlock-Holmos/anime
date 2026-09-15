@@ -6,6 +6,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -255,6 +256,27 @@ public class RemoteSessionRepository(
             refresh().getOrThrow().let { }
         }
 
+    override suspend fun uploadAvatar(base64: String, contentType: String): Result<Unit> =
+        runCatching {
+            val bytes = kotlin.io.encoding.Base64.decode(base64)
+            var response = client.put("$baseUrl/api/v1/me/avatar") {
+                header(HttpHeaders.Authorization, "Bearer ${accessToken()}")
+                contentType(ContentType.parse(contentType))
+                setBody(bytes)
+            }
+            if (response.status.value == 401) {
+                val refreshedToken = refreshAfterUnauthorized()
+                response = client.put("$baseUrl/api/v1/me/avatar") {
+                    header(HttpHeaders.Authorization, "Bearer $refreshedToken")
+                    contentType(ContentType.parse(contentType))
+                    setBody(bytes)
+                }
+            }
+            val text = response.bodyAsText()
+            check(response.status.value in 200..299) { text.ifBlank { "头像上传失败：${response.status.value}" } }
+            refresh().getOrThrow().let { }
+        }
+
     override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> =
         authenticatedPost(
             "/api/v1/me/password",
@@ -420,6 +442,45 @@ public class RemoteSessionRepository(
         authenticatedPost(
             "/api/v1/admin/comments/$id/moderation",
             AdminModerationRequest(action = action, reason = reason),
+        )
+
+    override suspend fun adminReports(status: String?, limit: Int): Result<List<AdminReport>> {
+        require(limit in 1..100) { "admin report limit must be in 1..100" }
+        val statusQuery = status?.let { "&status=${it.encodeURLParameter()}" }.orEmpty()
+        return authenticatedGet("/api/v1/admin/reports?limit=$limit$statusQuery") { items: List<AdminReportDto> ->
+            items.map {
+                AdminReport(
+                    id = it.id,
+                    commentId = it.commentId,
+                    reporterId = it.reporterId,
+                    reporterName = it.reporterName,
+                    authorId = it.authorId,
+                    authorName = it.authorName,
+                    subjectId = it.subjectId,
+                    subjectTitle = it.subjectTitle,
+                    body = it.body,
+                    spoiler = it.spoiler,
+                    moderationStatus = it.moderationStatus,
+                    reasonCode = it.reasonCode,
+                    details = it.details,
+                    status = it.status,
+                    assignedTo = it.assignedTo,
+                    createdAt = it.createdAt,
+                    resolvedAt = it.resolvedAt,
+                )
+            }
+        }
+    }
+
+    override suspend fun adminReportAction(
+        id: String,
+        action: String,
+        reason: String?,
+        contentAction: String?,
+    ): Result<Unit> =
+        authenticatedPost(
+            "/api/v1/admin/reports/$id/$action",
+            AdminReportActionRequest(reason = reason, contentAction = contentAction),
         )
 
     private suspend inline fun <reified T, R> authenticatedGet(
@@ -799,6 +860,33 @@ private data class AdminCommentDto(
     @SerialName("moderation_status") val moderationStatus: String,
     @SerialName("created_at") val createdAt: String,
     @SerialName("edited_at") val editedAt: String? = null,
+)
+
+@Serializable
+private data class AdminReportDto(
+    val id: String,
+    @SerialName("comment_id") val commentId: String,
+    @SerialName("reporter_id") val reporterId: String,
+    @SerialName("reporter_name") val reporterName: String,
+    @SerialName("author_id") val authorId: String,
+    @SerialName("author_name") val authorName: String,
+    @SerialName("subject_id") val subjectId: Long? = null,
+    @SerialName("subject_title") val subjectTitle: String? = null,
+    val body: String,
+    val spoiler: Boolean,
+    @SerialName("moderation_status") val moderationStatus: String,
+    @SerialName("reason_code") val reasonCode: String,
+    val details: String? = null,
+    val status: String,
+    @SerialName("assigned_to") val assignedTo: String? = null,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("resolved_at") val resolvedAt: String? = null,
+)
+
+@Serializable
+private data class AdminReportActionRequest(
+    val reason: String? = null,
+    @SerialName("content_action") val contentAction: String? = null,
 )
 
 @Serializable

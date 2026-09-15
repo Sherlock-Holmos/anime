@@ -39,6 +39,7 @@
 | 颜色、间距、圆角、栅格和响应式数值 | `20-color-and-layout-specification.md` |
 | iOS 宿主、平台能力、安全存储与 macOS 验收 | `21-ios-host-baseline.md` |
 | 当前所有 UI 页面、功能、渲染框架、线框图和实现差异 | `24-current-ui-design-development-spec.md` |
+| iOS 动漫卡片比例、裁切与交互 | `25-ios-card-visual-system.md` |
 | 某个页面的完整状态机 | `features/` 对应文件 |
 
 ## 4. 术语

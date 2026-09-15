@@ -134,6 +134,14 @@ public interface CommunityRepository {
         cursor: String? = null,
     ): Result<CommunityFeedPage> = feed(limit).map { CommunityFeedPage(it, null) }
 
+    public suspend fun myActivities(
+        scope: String = "all",
+        limit: Int = 50,
+    ): Result<CommunityFeedPage> = Result.failure(IllegalStateException("Activity service is unavailable"))
+
+    public suspend fun withdrawActivity(id: String): Result<Unit> =
+        Result.failure(IllegalStateException("Activity service is unavailable"))
+
     public suspend fun notifications(limit: Int = 20): Result<List<CommunityNotification>> = Result.success(emptyList())
 
     public suspend fun markNotificationRead(id: String): Result<Unit> =

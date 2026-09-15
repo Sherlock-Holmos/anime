@@ -31,6 +31,9 @@ public interface SessionRepository {
     public suspend fun updateProfile(displayName: String): Result<Unit> =
         Result.failure(IllegalStateException("Profile service is unavailable"))
 
+    public suspend fun uploadAvatar(base64: String, contentType: String): Result<Unit> =
+        Result.failure(IllegalStateException("Avatar service is unavailable"))
+
     public suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> =
         Result.failure(IllegalStateException("Password service is unavailable"))
 
@@ -81,6 +84,19 @@ public interface SessionRepository {
         action: String,
         reason: String? = null,
     ): Result<Unit> = Result.failure(IllegalStateException("Admin service is unavailable"))
+
+    public suspend fun adminReports(
+        status: String? = null,
+        limit: Int = 50,
+    ): Result<List<AdminReport>> =
+        Result.failure(IllegalStateException("Admin service is unavailable"))
+
+    public suspend fun adminReportAction(
+        id: String,
+        action: String,
+        reason: String? = null,
+        contentAction: String? = null,
+    ): Result<Unit> = Result.failure(IllegalStateException("Admin service is unavailable"))
 }
 
 public data class UserCollectionPage(
@@ -124,6 +140,26 @@ public data class AdminComment(
     val moderationStatus: String,
     val createdAt: String,
     val editedAt: String?,
+)
+
+public data class AdminReport(
+    val id: String,
+    val commentId: String,
+    val reporterId: String,
+    val reporterName: String,
+    val authorId: String,
+    val authorName: String,
+    val subjectId: Long?,
+    val subjectTitle: String?,
+    val body: String,
+    val spoiler: Boolean,
+    val moderationStatus: String,
+    val reasonCode: String,
+    val details: String?,
+    val status: String,
+    val assignedTo: String?,
+    val createdAt: String,
+    val resolvedAt: String?,
 )
 
 public data class ServiceDiagnostic(

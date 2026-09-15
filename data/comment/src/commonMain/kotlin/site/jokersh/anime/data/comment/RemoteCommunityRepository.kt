@@ -52,6 +52,18 @@ public class RemoteCommunityRepository(
             )
         }
 
+    public override suspend fun myActivities(scope: String, limit: Int): Result<CommunityFeedPage> =
+        runCatching {
+            val response = client.get("$baseUrl/api/v1/me/activities?limit=$limit&scope=${scope.encodeURLParameter()}") { auth() }
+            CommunityFeedPage(
+                items = decode<List<ActivityDto>>(response).map { it.toModel() },
+                nextCursor = response.headers["x-next-cursor"],
+            )
+        }
+
+    public override suspend fun withdrawActivity(id: String): Result<Unit> =
+        authenticatedRequest { client.delete("$baseUrl/api/v1/me/activities/$id") { auth() } }
+
     public override suspend fun notifications(limit: Int): Result<List<CommunityNotification>> =
         runCatching {
             decode<List<NotificationDto>>(

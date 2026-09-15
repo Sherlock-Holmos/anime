@@ -80,6 +80,7 @@ import site.jokersh.anime.data.session.BangumiSyncConflict
 import site.jokersh.anime.data.session.BangumiSyncStatus
 import site.jokersh.anime.data.session.AdminOverview
 import site.jokersh.anime.data.session.AdminComment
+import site.jokersh.anime.data.session.AdminReport
 import site.jokersh.anime.data.session.ServiceDiagnostic
 import site.jokersh.anime.data.session.ServiceDiagnosticEndpoint
 import site.jokersh.anime.data.session.SessionTokenStore
@@ -530,6 +531,32 @@ public class IosNativeAppFacade internal constructor(
             } to result.exceptionOrNull()?.message
         }
 
+    public fun loadAdminReports(status: String?, completion: (String?, String?) -> Unit) =
+        launchTextOperation("admin reports", completion) {
+            val result = appContainer.sessionRepository.adminReports(status = status, limit = 100)
+            result.getOrNull()?.let {
+                json.encodeToString(
+                    ListSerializer(NativeAdminReportSnapshot.serializer()),
+                    it.map(AdminReport::toNativeSnapshot),
+                )
+            } to result.exceptionOrNull()?.message
+        }
+
+    public fun adminReportAction(
+        id: String,
+        action: String,
+        reason: String?,
+        contentAction: String?,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch {
+            completion(
+                appContainer.sessionRepository.adminReportAction(id, action, reason, contentAction)
+                    .exceptionOrNull()?.message,
+            )
+        }
+    }
+
     public fun loadActivity(
         feed: String,
         cursor: String?,
@@ -539,6 +566,10 @@ public class IosNativeAppFacade internal constructor(
             val result = appContainer.communityRepository.feedPage(feed = feed, limit = 20, cursor = cursor)
             result.getOrNull()?.let { json.encodeToString(NativeActivityPageSnapshot.serializer(), it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
         }
+
+    public fun withdrawActivity(id: String, completion: (String?) -> Unit) {
+        scope.launch { completion(appContainer.communityRepository.withdrawActivity(id).exceptionOrNull()?.message) }
+    }
 
     public fun loadNotifications(completion: (String?, String?) -> Unit) =
         launchTextOperation("notifications", completion) {
@@ -1004,6 +1035,16 @@ public class IosNativeAppFacade internal constructor(
         }
     }
 
+    public fun uploadAvatar(base64: String, contentType: String, completion: (String?) -> Unit) {
+        scope.launch {
+            completion(
+                sessionOperationMutex.withLock {
+                    appContainer.sessionRepository.uploadAvatar(base64, contentType)
+                }.exceptionOrNull()?.message,
+            )
+        }
+    }
+
     public fun changePassword(
         currentPassword: String,
         newPassword: String,
@@ -1358,6 +1399,27 @@ internal data class NativeAdminCommentSnapshot(
     val moderationStatus: String,
     val createdAt: String,
     val editedAt: String? = null,
+)
+
+@Serializable
+internal data class NativeAdminReportSnapshot(
+    val id: String,
+    val commentId: String,
+    val reporterId: String,
+    val reporterName: String,
+    val authorId: String,
+    val authorName: String,
+    val subjectId: Long? = null,
+    val subjectTitle: String? = null,
+    val body: String,
+    val spoiler: Boolean,
+    val moderationStatus: String,
+    val reasonCode: String,
+    val details: String? = null,
+    val status: String,
+    val assignedTo: String? = null,
+    val createdAt: String,
+    val resolvedAt: String? = null,
 )
 
 @Serializable
@@ -1746,6 +1808,27 @@ private fun AdminComment.toNativeSnapshot(): NativeAdminCommentSnapshot =
         moderationStatus = moderationStatus,
         createdAt = createdAt,
         editedAt = editedAt,
+    )
+
+private fun AdminReport.toNativeSnapshot(): NativeAdminReportSnapshot =
+    NativeAdminReportSnapshot(
+        id = id,
+        commentId = commentId,
+        reporterId = reporterId,
+        reporterName = reporterName,
+        authorId = authorId,
+        authorName = authorName,
+        subjectId = subjectId,
+        subjectTitle = subjectTitle,
+        body = body,
+        spoiler = spoiler,
+        moderationStatus = moderationStatus,
+        reasonCode = reasonCode,
+        details = details,
+        status = status,
+        assignedTo = assignedTo,
+        createdAt = createdAt,
+        resolvedAt = resolvedAt,
     )
 
 private fun ServiceDiagnostic.toNativeSnapshot(): NativeDiagnosticSnapshot =

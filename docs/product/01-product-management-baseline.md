@@ -5,6 +5,8 @@
 > 文档性质：产品总经理整理稿；当前实现状态与发布判断以本文为准  
 > 状态：2026-09-13 产品范围与认证策略已确认，本文作为当前生效基线
 
+> 2026-09-15 增补：管理员治理、动态隐私、iOS 卡片视觉和 Bangumi 数据边界分别以 `25-admin-system-architecture.md`、`26-activity-system-architecture.md`、`../frontend/25-ios-card-visual-system.md`、`28-bangumi-data-boundary.md` 为当前专项基线。
+
 ## 1. 一页结论
 
 Anime 已经完成了较完整的客户端—后端纵向切片：发现、搜索、条目详情、资料库、Bangumi 集成、评论、评分、社区动态、个人页和多端宿主均有代码或接口基础。当前问题不是“没有产品”，而是产品决策、客户端实现、独立后端和文档基线没有收敛到同一条发布主线。

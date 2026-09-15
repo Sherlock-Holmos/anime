@@ -15,6 +15,7 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var myRatingsPage: NativeProfileRatingPageSnapshot?
     @Published private(set) var adminOverview: NativeAdminOverviewSnapshot?
     @Published private(set) var adminComments: [NativeAdminCommentSnapshot] = []
+    @Published private(set) var adminReports: [NativeAdminReportSnapshot] = []
     @Published private(set) var activityPage: NativeActivityPageSnapshot?
     @Published private(set) var notifications: [NativeNotificationSnapshot] = []
     @Published private(set) var profile: NativeProfileSnapshot?
@@ -453,6 +454,33 @@ final class NativeAppModel: ObservableObject {
         }
     }
 
+    func loadAdminReports(status: String? = "open", completion: (([NativeAdminReportSnapshot], String?) -> Void)? = nil) {
+        start()
+        facade?.loadAdminReports(status: status) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let reports = rawSnapshot.flatMap { Self.decode($0, as: [NativeAdminReportSnapshot].self) } ?? []
+                if error == nil { self.adminReports = reports }
+                completion?(self.adminReports, error)
+            }
+        }
+    }
+
+    func adminReportAction(id: String, action: String, contentAction: String? = nil, completion: ((String?) -> Void)? = nil) {
+        start()
+        if rejectSimpleWrite(completion) { return }
+        facade?.adminReportAction(id: id, action: action, reason: nil, contentAction: contentAction) { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if error == nil {
+                    self.adminReports.removeAll { $0.id == id }
+                    self.loadAdminOverview()
+                }
+                completion?(error)
+            }
+        }
+    }
+
     func moderateComment(id: String, action: String, completion: ((String?) -> Void)? = nil) {
         start()
         if rejectSimpleWrite(completion) { return }
@@ -460,6 +488,18 @@ final class NativeAppModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if error == nil { self.adminComments.removeAll { $0.id == id } }
+                completion?(error)
+            }
+        }
+    }
+
+    func withdrawActivity(id: String, completion: ((String?) -> Void)? = nil) {
+        start()
+        if rejectSimpleWrite(completion) { return }
+        facade?.withdrawActivity(id: id) { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if error == nil { self.activityPage = nil }
                 completion?(error)
             }
         }
@@ -548,7 +588,7 @@ final class NativeAppModel: ObservableObject {
         }
     }
 
-    func reportComment(id: String, reasonCode: String = "abuse", details: String? = nil, completion: ((String?) -> Void)? = nil) {
+    func reportComment(id: String, reasonCode: String = "other", details: String? = nil, completion: ((String?) -> Void)? = nil) {
         start()
         if rejectSimpleWrite(completion) { return }
         facade?.reportComment(id: id, reasonCode: reasonCode, details: details) { error in Task { @MainActor in completion?(error) } }
@@ -812,6 +852,18 @@ final class NativeAppModel: ObservableObject {
         start()
         facade?.updateProfile(displayName: displayName) { error in
             Task { @MainActor in completion?(error) }
+        }
+    }
+
+    func uploadAvatar(base64: String, contentType: String, completion: ((String?) -> Void)? = nil) {
+        start()
+        if rejectSimpleWrite(completion) { return }
+        facade?.uploadAvatar(base64: base64, contentType: contentType) { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if error == nil { self.loadProfile() }
+                completion?(error)
+            }
         }
     }
 
@@ -1201,10 +1253,7 @@ private struct NativeHeroCard: View {
             AsyncImage(url: subject.posterURL) { phase in
                 switch phase {
                 case .success(let image):
-                    ZStack {
-                        image.resizable().scaledToFill().blur(radius: 18).opacity(0.55)
-                        image.resizable().scaledToFit()
-                    }
+                    image.resizable().scaledToFill()
                 default:
                     Color.secondary.opacity(0.2)
                 }
@@ -1256,7 +1305,7 @@ private struct NativeSubjectCard: View {
             AsyncImage(url: subject.posterURL) { phase in
                 switch phase {
                 case .success(let image):
-                    image.resizable().scaledToFit()
+                    image.resizable().scaledToFill()
                 default:
                     ZStack {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -1266,7 +1315,7 @@ private struct NativeSubjectCard: View {
                     }
                 }
             }
-            .frame(width: fixedWidth, height: fixedWidth.map { $0 * 1.397 } ?? 218)
+            .frame(width: fixedWidth, height: fixedWidth.map { $0 * 4 / 3 } ?? 218)
             .frame(maxWidth: fixedWidth == nil ? .infinity : nil)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
