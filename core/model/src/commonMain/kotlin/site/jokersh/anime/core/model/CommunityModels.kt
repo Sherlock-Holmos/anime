@@ -42,6 +42,8 @@ public data class UserProfile(
     public val listCount: Int = 0,
     public val collections: List<UserCollectionSummary> = emptyList(),
     public val syncedAt: Instant? = null,
+    /** Server-managed capability role. Normal accounts use `user`; maintainers use `maintainer`. */
+    public val role: String = "user",
 ) {
     init {
         require(collectionCounts.values.all { it >= 0 }) { "collection counts must be non-negative" }

@@ -229,6 +229,11 @@ public class RemoteCommunityRepository(
             }
         }
 
+    public override suspend fun deleteRating(subjectId: Long): Result<Unit> =
+        authenticatedRequest {
+            client.delete("$baseUrl/api/v1/me/ratings/$subjectId") { auth() }
+        }
+
     public override suspend fun createReview(
         subjectId: Long,
         kind: String,
@@ -428,8 +433,10 @@ public class RemoteCommunityRepository(
             resolve(posterUrl),
             reviewId,
             listId,
+            commentId,
             summary,
             occurredAt,
+            owned,
         )
 
     private fun ReviewDto.toModel() =
@@ -463,8 +470,10 @@ public class RemoteCommunityRepository(
     @SerialName("poster_url") val posterUrl: String? = null,
     @SerialName("review_id") val reviewId: String? = null,
     @SerialName("curated_list_id") val listId: String? = null,
+    @SerialName("comment_id") val commentId: String? = null,
     val summary: String,
     @SerialName("occurred_at") val occurredAt: String,
+    val owned: Boolean = false,
 )
 
 @Serializable private data class NotificationDto(

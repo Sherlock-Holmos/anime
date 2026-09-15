@@ -12,6 +12,9 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var searchDiscovery: NativeSearchDiscoverySnapshot?
     @Published private(set) var collectionPage: NativeCollectionPageSnapshot?
     @Published private(set) var isLoadingCollection = false
+    @Published private(set) var myRatingsPage: NativeProfileRatingPageSnapshot?
+    @Published private(set) var adminOverview: NativeAdminOverviewSnapshot?
+    @Published private(set) var adminComments: [NativeAdminCommentSnapshot] = []
     @Published private(set) var activityPage: NativeActivityPageSnapshot?
     @Published private(set) var notifications: [NativeNotificationSnapshot] = []
     @Published private(set) var profile: NativeProfileSnapshot?
@@ -44,6 +47,7 @@ final class NativeAppModel: ObservableObject {
     private static let appearanceThemeKey = "anime.ios.appearance.theme"
     private static let glassEnabledKey = "anime.ios.appearance.glass"
     private static let reduceMotionKey = "anime.ios.appearance.reduce-motion"
+    private static let calendarCachePrefix = "anime.ios.calendar."
 
     var isAuthenticated: Bool {
         isSessionReady && session.status == "authenticated"
@@ -75,6 +79,7 @@ final class NativeAppModel: ObservableObject {
                 profile = Self.loadCachedProfile(for: snapshot.userId)
                 collectionRequestID += 1
                 collectionPage = nil
+                myRatingsPage = nil
             }
             hasAuthenticatedSession = true
             session = snapshot
@@ -90,6 +95,7 @@ final class NativeAppModel: ObservableObject {
             profile = nil
             collectionRequestID += 1
             collectionPage = nil
+            myRatingsPage = nil
             isLoadingCollection = false
             Self.clearPersistedUserSnapshot()
         }
@@ -229,11 +235,18 @@ final class NativeAppModel: ObservableObject {
 
     func loadCalendar(date: String, completion: ((NativeCalendarSnapshot?, String?) -> Void)? = nil) {
         start()
+        if let cached = Self.loadCachedCalendar(for: date) {
+            calendar = cached
+            completion?(cached, nil)
+        }
         facade?.loadCalendar(date: date) { [weak self] rawSnapshot, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeCalendarSnapshot.self) }
-                if let snapshot { self.calendar = snapshot }
+                if let snapshot {
+                    self.calendar = snapshot
+                    Self.persistCalendar(snapshot)
+                }
                 completion?(snapshot, error)
             }
         }
@@ -398,6 +411,60 @@ final class NativeAppModel: ObservableObject {
         }
     }
 
+    func loadMyRatings(cursor: String? = nil, append: Bool = false, completion: ((NativeProfileRatingPageSnapshot?, String?) -> Void)? = nil) {
+        start()
+        facade?.loadMyRatings(cursor: cursor) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let page = rawSnapshot.flatMap { Self.decode($0, as: NativeProfileRatingPageSnapshot.self) }
+                if let page {
+                    if append, let current = self.myRatingsPage {
+                        self.myRatingsPage = NativeProfileRatingPageSnapshot(items: current.items + page.items, nextCursor: page.nextCursor)
+                    } else {
+                        self.myRatingsPage = page
+                    }
+                }
+                completion?(self.myRatingsPage, error)
+            }
+        }
+    }
+
+    func loadAdminOverview(completion: ((NativeAdminOverviewSnapshot?, String?) -> Void)? = nil) {
+        start()
+        facade?.loadAdminOverview { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let snapshot = rawSnapshot.flatMap { Self.decode($0, as: NativeAdminOverviewSnapshot.self) }
+                if let snapshot { self.adminOverview = snapshot }
+                completion?(snapshot, error)
+            }
+        }
+    }
+
+    func loadAdminComments(status: String? = nil, completion: (([NativeAdminCommentSnapshot], String?) -> Void)? = nil) {
+        start()
+        facade?.loadAdminComments(status: status) { [weak self] rawSnapshot, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let comments = rawSnapshot.flatMap { Self.decode($0, as: [NativeAdminCommentSnapshot].self) } ?? []
+                if error == nil { self.adminComments = comments }
+                completion?(self.adminComments, error)
+            }
+        }
+    }
+
+    func moderateComment(id: String, action: String, completion: ((String?) -> Void)? = nil) {
+        start()
+        if rejectSimpleWrite(completion) { return }
+        facade?.moderateComment(id: id, action: action, reason: nil) { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if error == nil { self.adminComments.removeAll { $0.id == id } }
+                completion?(error)
+            }
+        }
+    }
+
     func loadNetworkContext(completion: ((NativeNetworkContextSnapshot?, String?) -> Void)? = nil) {
         start()
         facade?.loadNetworkContext { [weak self] rawSnapshot, error in
@@ -464,6 +531,21 @@ final class NativeAppModel: ObservableObject {
         start()
         if rejectSimpleWrite(completion) { return }
         facade?.deleteComment(id: id) { error in Task { @MainActor in completion?(error) } }
+    }
+
+    func deleteRating(subjectId: Int64, completion: ((String?) -> Void)? = nil) {
+        start()
+        if rejectSimpleWrite(completion) { return }
+        facade?.deleteRating(subjectId: subjectId) { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if error == nil {
+                    self.myRatingsPage = nil
+                    self.loadProfile()
+                }
+                completion?(error)
+            }
+        }
     }
 
     func reportComment(id: String, reasonCode: String = "abuse", details: String? = nil, completion: ((String?) -> Void)? = nil) {
@@ -756,6 +838,7 @@ final class NativeAppModel: ObservableObject {
                     self.profile = nil
                     self.collectionRequestID += 1
                     self.collectionPage = nil
+                    self.myRatingsPage = nil
                     self.isLoadingCollection = false
                     Self.clearPersistedUserSnapshot()
                 }
@@ -900,6 +983,24 @@ final class NativeAppModel: ObservableObject {
     private static func persist(_ snapshot: NativeProfileSnapshot) {
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: profileCacheKey)
+    }
+
+    private static func calendarCacheKey(for date: String) -> String {
+        "\(calendarCachePrefix)\(date)"
+    }
+
+    private static func loadCachedCalendar(for date: String) -> NativeCalendarSnapshot? {
+        guard
+            let data = UserDefaults.standard.data(forKey: calendarCacheKey(for: date)),
+            let snapshot = try? JSONDecoder().decode(NativeCalendarSnapshot.self, from: data),
+            snapshot.date == date
+        else { return nil }
+        return snapshot
+    }
+
+    private static func persistCalendar(_ snapshot: NativeCalendarSnapshot) {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: calendarCacheKey(for: snapshot.date))
     }
 
     private static func clearPersistedUserSnapshot() {
@@ -1074,7 +1175,7 @@ private struct NativeDiscoverySectionListView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 20) {
                 ForEach(section.subjects) { subject in
                     NavigationLink(value: subject) {
-                        NativeSubjectCard(subject: subject)
+                        NativeSubjectCard(subject: subject, fixedWidth: nil)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1100,12 +1201,15 @@ private struct NativeHeroCard: View {
             AsyncImage(url: subject.posterURL) { phase in
                 switch phase {
                 case .success(let image):
-                    image.resizable().scaledToFill()
+                    ZStack {
+                        image.resizable().scaledToFill().blur(radius: 18).opacity(0.55)
+                        image.resizable().scaledToFit()
+                    }
                 default:
                     Color.secondary.opacity(0.2)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .clipped()
             LinearGradient(
                 colors: [.clear, .black.opacity(0.82)],
@@ -1140,13 +1244,19 @@ private struct NativeHeroCard: View {
 
 private struct NativeSubjectCard: View {
     let subject: NativeSubjectSummary
+    let fixedWidth: CGFloat?
+
+    init(subject: NativeSubjectSummary, fixedWidth: CGFloat? = 156) {
+        self.subject = subject
+        self.fixedWidth = fixedWidth
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             AsyncImage(url: subject.posterURL) { phase in
                 switch phase {
                 case .success(let image):
-                    image.resizable().scaledToFill()
+                    image.resizable().scaledToFit()
                 default:
                     ZStack {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -1156,7 +1266,8 @@ private struct NativeSubjectCard: View {
                     }
                 }
             }
-            .frame(width: 156, height: 218)
+            .frame(width: fixedWidth, height: fixedWidth.map { $0 * 1.397 } ?? 218)
+            .frame(maxWidth: fixedWidth == nil ? .infinity : nil)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             Text(subject.title)
@@ -1176,7 +1287,8 @@ private struct NativeSubjectCard: View {
             .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
         }
-        .frame(width: 156, alignment: .leading)
+        .frame(width: fixedWidth, alignment: .leading)
+        .frame(maxWidth: fixedWidth == nil ? .infinity : nil, alignment: .leading)
     }
 }
 
@@ -1332,7 +1444,7 @@ private struct NativeDetailHero: View {
         HStack(alignment: .top, spacing: 16) {
             AsyncImage(url: summary.posterURL) { phase in
                 switch phase {
-                case .success(let image): image.resizable().scaledToFill()
+                case .success(let image): image.resizable().scaledToFit()
                 default: Color.secondary.opacity(0.15)
                 }
             }

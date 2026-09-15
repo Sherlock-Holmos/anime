@@ -36,6 +36,46 @@ struct NativeCollectionItemSnapshot: Codable, Identifiable {
     var posterURL: URL? { posterUrl.flatMap(URL.init(string:)) }
 }
 
+struct NativeProfileRatingPageSnapshot: Codable {
+    let items: [NativeProfileRatingSnapshot]
+    let nextCursor: String?
+}
+
+struct NativeProfileRatingSnapshot: Codable, Identifiable {
+    let id: String
+    let subjectId: Int64
+    let title: String
+    let posterUrl: String?
+    let score: Int
+    let tags: [String]
+    let visibility: String
+    let updatedAt: String
+
+    var posterURL: URL? { posterUrl.flatMap(URL.init(string:)) }
+}
+
+struct NativeAdminOverviewSnapshot: Codable {
+    let role: String
+    let usersTotal: Int64
+    let usersActive: Int64
+    let reviewsPublished: Int64
+    let commentsPublished: Int64
+    let openCommentReports: Int64
+}
+
+struct NativeAdminCommentSnapshot: Codable, Identifiable {
+    let id: String
+    let subjectId: Int64?
+    let subjectTitle: String?
+    let authorId: String
+    let authorName: String
+    let body: String
+    let spoiler: Bool
+    let moderationStatus: String
+    let createdAt: String
+    let editedAt: String?
+}
+
 struct NativeActivityPageSnapshot: Codable {
     let items: [NativeActivityItemSnapshot]
     let nextCursor: String?
@@ -52,8 +92,10 @@ struct NativeActivityItemSnapshot: Codable, Identifiable {
     let posterUrl: String?
     let reviewId: String?
     let listId: String?
+    let commentId: String?
     let summary: String
     let occurredAt: String
+    let owned: Bool
 
     var posterURL: URL? { posterUrl.flatMap(URL.init(string:)) }
 }
@@ -85,6 +127,7 @@ struct NativeProfileSnapshot: Codable {
     let onHoldCount: Int
     let droppedCount: Int
     let syncedAt: String?
+    let role: String?
 
     var avatarURL: URL? { avatarUrl.flatMap(URL.init(string:)) }
 }
@@ -671,7 +714,7 @@ struct NativeCollectionView: View {
                         NativeInlineError(message: errorMessage) { loadCollection(selectedStatus) }
                     }
                     if let page = model.collectionPage, !page.items.isEmpty {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 155), spacing: 12)], spacing: 18) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)], spacing: 18) {
                             ForEach(page.items) { item in
                                 NavigationLink {
                                     NativeSubjectDetailView(summary: item.subjectSummary, model: model)
@@ -681,6 +724,7 @@ struct NativeCollectionView: View {
                                 .buttonStyle(.plain)
                             }
                         }
+                        .id(selectedStatus)
                         if let cursor = page.nextCursor {
                             Button("加载更多") {
                                 model.loadCollection(status: selectedStatus, cursor: cursor, append: true) { _, error in
@@ -737,6 +781,242 @@ struct NativeCollectionView: View {
         errorMessage = nil
         model.loadCollection(status: status) { _, error in
             errorMessage = error
+        }
+    }
+}
+
+struct NativeRatingsView: View {
+    @ObservedObject var model: NativeAppModel
+    @State private var errorMessage: String?
+    @State private var deletingRating: NativeProfileRatingSnapshot?
+    @State private var message: String?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    if let page = model.myRatingsPage, !page.items.isEmpty {
+                        ForEach(page.items) { rating in
+                            NavigationLink {
+                                NativeSubjectDetailView(
+                                    summary: .placeholder(id: rating.subjectId, title: rating.title),
+                                    model: model,
+                                )
+                            } label: {
+                                NativeRatingRow(rating: rating)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("删除评分", role: .destructive) { deletingRating = rating }
+                            }
+                        }
+                        if let cursor = page.nextCursor {
+                            Button("加载更多") {
+                                model.loadMyRatings(cursor: cursor, append: true) { _, error in errorMessage = error }
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    } else if let errorMessage {
+                        NativeInlineError(message: errorMessage) { load() }
+                    } else {
+                        ContentUnavailableView("还没有评分", systemImage: "star", description: Text("在作品详情中评分后，会显示在这里。"))
+                            .frame(maxWidth: .infinity, minHeight: 220)
+                    }
+                    if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+                }
+                .padding(16)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("我的评分")
+            .navigationBarTitleDisplayMode(.large)
+            .task { load() }
+            .refreshable { await refresh() }
+            .confirmationDialog("删除这条评分？", isPresented: Binding(
+                get: { deletingRating != nil },
+                set: { if !$0 { deletingRating = nil } },
+            ), titleVisibility: .visible) {
+                Button("删除评分", role: .destructive) {
+                    guard let rating = deletingRating else { return }
+                    model.deleteRating(subjectId: rating.subjectId) { error in
+                        if let error { message = "删除失败：\(error)" }
+                        else { message = "评分已删除"; load() }
+                        deletingRating = nil
+                    }
+                }
+            }
+        }
+    }
+
+    private func load() {
+        errorMessage = nil
+        if model.myRatingsPage == nil { model.loadMyRatings { _, error in errorMessage = error } }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            model.loadMyRatings { _, error in errorMessage = error; continuation.resume() }
+        }
+    }
+}
+
+struct NativeMyReviewsView: View {
+    @ObservedObject var model: NativeAppModel
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    if let userId = model.session.userId, let page = model.userReviews[userId], !page.items.isEmpty {
+                        ForEach(page.items) { review in
+                            NavigationLink {
+                                NativeReviewDetailView(reviewId: review.id, model: model)
+                            } label: {
+                                NativeReviewRow(review: review)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        if let cursor = page.nextCursor {
+                            Button("加载更多") {
+                                model.loadUserReviews(id: userId, cursor: cursor) { _, error in errorMessage = error }
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    } else if let errorMessage {
+                        NativeInlineError(message: errorMessage) { load() }
+                    } else {
+                        ContentUnavailableView("还没有评价", systemImage: "text.quote", description: Text("在作品详情中发布评价后，会显示在这里。"))
+                            .frame(maxWidth: .infinity, minHeight: 220)
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("我的评价")
+            .navigationBarTitleDisplayMode(.large)
+            .task { load() }
+            .refreshable { await refresh() }
+        }
+    }
+
+    private func load() {
+        guard let userId = model.session.userId else { return }
+        errorMessage = nil
+        model.loadUserReviews(id: userId) { _, error in errorMessage = error }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            guard let userId = model.session.userId else {
+                continuation.resume()
+                return
+            }
+            errorMessage = nil
+            model.loadUserReviews(id: userId) { _, error in
+                errorMessage = error
+                continuation.resume()
+            }
+        }
+    }
+}
+
+struct NativeAdminView: View {
+    @ObservedObject var model: NativeAppModel
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    if let overview = model.adminOverview {
+                        Text("维护者工作台").font(.title2.weight(.bold))
+                        Text("当前角色：\(overview.role)").font(.subheadline).foregroundStyle(.secondary)
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                            NativeMetric(value: Int(overview.usersActive), title: "活跃用户")
+                            NativeMetric(value: Int(overview.usersTotal), title: "用户总数")
+                            NativeMetric(value: Int(overview.reviewsPublished), title: "已发布评价")
+                            NativeMetric(value: Int(overview.commentsPublished), title: "已发布评论")
+                            NativeMetric(value: Int(overview.openCommentReports), title: "待处理举报")
+                        }
+                        Text("评论审核")
+                            .font(.headline)
+                            .padding(.top, 8)
+                        if model.adminComments.isEmpty {
+                            Text("当前没有评论记录")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(model.adminComments) { comment in
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack {
+                                        Text(comment.authorName).font(.headline)
+                                        Spacer()
+                                        Text(comment.moderationStatus.adminDisplayName)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if let subjectTitle = comment.subjectTitle {
+                                        Text(subjectTitle)
+                                            .font(.caption)
+                                            .foregroundStyle(.tint)
+                                    }
+                                    Text(comment.body)
+                                        .lineLimit(4)
+                                    HStack(spacing: 8) {
+                                        Button("发布") { moderate(comment.id, action: "published") }
+                                            .buttonStyle(.bordered)
+                                            .disabled(comment.moderationStatus == "published")
+                                        Button("隐藏") { moderate(comment.id, action: "hidden") }
+                                            .buttonStyle(.bordered)
+                                            .disabled(comment.moderationStatus == "hidden")
+                                        Button("删除", role: .destructive) { moderate(comment.id, action: "deleted") }
+                                            .buttonStyle(.bordered)
+                                    }
+                                }
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                        }
+                        NativeActionRow(title: "管理员账号", subtitle: "仅服务端 maintainer 角色可以进入此页面", systemImage: "person.badge.key")
+                    } else if let errorMessage {
+                        NativeInlineError(message: errorMessage) { load() }
+                    } else {
+                        ProgressView("正在加载管理概览")
+                            .frame(maxWidth: .infinity, minHeight: 220)
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("管理后台")
+            .navigationBarTitleDisplayMode(.large)
+            .task { load() }
+            .refreshable { await refresh() }
+        }
+    }
+
+    private func load() {
+        errorMessage = nil
+        model.loadAdminOverview { _, error in errorMessage = error }
+        model.loadAdminComments { _, error in if errorMessage == nil { errorMessage = error } }
+    }
+
+    private func moderate(_ id: String, action: String) {
+        model.moderateComment(id: id, action: action) { error in
+            if let error { errorMessage = error }
+        }
+    }
+
+    private func refresh() async {
+        await withCheckedContinuation { continuation in
+            model.loadAdminOverview { _, error in
+                errorMessage = error
+                model.loadAdminComments { _, commentsError in
+                    if errorMessage == nil { errorMessage = commentsError }
+                    continuation.resume()
+                }
+            }
         }
     }
 }
@@ -985,6 +1265,8 @@ struct NativeActivityView: View {
     @State private var selectedMode = "动态"
     @State private var selectedFeed = "public"
     @State private var errorMessage: String?
+    @State private var activityToDelete: NativeActivityItemSnapshot?
+    @State private var activityMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -1042,6 +1324,12 @@ struct NativeActivityView: View {
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
                 NativeSubjectDetailView(summary: subject, model: model)
             }
+            .confirmationDialog("删除这条动态对应的内容？", isPresented: Binding(
+                get: { activityToDelete != nil },
+                set: { if !$0 { activityToDelete = nil } },
+            ), titleVisibility: .visible) {
+                Button("删除", role: .destructive) { deleteActivity() }
+            }
         }
         .task {
             model.start()
@@ -1063,11 +1351,18 @@ struct NativeActivityView: View {
 
     @ViewBuilder
     private var activityContent: some View {
+        if let activityMessage {
+            Text(activityMessage).font(.footnote).foregroundStyle(.secondary)
+        }
         if let errorMessage {
             NativeInlineError(message: errorMessage) { loadCurrentMode() }
         } else if let page = model.activityPage, !page.items.isEmpty {
             ForEach(page.items) { item in
-                NativeActivityCard(item: item, destination: activityDestination(for: item))
+                NativeActivityCard(
+                    item: item,
+                    destination: activityDestination(for: item),
+                    onDelete: item.owned && isDeletable(item) ? { activityToDelete = item } : nil,
+                )
             }
             if page.nextCursor != nil {
                 Button("加载更多") {
@@ -1119,6 +1414,28 @@ struct NativeActivityView: View {
             return AnyView(NativeUserProfileView(userId: actorId, model: model))
         }
         return nil
+    }
+
+    private func isDeletable(_ item: NativeActivityItemSnapshot) -> Bool {
+        item.reviewId != nil || item.commentId != nil || item.listId != nil || item.kind == "rated"
+    }
+
+    private func deleteActivity() {
+        guard let item = activityToDelete else { return }
+        let finish: (String?) -> Void = { error in
+            if let error { activityMessage = "删除失败：\(error)" }
+            else { activityMessage = "内容已删除"; loadCurrentMode() }
+            activityToDelete = nil
+        }
+        if let reviewId = item.reviewId {
+            model.deleteReview(id: reviewId, completion: finish)
+        } else if let commentId = item.commentId {
+            model.deleteComment(id: commentId, completion: finish)
+        } else if let listId = item.listId {
+            model.deleteList(id: listId, completion: finish)
+        } else if item.kind == "rated", let subjectId = item.subjectId {
+            model.deleteRating(subjectId: subjectId, completion: finish)
+        }
     }
 
     private func notificationDestination(for notification: NativeNotificationSnapshot) -> AnyView? {
@@ -1239,7 +1556,7 @@ struct NativeProfileView: View {
                         .font(.title3.weight(.bold))
                     if let location = model.networkContext?.displayLocation,
                        !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("IP 位置 · \(location)")
+                         Text("IP: \(location)")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -1257,9 +1574,24 @@ struct NativeProfileView: View {
 
         if let profile = model.profile {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                NativeMetric(value: profile.watchingCount + profile.completedCount, title: "收藏")
-                NativeMetric(value: profile.ratingCount, title: "评分")
-                NativeMetric(value: profile.reviewCount, title: "评价")
+                NavigationLink {
+                    NativeCollectionView(model: model)
+                } label: {
+                    NativeMetric(value: profile.watchingCount + profile.completedCount, title: "收藏")
+                }
+                .buttonStyle(.plain)
+                NavigationLink {
+                    NativeRatingsView(model: model)
+                } label: {
+                    NativeMetric(value: profile.ratingCount, title: "评分")
+                }
+                .buttonStyle(.plain)
+                NavigationLink {
+                    NativeMyReviewsView(model: model)
+                } label: {
+                    NativeMetric(value: profile.reviewCount, title: "评价")
+                }
+                .buttonStyle(.plain)
             }
         }
 
@@ -1269,6 +1601,15 @@ struct NativeProfileView: View {
             NativeActionRow(title: "我的片库", subtitle: "浏览正在追、想看和已完成的作品", systemImage: "books.vertical")
         }
         .buttonStyle(.plain)
+
+        if profile?.role == "maintainer" {
+            NavigationLink {
+                NativeAdminView(model: model)
+            } label: {
+                NativeActionRow(title: "管理后台", subtitle: "内容审核与服务概览", systemImage: "shield.lefthalf.filled")
+            }
+            .buttonStyle(.plain)
+        }
 
         Button {
             model.logout { error in message = error ?? "已退出登录" }
@@ -3078,7 +3419,8 @@ private struct NativeCatalogCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             NativeRemoteImage(url: subject.posterURL)
-                .frame(height: 218)
+                .aspectRatio(2 / 3, contentMode: .fit)
+                .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             Text(subject.title)
                 .font(.headline)
@@ -3091,6 +3433,7 @@ private struct NativeCatalogCard: View {
             .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -3100,7 +3443,8 @@ private struct NativeCollectionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             NativeRemoteImage(url: item.posterURL)
-                .frame(height: 218)
+                .aspectRatio(2 / 3, contentMode: .fit)
+                .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             Text(item.title)
                 .font(.headline)
@@ -3113,12 +3457,44 @@ private struct NativeCollectionCard: View {
             .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct NativeRatingRow: View {
+    let rating: NativeProfileRatingSnapshot
+
+    var body: some View {
+        HStack(spacing: 12) {
+            NativeRemoteImage(url: rating.posterURL)
+                .frame(width: 56, height: 78)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            VStack(alignment: .leading, spacing: 6) {
+                Text(rating.title).font(.headline).lineLimit(2)
+                Label("\(rating.score) / 10", systemImage: "star.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.orange)
+                if !rating.tags.isEmpty {
+                    Text(rating.tags.joined(separator: " · "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
 private struct NativeActivityCard: View {
     let item: NativeActivityItemSnapshot
     let destination: AnyView?
+    let onDelete: (() -> Void)?
 
     var body: some View {
         Group {
@@ -3129,6 +3505,11 @@ private struct NativeActivityCard: View {
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if let onDelete {
+                Button("删除内容", role: .destructive, action: onDelete)
+            }
+        }
     }
 
     private func content(subject: NativeSubjectSummary?) -> some View {
@@ -3213,11 +3594,12 @@ private struct NativeInlineError: View {
 
 private struct NativeRemoteImage: View {
     let url: URL?
+    var contentMode: ContentMode = .fit
 
     var body: some View {
         AsyncImage(url: url) { phase in
             switch phase {
-            case .success(let image): image.resizable().scaledToFill()
+            case .success(let image): image.resizable().aspectRatio(contentMode: contentMode)
             case .failure:
                 ZStack {
                     Color.secondary.opacity(0.14)
@@ -3376,6 +3758,15 @@ private extension String {
         case "following": return "关注"
         case "popular": return "热门"
         case "public": return "全站"
+        default: return self
+        }
+    }
+
+    var adminDisplayName: String {
+        switch self {
+        case "published": return "已发布"
+        case "hidden": return "已隐藏"
+        case "deleted": return "已删除"
         default: return self
         }
     }

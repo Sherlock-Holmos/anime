@@ -11,8 +11,10 @@ public data class CommunityActivity(
     val posterUrl: String?,
     val reviewId: String?,
     val listId: String?,
+    val commentId: String? = null,
     val summary: String,
     val occurredAt: String,
+    val owned: Boolean = false,
 )
 
 public data class CommunityFeedPage(
@@ -221,6 +223,9 @@ public interface CommunityRepository {
         tags: Set<String>,
         visibility: String,
     ): Result<Unit>
+
+    public suspend fun deleteRating(subjectId: Long): Result<Unit> =
+        Result.failure(IllegalStateException("Rating service is unavailable"))
 
     public suspend fun createReview(
         subjectId: Long,

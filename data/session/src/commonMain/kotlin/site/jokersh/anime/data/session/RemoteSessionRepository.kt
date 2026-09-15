@@ -368,6 +368,60 @@ public class RemoteSessionRepository(
         }
     }
 
+    override suspend fun ratingsPage(
+        cursor: String?,
+        limit: Int,
+    ): Result<UserRatingPage> {
+        val cursorQuery = cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty()
+        return authenticatedGet(
+            "/api/v1/me/ratings?limit=$limit$cursorQuery",
+        ) { page: RatingPageDto ->
+            UserRatingPage(
+                items = page.items.map { it.toModel(baseUrl) },
+                nextCursor = page.nextCursor,
+            )
+        }
+    }
+
+    override suspend fun adminOverview(): Result<AdminOverview> =
+        authenticatedGet("/api/v1/admin/overview") { body: AdminOverviewDto ->
+            AdminOverview(
+                role = body.role,
+                usersTotal = body.usersTotal,
+                usersActive = body.usersActive,
+                reviewsPublished = body.reviewsPublished,
+                commentsPublished = body.commentsPublished,
+                openCommentReports = body.openCommentReports,
+            )
+        }
+
+    override suspend fun adminComments(status: String?, limit: Int): Result<List<AdminComment>> {
+        require(limit in 1..100) { "admin comment limit must be in 1..100" }
+        val statusQuery = status?.let { "&status=${it.encodeURLParameter()}" }.orEmpty()
+        return authenticatedGet("/api/v1/admin/comments?limit=$limit$statusQuery") { items: List<AdminCommentDto> ->
+            items.map {
+                AdminComment(
+                    id = it.id,
+                    subjectId = it.subjectId,
+                    subjectTitle = it.subjectTitle,
+                    authorId = it.authorId,
+                    authorName = it.authorName,
+                    body = it.body,
+                    spoiler = it.spoiler,
+                    moderationStatus = it.moderationStatus,
+                    createdAt = it.createdAt,
+                    editedAt = it.editedAt,
+                )
+            }
+        }
+    }
+
+    override suspend fun moderateComment(id: String, action: String, reason: String?): Result<Unit> =
+        authenticatedPost(
+            "/api/v1/admin/comments/$id/moderation",
+            AdminModerationRequest(action = action, reason = reason),
+        )
+
     private suspend inline fun <reified T, R> authenticatedGet(
         path: String,
         transform: (T) -> R,
@@ -496,6 +550,7 @@ public class RemoteSessionRepository(
                     listCount = body.listCount,
                     collections = body.collections.map { it.toModel(baseUrl) },
                     syncedAt = Instant.fromEpochSeconds(body.syncedAt),
+                    role = body.user.role,
                 ),
             expiresAt = expiresAt,
         )
@@ -587,6 +642,7 @@ private data class LoginUser(
     val id: String,
     @SerialName("display_name") val displayName: String,
     @SerialName("avatar_url") val avatarUrl: String,
+    val role: String = "user",
 )
 
 @Serializable
@@ -714,3 +770,63 @@ private data class CollectionPageDto(
     val items: List<RemoteCollectionSummary>,
     @SerialName("next_cursor") val nextCursor: String? = null,
 )
+
+@Serializable
+private data class RatingPageDto(
+    val items: List<RemoteRatingSummary>,
+    @SerialName("next_cursor") val nextCursor: String? = null,
+)
+
+@Serializable
+private data class AdminOverviewDto(
+    val role: String,
+    @SerialName("users_total") val usersTotal: Long,
+    @SerialName("users_active") val usersActive: Long,
+    @SerialName("reviews_published") val reviewsPublished: Long,
+    @SerialName("comments_published") val commentsPublished: Long,
+    @SerialName("open_comment_reports") val openCommentReports: Long,
+)
+
+@Serializable
+private data class AdminCommentDto(
+    val id: String,
+    @SerialName("subject_id") val subjectId: Long? = null,
+    @SerialName("subject_title") val subjectTitle: String? = null,
+    @SerialName("author_id") val authorId: String,
+    @SerialName("author_name") val authorName: String,
+    val body: String,
+    val spoiler: Boolean,
+    @SerialName("moderation_status") val moderationStatus: String,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("edited_at") val editedAt: String? = null,
+)
+
+@Serializable
+private data class AdminModerationRequest(
+    val action: String,
+    val reason: String? = null,
+)
+
+@Serializable
+private data class RemoteRatingSummary(
+    val id: String,
+    @SerialName("subject_id") val subjectId: Long,
+    val title: String,
+    @SerialName("poster_url") val posterUrl: String? = null,
+    val score: Int,
+    val tags: List<String> = emptyList(),
+    val visibility: String = "public",
+    @SerialName("updated_at") val updatedAt: String,
+) {
+    fun toModel(baseUrl: String) =
+        UserRatingSummary(
+            id = id,
+            subjectId = subjectId,
+            title = title,
+            posterUrl = posterUrl?.let { resolveUrl(baseUrl, it) },
+            score = score,
+            tags = tags,
+            visibility = visibility,
+            updatedAt = updatedAt,
+        )
+}

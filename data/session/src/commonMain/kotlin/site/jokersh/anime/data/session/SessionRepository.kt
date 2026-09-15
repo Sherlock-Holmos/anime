@@ -61,11 +61,69 @@ public interface SessionRepository {
         cursor: String? = null,
         limit: Int = 30,
     ): Result<UserCollectionPage> = Result.failure(IllegalStateException("Collection service is unavailable"))
+
+    public suspend fun ratingsPage(
+        cursor: String? = null,
+        limit: Int = 30,
+    ): Result<UserRatingPage> = Result.failure(IllegalStateException("Rating service is unavailable"))
+
+    public suspend fun adminOverview(): Result<AdminOverview> =
+        Result.failure(IllegalStateException("Admin service is unavailable"))
+
+    public suspend fun adminComments(
+        status: String? = null,
+        limit: Int = 50,
+    ): Result<List<AdminComment>> =
+        Result.failure(IllegalStateException("Admin service is unavailable"))
+
+    public suspend fun moderateComment(
+        id: String,
+        action: String,
+        reason: String? = null,
+    ): Result<Unit> = Result.failure(IllegalStateException("Admin service is unavailable"))
 }
 
 public data class UserCollectionPage(
     val items: List<UserCollectionSummary>,
     val nextCursor: String?,
+)
+
+public data class UserRatingPage(
+    val items: List<UserRatingSummary>,
+    val nextCursor: String?,
+)
+
+public data class UserRatingSummary(
+    val id: String,
+    val subjectId: Long,
+    val title: String,
+    val posterUrl: String?,
+    val score: Int,
+    val tags: List<String>,
+    val visibility: String,
+    val updatedAt: String,
+)
+
+public data class AdminOverview(
+    val role: String,
+    val usersTotal: Long,
+    val usersActive: Long,
+    val reviewsPublished: Long,
+    val commentsPublished: Long,
+    val openCommentReports: Long,
+)
+
+public data class AdminComment(
+    val id: String,
+    val subjectId: Long?,
+    val subjectTitle: String?,
+    val authorId: String,
+    val authorName: String,
+    val body: String,
+    val spoiler: Boolean,
+    val moderationStatus: String,
+    val createdAt: String,
+    val editedAt: String?,
 )
 
 public data class ServiceDiagnostic(

@@ -78,11 +78,15 @@ import site.jokersh.anime.data.comment.RemoteCommunityRepository
 import site.jokersh.anime.data.session.RemoteSessionRepository
 import site.jokersh.anime.data.session.BangumiSyncConflict
 import site.jokersh.anime.data.session.BangumiSyncStatus
+import site.jokersh.anime.data.session.AdminOverview
+import site.jokersh.anime.data.session.AdminComment
 import site.jokersh.anime.data.session.ServiceDiagnostic
 import site.jokersh.anime.data.session.ServiceDiagnosticEndpoint
 import site.jokersh.anime.data.session.SessionTokenStore
 import site.jokersh.anime.data.session.StoredSessionToken
 import site.jokersh.anime.data.session.SyncConflictChoice
+import site.jokersh.anime.data.session.UserRatingPage
+import site.jokersh.anime.data.session.UserRatingSummary
 import site.jokersh.anime.data.settings.PersistentSettingsRepository
 import site.jokersh.anime.data.settings.SettingsStore
 import kotlin.time.Instant
@@ -496,6 +500,36 @@ public class IosNativeAppFacade internal constructor(
             result.getOrNull()?.let { json.encodeToString(NativeCollectionPageSnapshot.serializer(), it.toNativeSnapshot()) } to result.exceptionOrNull()?.message
         }
 
+    public fun loadMyRatings(
+        cursor: String?,
+        completion: (String?, String?) -> Unit,
+    ) =
+        launchTextOperation("my ratings", completion) {
+            val result = appContainer.sessionRepository.ratingsPage(cursor = cursor, limit = 30)
+            result.getOrNull()?.let {
+                json.encodeToString(NativeProfileRatingPageSnapshot.serializer(), it.toNativeSnapshot())
+            } to result.exceptionOrNull()?.message
+        }
+
+    public fun loadAdminOverview(completion: (String?, String?) -> Unit) =
+        launchTextOperation("admin overview", completion) {
+            val result = appContainer.sessionRepository.adminOverview()
+            result.getOrNull()?.let {
+                json.encodeToString(NativeAdminOverviewSnapshot.serializer(), it.toNativeSnapshot())
+            } to result.exceptionOrNull()?.message
+        }
+
+    public fun loadAdminComments(status: String?, completion: (String?, String?) -> Unit) =
+        launchTextOperation("admin comments", completion) {
+            val result = appContainer.sessionRepository.adminComments(status = status, limit = 100)
+            result.getOrNull()?.let {
+                json.encodeToString(
+                    ListSerializer(NativeAdminCommentSnapshot.serializer()),
+                    it.map(AdminComment::toNativeSnapshot),
+                )
+            } to result.exceptionOrNull()?.message
+        }
+
     public fun loadActivity(
         feed: String,
         cursor: String?,
@@ -611,6 +645,24 @@ public class IosNativeAppFacade internal constructor(
         completion: (String?) -> Unit,
     ) {
         scope.launch { completion(appContainer.communityRepository.deleteComment(id).exceptionOrNull()?.message) }
+    }
+
+    public fun deleteRating(
+        subjectId: Long,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch { completion(appContainer.communityRepository.deleteRating(subjectId).exceptionOrNull()?.message) }
+    }
+
+    public fun moderateComment(
+        id: String,
+        action: String,
+        reason: String?,
+        completion: (String?) -> Unit,
+    ) {
+        scope.launch {
+            completion(appContainer.sessionRepository.moderateComment(id, action, reason).exceptionOrNull()?.message)
+        }
     }
 
     public fun reportComment(
@@ -1267,6 +1319,48 @@ internal data class NativeCollectionItemSnapshot(
 )
 
 @Serializable
+internal data class NativeProfileRatingPageSnapshot(
+    val items: List<NativeProfileRatingSnapshot>,
+    val nextCursor: String? = null,
+)
+
+@Serializable
+internal data class NativeProfileRatingSnapshot(
+    val id: String,
+    val subjectId: Long,
+    val title: String,
+    val posterUrl: String? = null,
+    val score: Int,
+    val tags: List<String> = emptyList(),
+    val visibility: String,
+    val updatedAt: String,
+)
+
+@Serializable
+internal data class NativeAdminOverviewSnapshot(
+    val role: String,
+    val usersTotal: Long,
+    val usersActive: Long,
+    val reviewsPublished: Long,
+    val commentsPublished: Long,
+    val openCommentReports: Long,
+)
+
+@Serializable
+internal data class NativeAdminCommentSnapshot(
+    val id: String,
+    val subjectId: Long? = null,
+    val subjectTitle: String? = null,
+    val authorId: String,
+    val authorName: String,
+    val body: String,
+    val spoiler: Boolean,
+    val moderationStatus: String,
+    val createdAt: String,
+    val editedAt: String? = null,
+)
+
+@Serializable
 internal data class NativeActivityPageSnapshot(
     val items: List<NativeActivityItemSnapshot>,
     val nextCursor: String? = null,
@@ -1284,8 +1378,10 @@ internal data class NativeActivityItemSnapshot(
     val posterUrl: String? = null,
     val reviewId: String? = null,
     val listId: String? = null,
+    val commentId: String? = null,
     val summary: String,
     val occurredAt: String,
+    val owned: Boolean = false,
 )
 
 @Serializable
@@ -1317,6 +1413,7 @@ internal data class NativeProfileSnapshot(
     val onHoldCount: Int,
     val droppedCount: Int,
     val syncedAt: String? = null,
+    val role: String = "user",
 )
 
 @Serializable
@@ -1571,8 +1668,10 @@ private fun CommunityActivity.toNativeSnapshot(): NativeActivityItemSnapshot =
         posterUrl = posterUrl,
         reviewId = reviewId,
         listId = listId,
+        commentId = commentId,
         summary = summary,
         occurredAt = occurredAt,
+        owned = owned,
     )
 
 private fun CommunityNotification.toNativeSnapshot(): NativeNotificationSnapshot =
@@ -1604,6 +1703,49 @@ private fun UserProfile.toNativeSnapshot(): NativeProfileSnapshot =
         onHoldCount = collectionCounts[CollectionStatus.OnHold] ?: 0,
         droppedCount = collectionCounts[CollectionStatus.Dropped] ?: 0,
         syncedAt = syncedAt?.toString(),
+        role = role,
+    )
+
+private fun UserRatingPage.toNativeSnapshot(): NativeProfileRatingPageSnapshot =
+    NativeProfileRatingPageSnapshot(
+        items = items.map(UserRatingSummary::toNativeSnapshot),
+        nextCursor = nextCursor,
+    )
+
+private fun UserRatingSummary.toNativeSnapshot(): NativeProfileRatingSnapshot =
+    NativeProfileRatingSnapshot(
+        id = id,
+        subjectId = subjectId,
+        title = title,
+        posterUrl = posterUrl,
+        score = score,
+        tags = tags,
+        visibility = visibility,
+        updatedAt = updatedAt,
+    )
+
+private fun AdminOverview.toNativeSnapshot(): NativeAdminOverviewSnapshot =
+    NativeAdminOverviewSnapshot(
+        role = role,
+        usersTotal = usersTotal,
+        usersActive = usersActive,
+        reviewsPublished = reviewsPublished,
+        commentsPublished = commentsPublished,
+        openCommentReports = openCommentReports,
+    )
+
+private fun AdminComment.toNativeSnapshot(): NativeAdminCommentSnapshot =
+    NativeAdminCommentSnapshot(
+        id = id,
+        subjectId = subjectId,
+        subjectTitle = subjectTitle,
+        authorId = authorId,
+        authorName = authorName,
+        body = body,
+        spoiler = spoiler,
+        moderationStatus = moderationStatus,
+        createdAt = createdAt,
+        editedAt = editedAt,
     )
 
 private fun ServiceDiagnostic.toNativeSnapshot(): NativeDiagnosticSnapshot =
