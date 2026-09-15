@@ -143,6 +143,16 @@ class FixtureSearchRepositoryContractTest : SearchRepositoryContract() {
 
 class FixtureSearchRepositoryTest {
     @Test
+    fun `CT-SEA-008 fixture search supports empty query for browse filters`() =
+        runTest {
+            val repository = FixtureSearchRepository(readDelayMs = 0)
+            val page = repository.search(SearchRequest(query = "", pageSize = 5)).getOrThrow()
+
+            assertEquals(5, page.items.size)
+            assertTrue(page.hasMore)
+        }
+
+    @Test
     fun `CT-SEA-006 fixture search supports deterministic pagination`() =
         runTest {
             val repository = FixtureSearchRepository(readDelayMs = 0)

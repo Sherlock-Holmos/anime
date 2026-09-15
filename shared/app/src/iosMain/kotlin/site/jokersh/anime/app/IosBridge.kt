@@ -435,11 +435,8 @@ public class IosNativeAppFacade internal constructor(
     ) =
         launchTextOperation("search", completion) {
             val normalized = query.trim()
-            if (normalized.isBlank()) {
-                null to "请输入搜索内容"
-            } else {
-                val result =
-                    runCatching {
+            val result =
+                runCatching {
                         val filters = filtersCsv.split('|')
                         val typesCsv = filters.getOrNull(0)
                         val yearStart = filters.getOrNull(1)?.toIntOrNull()
@@ -471,15 +468,14 @@ public class IosNativeAppFacade internal constructor(
                                 pageSize = appContainer.profile.searchPageSize,
                             ),
                         ).getOrThrow()
-                    }
-                result.getOrNull()?.let {
-                    json.encodeToString(
-                        NativeSearchResultsSnapshot.serializer(),
-                        it.toNativeSearchSnapshot { subject -> subject.toNativeSummary() },
-                    )
-                } to
-                    result.exceptionOrNull()?.message
-            }
+                }
+            result.getOrNull()?.let {
+                json.encodeToString(
+                    NativeSearchResultsSnapshot.serializer(),
+                    it.toNativeSearchSnapshot { subject -> subject.toNativeSummary() },
+                )
+            } to
+                result.exceptionOrNull()?.message
         }
 
     public fun saveSearchHistory(query: String) {

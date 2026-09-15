@@ -12,8 +12,8 @@ public data class SearchRequest(
     public val pageSize: Int,
 ) {
     init {
-        require(query == query.trim() && query.unicodeCodePointCount() in 1..100) {
-            "query must be trimmed and contain 1..100 Unicode code points"
+        require(query == query.trim() && query.unicodeCodePointCount() in 0..100) {
+            "query must be trimmed and contain 0..100 Unicode code points"
         }
         require(pageSize in 1..50) { "pageSize must be in 1..50" }
         require(years == null || years.first >= 1900) { "year range must start at 1900 or later" }

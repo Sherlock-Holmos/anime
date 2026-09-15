@@ -252,7 +252,12 @@ private val fixtureSubjects: Map<Long, SubjectSummary> =
 
 private fun searchCandidates(query: String): List<SubjectSummary> {
     val normalized = query.trim()
-    if (normalized.isBlank()) return emptyList()
+    if (normalized.isBlank()) {
+        return fixtureSubjects.values.sortedWith(
+            compareByDescending<SubjectSummary> { subject -> subject.rating?.score ?: 0.0 }
+                .thenBy { subject -> subject.id.value },
+        )
+    }
     val lower = normalized.lowercase()
     return fixtureSubjects.values
         .filter { subject ->
