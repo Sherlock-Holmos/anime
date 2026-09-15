@@ -1295,13 +1295,20 @@ private struct NativeSubjectCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            NativePosterImage(
-                url: subject.posterURL,
-                width: fixedWidth,
-                height: fixedWidth.map { $0 * 4 / 3 } ?? 218,
-                aspectRatio: fixedWidth == nil ? 3 / 4 : nil,
-                cornerRadius: 16,
-            )
+            if let fixedWidth {
+                NativePosterImage(
+                    url: subject.posterURL,
+                    width: fixedWidth,
+                    height: fixedWidth * 4 / 3,
+                    cornerRadius: 16,
+                )
+            } else {
+                NativePosterImage(
+                    url: subject.posterURL,
+                    aspectRatio: 3 / 4,
+                    cornerRadius: 16,
+                )
+            }
 
             Text(subject.title)
                 .font(.headline)

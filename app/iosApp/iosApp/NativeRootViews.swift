@@ -3698,12 +3698,33 @@ struct NativePosterImage: View {
     }
 
     var body: some View {
-        NativeRemoteImage(url: url, contentMode: .fill)
-            .frame(width: width, height: height)
-            .aspectRatio(aspectRatio, contentMode: .fill)
-            .frame(maxWidth: width == nil ? .infinity : nil)
+        Group {
+            if let width, let height {
+                posterImage
+                    .frame(width: width, height: height)
+            } else {
+                posterImage
+                    .aspectRatio(aspectRatio ?? 3 / 4, contentMode: .fill)
+                    .frame(maxWidth: .infinity)
+            }
+        }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    private var posterImage: some View {
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let image): image.resizable().scaledToFill()
+            case .failure:
+                ZStack {
+                    Color.secondary.opacity(0.14)
+                    Image(systemName: "photo").foregroundStyle(.secondary)
+                }
+            default: Color.secondary.opacity(0.12)
+            }
+        }
+        .clipped()
     }
 }
 
