@@ -841,6 +841,11 @@ struct NativeLibraryView: View {
 
     private func browseRating() {
         query = ""
+        selectedType = "all"
+        selectedAiring = "all"
+        selectedSort = "rating"
+        yearStartText = ""
+        yearEndText = ""
         currentBrowseMode = .rating
         currentSectionID = nil
         hasSubmittedSearch = true
@@ -850,6 +855,12 @@ struct NativeLibraryView: View {
 
     private func browseSeasonal() {
         query = ""
+        selectedType = "all"
+        selectedAiring = "airing"
+        selectedSort = "updated"
+        let year = Calendar.current.component(.year, from: Date())
+        yearStartText = String(year)
+        yearEndText = String(year)
         currentBrowseMode = .seasonal
         currentSectionID = nil
         hasSubmittedSearch = true
