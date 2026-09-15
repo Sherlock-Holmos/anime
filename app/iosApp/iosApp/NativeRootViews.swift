@@ -382,6 +382,7 @@ struct NativeReactionSnapshot: Codable {
 
 struct NativeLibraryView: View {
     @ObservedObject var model: NativeAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var libraryTitleOpacity = 1.0
     @State private var query = ""
     @State private var results: [NativeSubjectSummary] = []
@@ -504,7 +505,7 @@ struct NativeLibraryView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(discovery.personalized ? "为你推荐" : "精选作品")
                         .font(.title3.weight(.bold))
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 18) {
+                    LazyVGrid(columns: posterGridColumns, spacing: 18) {
                         ForEach(discovery.recommendations) { subject in
                             NavigationLink(value: subject) {
                                 NativeCatalogCard(subject: subject)
@@ -532,7 +533,7 @@ struct NativeLibraryView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 18) {
+            LazyVGrid(columns: posterGridColumns, spacing: 18) {
                 ForEach(results) { subject in
                     NavigationLink(value: subject) {
                         NativeCatalogCard(subject: subject)
@@ -546,6 +547,13 @@ struct NativeLibraryView: View {
                     .buttonStyle(.bordered)
             }
         }
+    }
+
+    private var posterGridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 12),
+            count: horizontalSizeClass == .regular ? 4 : 2,
+        )
     }
 
     private func submitSearch() {
@@ -711,6 +719,7 @@ private struct NativeSearchFiltersSheet: View {
 
 struct NativeCollectionView: View {
     @ObservedObject var model: NativeAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedStatus = "Watching"
     @State private var errorMessage: String?
 
@@ -735,7 +744,7 @@ struct NativeCollectionView: View {
                         NativeInlineError(message: errorMessage) { loadCollection(selectedStatus) }
                     }
                     if let page = model.collectionPage, !page.items.isEmpty {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)], spacing: 18) {
+                        LazyVGrid(columns: posterGridColumns, spacing: 18) {
                             ForEach(page.items) { item in
                                 NavigationLink {
                                     NativeSubjectDetailView(summary: item.subjectSummary, model: model)
@@ -802,6 +811,13 @@ struct NativeCollectionView: View {
         model.loadCollection(status: status) { _, error in
             errorMessage = error
         }
+    }
+
+    private var posterGridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 12),
+            count: horizontalSizeClass == .regular ? 4 : 2,
+        )
     }
 }
 
@@ -3703,9 +3719,12 @@ struct NativePosterImage: View {
                 posterImage
                     .frame(width: width, height: height)
             } else {
-                posterImage
-                    .aspectRatio(aspectRatio ?? 3 / 4, contentMode: .fill)
-                    .frame(maxWidth: .infinity)
+                Rectangle()
+                    .fill(Color.clear)
+                    .aspectRatio(aspectRatio ?? 3 / 4, contentMode: .fit)
+                    .overlay {
+                        posterImage
+                    }
             }
         }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))

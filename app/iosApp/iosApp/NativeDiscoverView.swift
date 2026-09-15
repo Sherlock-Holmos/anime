@@ -1221,10 +1221,11 @@ private struct NativeDiscoverySectionView: View {
 private struct NativeDiscoverySectionListView: View {
     let section: NativeDiscoverySection
     @ObservedObject var model: NativeAppModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 20) {
+            LazyVGrid(columns: posterGridColumns, spacing: 20) {
                 ForEach(section.subjects) { subject in
                     NavigationLink(value: subject) {
                         NativeSubjectCard(subject: subject, fixedWidth: nil)
@@ -1242,6 +1243,13 @@ private struct NativeDiscoverySectionListView: View {
         .navigationDestination(for: NativeSubjectSummary.self) { subject in
             NativeSubjectDetailView(summary: subject, model: model)
         }
+    }
+
+    private var posterGridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 14),
+            count: horizontalSizeClass == .regular ? 4 : 2,
+        )
     }
 }
 
