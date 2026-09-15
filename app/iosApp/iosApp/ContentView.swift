@@ -52,10 +52,12 @@ struct ContentView: View {
         // `sparkles.magnifyingglass` is not rendered consistently by every SF Symbols
         // catalog shipped with Xcode. Use the stable discovery symbol so the first tab
         // always has a visible native icon.
-        (AnimeL10n.string(.discover), "sparkles"),
-        (AnimeL10n.string(.library), "books.vertical"),
-        (AnimeL10n.string(.activity), "bubble.left.and.bubble.right"),
-        (AnimeL10n.string(.profile), "person.crop.circle"),
+        [
+            (AnimeL10n.string(.discover), "sparkles"),
+            (AnimeL10n.string(.library), "books.vertical"),
+            (AnimeL10n.string(.activity), "bubble.left.and.bubble.right"),
+            (AnimeL10n.string(.profile), "person.crop.circle"),
+        ]
     }
 
     private var preferredColorScheme: ColorScheme? {
