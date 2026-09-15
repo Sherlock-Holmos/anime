@@ -1602,7 +1602,7 @@ struct NativeProfileView: View {
         }
         .buttonStyle(.plain)
 
-        if profile?.role == "maintainer" {
+        if model.profile?.role == "maintainer" {
             NavigationLink {
                 NativeAdminView(model: model)
             } label: {
