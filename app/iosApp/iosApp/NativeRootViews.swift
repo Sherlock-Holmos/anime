@@ -915,6 +915,7 @@ struct NativeMyReviewsView: View {
         .task { load() }
         .refreshable { await refresh() }
     }
+    }
 
     private func load() {
         guard let userId = model.session.userId else { return }
