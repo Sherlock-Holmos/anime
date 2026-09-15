@@ -1675,7 +1675,7 @@ struct NativeProfileView: View {
         Button {
             model.logout { error in message = error ?? AnimeL10n.string(.profileLoggedOut) }
         } label: {
-            NativeActionRow(title: AnimeL10n.key(.actionLogout), subtitle: AnimeL10n.string(.profileLogoutDescription), systemImage: "rectangle.portrait.and.arrow.right", tint: .red)
+            NativeActionRow(title: AnimeL10n.string(.actionLogout), subtitle: AnimeL10n.string(.profileLogoutDescription), systemImage: "rectangle.portrait.and.arrow.right", tint: .red)
         }
         .buttonStyle(.plain)
     }
@@ -2531,10 +2531,10 @@ struct NativeSubjectCommunityView: View {
                 .disabled(model.isRestoringSession || isSavingRating)
 
                 Menu {
-                    ForEach(collectionStatuses, id: \.0) { status in
+                    ForEach(collectionStatuses, id: \.self) { status in
                         Button(status.collectionDisplayName) {
                             guard authorizeWrite() else { return }
-                            saveCollection(status.0)
+                            saveCollection(status)
                         }
                     }
                     Divider()

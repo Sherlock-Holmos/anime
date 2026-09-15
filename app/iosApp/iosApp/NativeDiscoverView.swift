@@ -1600,7 +1600,7 @@ private extension NativeSubjectSummary {
     var posterURL: URL? { posterUrl.flatMap(URL.init(string:)) }
 }
 
-private extension String {
+extension String {
     var displayName: String {
         switch self {
         case "Tv": return AnimeL10n.string(.subjectTypeTv)
