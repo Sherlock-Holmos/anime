@@ -24,4 +24,6 @@
     <string name="discover_error_data">The content data is invalid.</string>
     <string name="discover_error_unknown">Loading failed, but existing content is safe.</string>
     <string name="discover_error_action">Try Again</string>
+    <string name="discover_calendar">Airing Calendar</string><string name="discover_previous">Previous Recommendation</string><string name="discover_next">Next Recommendation</string><string name="discover_hero_page">Recommendation %1$d</string><string name="discover_all_subjects">All Titles</string><string name="discover_subject_count">%1$d titles</string>
+    <string name="discover_continue_description">Continue where you left off</string><string name="discover_airing_description_alt">What everyone is watching now</string><string name="discover_top_rated_description_alt">Highly rated by Bangumi</string><string name="discover_upcoming_description">New titles worth watching early</string><string name="discover_curated_description">Collected for you</string>
 </resources>

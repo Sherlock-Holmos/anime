@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
@@ -58,6 +59,9 @@ import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.StatePaneKind
 import site.jokersh.anime.core.designsystem.StatePaneModel
 import site.jokersh.anime.core.model.SubjectId
+import site.jokersh.anime.core.model.AiringStatus
+import site.jokersh.anime.core.model.FreshnessKind
+import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.feature.subject.generated.resources.Res
 import site.jokersh.anime.feature.subject.generated.resources.subject_back
 import site.jokersh.anime.feature.subject.generated.resources.subject_bangumi
@@ -75,6 +79,7 @@ import site.jokersh.anime.feature.subject.generated.resources.subject_source
 import site.jokersh.anime.feature.subject.generated.resources.subject_status
 import site.jokersh.anime.feature.subject.generated.resources.subject_summary
 import site.jokersh.anime.feature.subject.generated.resources.subject_votes
+import site.jokersh.anime.feature.subject.generated.resources.*
 
 @Composable
 public fun SubjectScreen(
@@ -179,7 +184,7 @@ private fun SubjectContent(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
             ) {
                 Text(
-                    content.dataStatusLabel,
+                    content.dataStatusLabel(),
                     modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.xs),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
@@ -299,7 +304,7 @@ private fun SubjectHero(
                         )
                     }
                     Text(
-                        text = content.metadata,
+                        text = content.metadataLabel(),
                         style = MaterialTheme.typography.labelLarge,
                         color = Color.White.copy(alpha = 0.84f),
                         maxLines = 2,
@@ -309,7 +314,7 @@ private fun SubjectHero(
                         content.score?.let { score ->
                             Surface(shape = RoundedCornerShape(AnimeRadius.round), color = Color.White.copy(alpha = 0.18f)) {
                                 Text(
-                                    text = "评分 $score",
+                                    text = stringResource(Res.string.subject_score, score),
                                     modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.xs),
                                     color = Color.White,
                                     style = MaterialTheme.typography.labelLarge,
@@ -319,7 +324,7 @@ private fun SubjectHero(
                         }
                         Surface(shape = RoundedCornerShape(AnimeRadius.round), color = Color.White.copy(alpha = 0.14f)) {
                             Text(
-                                text = content.status,
+                                text = content.statusLabel(),
                                 modifier = Modifier.padding(horizontal = AnimeSpacing.md, vertical = AnimeSpacing.xs),
                                 color = Color.White.copy(alpha = 0.9f),
                                 style = MaterialTheme.typography.labelSmall,
@@ -334,7 +339,7 @@ private fun SubjectHero(
                     state.actionMessage?.let { message ->
                         Text(
                             text = message,
-                            color = if (message.contains("失败")) Color(0xFFFFB4AB) else Color.White.copy(alpha = 0.86f),
+                            color = Color.White.copy(alpha = 0.86f),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -344,14 +349,56 @@ private fun SubjectHero(
     }
 }
 
+@Composable
 private fun String?.collectionLabel(): String =
+    stringResource(
+        when (this) {
+            "watching" -> Res.string.subject_collection_watching
+            "completed" -> Res.string.subject_collection_completed
+            "onhold" -> Res.string.subject_collection_on_hold
+            "dropped" -> Res.string.subject_collection_dropped
+            else -> Res.string.subject_collection_wish
+        },
+    )
+
+@Composable
+private fun SubjectContentUi.metadataLabel(): String =
+    stringResource(
+        Res.string.subject_metadata,
+        year?.toString() ?: "—",
+        stringResource(type.resource()),
+        stringResource(airingStatus.resource()),
+    )
+
+@Composable
+private fun SubjectContentUi.statusLabel(): String = stringResource(airingStatus.resource())
+
+@Composable
+private fun SubjectContentUi.dataStatusLabel(): String =
+    stringResource(
+        when (freshness) {
+            FreshnessKind.OfflineCache -> Res.string.subject_fresh_offline
+            FreshnessKind.Stale -> Res.string.subject_fresh_stale
+            else -> Res.string.subject_fresh_remote
+        },
+        dataUpdatedAt,
+    )
+
+private fun SubjectType.resource(): StringResource =
     when (this) {
-        null -> "加入想看"
-        "watching" -> "正在观看"
-        "completed" -> "已看完"
-        "onhold" -> "已搁置"
-        "dropped" -> "已停止观看"
-        else -> "已加入想看"
+        SubjectType.Tv -> Res.string.subject_type_tv
+        SubjectType.Web -> Res.string.subject_type_web
+        SubjectType.Ova -> Res.string.subject_type_ova
+        SubjectType.Movie -> Res.string.subject_type_movie
+        SubjectType.Other -> Res.string.subject_type_other
+    }
+
+private fun AiringStatus.resource(): StringResource =
+    when (this) {
+        AiringStatus.Announced -> Res.string.subject_airing_announced
+        AiringStatus.Airing -> Res.string.subject_airing_airing
+        AiringStatus.Finished -> Res.string.subject_airing_finished
+        AiringStatus.Unknown -> Res.string.subject_airing_unknown
     }
 
 @Composable
@@ -359,20 +406,27 @@ private fun RatingOverview(
     content: SubjectContentUi,
     compact: Boolean,
 ) {
+    val distributionParts = mutableListOf<String>()
+    for (entry in content.ratingDistribution.entries.sortedByDescending { it.key }.take(3)) {
+        distributionParts += stringResource(Res.string.subject_rating_distribution, entry.key, entry.value)
+    }
+    val distribution = distributionParts.joinToString(" / ")
+    val source = stringResource(Res.string.subject_bangumi_rating)
+    val detail =
+        if (content.score == null) {
+            stringResource(Res.string.subject_no_rating)
+        } else {
+            stringResource(
+                Res.string.subject_rating_detail,
+                content.votes,
+                distribution,
+            )
+        }
     val rating: @Composable (Modifier) -> Unit = { modifier ->
         RatingSourceCard(
-            source = "Bangumi 评分",
+            source = source,
             score = content.score ?: "—",
-            detail =
-                if (content.score ==
-                    null
-                ) {
-                    "暂无评分"
-                } else {
-                    "${content.votes} 人评分 · ${content.ratingDistribution.entries.sortedByDescending { it.key }.take(
-                        3,
-                    ).joinToString(" / ") { "${it.key}分 ${it.value}" }}"
-                },
+            detail = detail,
             highlighted = true,
             modifier = modifier,
         )
@@ -443,7 +497,7 @@ private fun CommunityPreview(
     wide: Boolean,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
-        Text("社区", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(Res.string.subject_community), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         val reviews: @Composable (Modifier) -> Unit = { modifier ->
             Surface(
                 modifier = modifier,
@@ -452,7 +506,7 @@ private fun CommunityPreview(
             ) {
                 Column(Modifier.padding(AnimeSpacing.xl), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
                     Text(
-                        "评价与讨论",
+                        stringResource(Res.string.subject_review_discussion),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
@@ -461,21 +515,21 @@ private fun CommunityPreview(
                     val comment = state.comments.firstOrNull()
                     when {
                         state.communityError != null -> {
-                            Text("社区内容暂时不可用", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(Res.string.subject_community_unavailable), color = MaterialTheme.colorScheme.error)
                             Text(
-                                "稍后可重试，作品资料和 Bangumi 评分仍可正常查看。",
+                                stringResource(Res.string.subject_community_unavailable_message),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
 
                         state.communityLoading -> {
-                            Text("正在加载社区内容…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(Res.string.subject_community_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         review !=
                             null -> {
                             Text(
-                                review.title ?: "最新短评",
+                                review.title ?: stringResource(Res.string.subject_latest_review),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                             )
@@ -485,23 +539,23 @@ private fun CommunityPreview(
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            AnimeSecondaryButton("阅读评价", { onReviewClick(review.id) })
+                            AnimeSecondaryButton(stringResource(Res.string.subject_read_review), { onReviewClick(review.id) })
                         }
 
                         comment !=
                             null -> {
-                            Text("${comment.authorName} 的讨论", fontWeight = FontWeight.Bold)
+                            Text(stringResource(Res.string.subject_comment_title, comment.authorName), fontWeight = FontWeight.Bold)
                             Text(comment.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         else -> {
-                            Text("还没有评价，来写下第一条记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(Res.string.subject_no_reviews_action), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-                        AnimeSecondaryButton("全部短评", onReviewsClick)
-                        AnimeSecondaryButton("写评价", onRatingClick)
-                        AnimeSecondaryButton("参与讨论", onCommentsClick)
+                        AnimeSecondaryButton(stringResource(Res.string.subject_all_reviews), onReviewsClick)
+                        AnimeSecondaryButton(stringResource(Res.string.subject_write_review), onRatingClick)
+                        AnimeSecondaryButton(stringResource(Res.string.subject_join_discussion), onCommentsClick)
                     }
                 }
             }
@@ -514,7 +568,7 @@ private fun CommunityPreview(
             ) {
                 Column(Modifier.padding(AnimeSpacing.xl), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
                     Text(
-                        "社区片单",
+                        stringResource(Res.string.subject_community_lists),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
@@ -523,15 +577,15 @@ private fun CommunityPreview(
                     if (list ==
                         null
                     ) {
-                        Text("还没有公开片单", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        AnimeSecondaryButton("创建片单", { onListClick("new") })
+                        Text(stringResource(Res.string.subject_no_public_lists), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        AnimeSecondaryButton(stringResource(Res.string.subject_create_list), { onListClick("new") })
                     } else {
                         Text(list.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            "${list.itemCount} 部作品 · ${list.ownerName}",
+                            stringResource(Res.string.subject_list_summary, list.itemCount, list.ownerName),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        AnimeSecondaryButton("查看片单", { onListClick(list.id) })
+                        AnimeSecondaryButton(stringResource(Res.string.subject_view_list), { onListClick(list.id) })
                     }
                 }
             }
@@ -575,7 +629,7 @@ private fun SubjectInformation(
         content.episodeCount?.toString() ?: stringResource(Res.string.subject_episode_unknown),
     )
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
-    InformationRow(stringResource(Res.string.subject_status), content.status)
+    InformationRow(stringResource(Res.string.subject_status), content.statusLabel())
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
     InformationRow(
         stringResource(Res.string.subject_source),
@@ -586,9 +640,9 @@ private fun SubjectInformation(
         horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
         verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
     ) {
-        AnimeSecondaryButton("分集", onEpisodesClick)
-        AnimeSecondaryButton("角色", onCharactersClick)
-        AnimeSecondaryButton("关联", onRelationsClick)
+        AnimeSecondaryButton(stringResource(Res.string.subject_type_episodes), onEpisodesClick)
+        AnimeSecondaryButton(stringResource(Res.string.subject_type_characters), onCharactersClick)
+        AnimeSecondaryButton(stringResource(Res.string.subject_type_relations), onRelationsClick)
     }
 }
 

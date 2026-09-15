@@ -13,11 +13,11 @@ enum NativeLanguagePreference: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .system: return "跟随系统"
-        case .simplifiedChinese: return "简体中文"
-        case .traditionalChinese: return "繁体中文"
-        case .english: return "English"
-        case .japanese: return "日本語"
+        case .system: return AnimeL10n.string(.profileSystem)
+        case .simplifiedChinese: return AnimeL10n.string(.profileSimplifiedChinese)
+        case .traditionalChinese: return AnimeL10n.string(.profileTraditionalChinese)
+        case .english: return AnimeL10n.string(.profileEnglish)
+        case .japanese: return AnimeL10n.string(.profileJapanese)
         }
     }
 
@@ -212,7 +212,7 @@ final class NativeAppModel: ObservableObject {
         else { return false }
         pendingSubject = NativeSubjectSummary(
             id: subjectId,
-            title: "作品详情",
+            title: AnimeL10n.string(.subjectDetails),
             originalTitle: nil,
             posterUrl: nil,
             year: nil,
@@ -260,7 +260,7 @@ final class NativeAppModel: ObservableObject {
     func refresh(force: Bool = false) {
         start()
         guard let facade else {
-            errorMessage = "iOS 原生页面尚未准备完成"
+            errorMessage = AnimeL10n.string(.statusLoadingFailed)
             return
         }
         guard !isLoading else { return }
@@ -285,7 +285,7 @@ final class NativeAppModel: ObservableObject {
     ) {
         start()
         guard let facade else {
-            completion(nil, "iOS 原生页面尚未准备完成")
+            completion(nil, AnimeL10n.string(.statusLoadingFailed))
             return
         }
         facade.loadSubject(subjectId: id, force: force) { rawSnapshot, error in
@@ -379,11 +379,11 @@ final class NativeAppModel: ObservableObject {
             return
         }
         guard session.status == "authenticated" else {
-            completion?(nil, "请先登录 Anime")
+            completion?(nil, AnimeL10n.string(.profileLoginTitle))
             return
         }
         guard let facade else {
-            completion?(nil, "iOS 原生页面尚未准备完成")
+            completion?(nil, AnimeL10n.string(.statusLoadingFailed))
             return
         }
         collectionRequestID += 1
@@ -400,7 +400,7 @@ final class NativeAppModel: ObservableObject {
                 let page = rawSnapshot.flatMap { Self.decode($0, as: NativeCollectionPageSnapshot.self) }
                 let resolvedError =
                     error ??
-                    (rawSnapshot != nil && page == nil ? "片库数据格式异常，请重试" : nil)
+                    (rawSnapshot != nil && page == nil ? AnimeL10n.string(.statusLoadingFailed) : nil)
                 let snapshot: NativeCollectionPageSnapshot?
                 if append, let page, let current = self.collectionPage {
                     snapshot = NativeCollectionPageSnapshot(items: current.items + page.items, nextCursor: page.nextCursor)
@@ -1049,8 +1049,8 @@ final class NativeAppModel: ObservableObject {
     }
 
     private func writeErrorMessage() -> String? {
-        if !isSessionReady { return "正在恢复登录状态，请稍候" }
-        if session.status != "authenticated" { return "请先登录 Anime" }
+        if !isSessionReady { return AnimeL10n.string(.statusRestoring) }
+        if session.status != "authenticated" { return AnimeL10n.string(.profileLoginTitle) }
         return nil
     }
 
@@ -1145,9 +1145,9 @@ struct NativeDiscoverView: View {
                         }
                     } else {
                         NativeEmptyState(
-                            title: "暂时没有内容",
-                            message: model.errorMessage ?? "下拉重新加载发现内容。",
-                            actionTitle: "重试",
+                            title: AnimeL10n.string(.discoverEmptyTitle),
+                            message: model.errorMessage ?? AnimeL10n.string(.discoverEmptyMessage),
+                            actionTitle: AnimeL10n.string(.retry),
                             action: { model.refresh(force: true) },
                         )
                     }
@@ -1173,7 +1173,7 @@ struct NativeDiscoverView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Text("发现")
+                    Text(AnimeL10n.key(.discover))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
@@ -1189,7 +1189,7 @@ struct NativeDiscoverView: View {
                     } label: {
                         Image(systemName: "calendar")
                     }
-                    .accessibilityLabel("播出日历")
+                    .accessibilityLabel(AnimeL10n.string(.calendar))
                 }
             }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
@@ -1248,7 +1248,7 @@ private struct NativeDiscoverySectionView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                NavigationLink("查看全部") {
+                NavigationLink(AnimeL10n.key(.seeAll)) {
                     NativeDiscoverySectionListView(section: section, model: model)
                 }
                 .font(.subheadline.weight(.semibold))
@@ -1271,11 +1271,11 @@ private struct NativeDiscoverySectionView: View {
 
     private var description: String {
         switch section.id {
-        case "continue": return "从上次停下的地方继续"
-        case "airing": return "这一刻，大家正在追"
-        case "top-rated": return "来自 Bangumi 的高口碑作品"
-        case "upcoming": return "值得提前留意的新作"
-        default: return "为你整理的作品"
+        case "continue": return AnimeL10n.string(.discoverContinue)
+        case "airing": return AnimeL10n.string(.discoverAiring)
+        case "top-rated": return AnimeL10n.string(.discoverTopRated)
+        case "upcoming": return AnimeL10n.string(.discoverUpcoming)
+        default: return AnimeL10n.string(.discoverCurated)
         }
     }
 }
@@ -1325,7 +1325,7 @@ private struct NativeHeroCard: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("本季口碑新作")
+                Text(AnimeL10n.key(.heroEyebrow))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.82))
                 Text(subject.title)
@@ -1333,7 +1333,7 @@ private struct NativeHeroCard: View {
                     .foregroundStyle(.white)
                     .lineLimit(2)
                 if let rating = subject.rating {
-                    Label(String(format: "%.1f  Bangumi", rating), systemImage: "star.fill")
+                    Label(AnimeL10n.string(.subjectRating, String(format: "%.1f", rating)), systemImage: "star.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
                 }
@@ -1385,7 +1385,7 @@ private struct NativeSubjectCard: View {
                         .foregroundStyle(.orange)
                     Text(String(format: "%.1f", rating))
                 } else {
-                    Text("暂无评分")
+                    Text(AnimeL10n.key(.noRating))
                 }
             }
             .font(.caption.weight(.medium))
@@ -1431,9 +1431,9 @@ struct NativeSubjectDetailView: View {
                         detailBody(detail)
                     } else if let errorMessage {
                         NativeEmptyState(
-                            title: "详情加载失败",
+                            title: AnimeL10n.string(.statusLoadingFailed),
                             message: errorMessage,
-                            actionTitle: "重试",
+                            actionTitle: AnimeL10n.string(.retry),
                             action: { load(force: true) },
                         )
                     }
@@ -1468,7 +1468,7 @@ struct NativeSubjectDetailView: View {
                     } label: {
                         Image(systemName: "list.bullet.rectangle")
                     }
-                    .accessibilityLabel("作品资料")
+                    .accessibilityLabel(AnimeL10n.string(.subjectDetails))
                 }
             }
         }
@@ -1488,7 +1488,7 @@ struct NativeSubjectDetailView: View {
     private func detailBody(_ detail: NativeSubjectDetailSnapshot) -> some View {
         if let summaryText = detail.summaryText, !summaryText.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("简介")
+                Text(AnimeL10n.key(.subjectSummary))
                     .font(.title3.weight(.bold))
                 Text(summaryText)
                     .font(.body)
@@ -1513,7 +1513,7 @@ struct NativeSubjectDetailView: View {
 
         if let url = URL(string: detail.sourceUrl) {
             Link(destination: url) {
-                Label("查看来源", systemImage: "arrow.up.right.square")
+                Label(AnimeL10n.key(.subjectSource), systemImage: "arrow.up.right.square")
                     .font(.subheadline.weight(.semibold))
             }
         }
@@ -1603,13 +1603,13 @@ private extension NativeSubjectSummary {
 private extension String {
     var displayName: String {
         switch self {
-        case "Tv": return "TV"
-        case "Web": return "Web"
-        case "Ova": return "OVA"
-        case "Movie": return "剧场版"
-        case "Airing": return "连载中"
-        case "Finished": return "已完结"
-        case "Announced": return "未开播"
+        case "Tv": return AnimeL10n.string(.subjectTypeTv)
+        case "Web": return AnimeL10n.string(.subjectTypeWeb)
+        case "Ova": return AnimeL10n.string(.subjectTypeOva)
+        case "Movie": return AnimeL10n.string(.subjectTypeMovie)
+        case "Airing": return AnimeL10n.string(.subjectAiring)
+        case "Finished": return AnimeL10n.string(.subjectFinished)
+        case "Announced": return AnimeL10n.string(.subjectAiringAnnounced)
         default: return self
         }
     }

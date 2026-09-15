@@ -62,9 +62,14 @@ import site.jokersh.anime.core.designsystem.AnimeSectionHeader
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.SubjectCardUi
+import site.jokersh.anime.core.designsystem.localizedAccessibilityLabel
+import site.jokersh.anime.core.designsystem.localizedCollectionLabel
+import site.jokersh.anime.core.designsystem.localizedMetadata
+import site.jokersh.anime.core.designsystem.localizedRating
 import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.feature.discover.generated.resources.Res
 import site.jokersh.anime.feature.discover.generated.resources.discover_brand
+import site.jokersh.anime.feature.discover.generated.resources.discover_calendar
 import site.jokersh.anime.feature.discover.generated.resources.discover_empty_action
 import site.jokersh.anime.feature.discover.generated.resources.discover_empty_body
 import site.jokersh.anime.feature.discover.generated.resources.discover_empty_title
@@ -76,9 +81,17 @@ import site.jokersh.anime.feature.discover.generated.resources.discover_error_se
 import site.jokersh.anime.feature.discover.generated.resources.discover_error_unknown
 import site.jokersh.anime.feature.discover.generated.resources.discover_hero_eyebrow
 import site.jokersh.anime.feature.discover.generated.resources.discover_offline
+import site.jokersh.anime.feature.discover.generated.resources.discover_hero_page
+import site.jokersh.anime.feature.discover.generated.resources.discover_next
+import site.jokersh.anime.feature.discover.generated.resources.discover_previous
 import site.jokersh.anime.feature.discover.generated.resources.discover_refresh
 import site.jokersh.anime.feature.discover.generated.resources.discover_see_all
 import site.jokersh.anime.feature.discover.generated.resources.discover_title
+import site.jokersh.anime.feature.discover.generated.resources.discover_continue_description
+import site.jokersh.anime.feature.discover.generated.resources.discover_airing_description_alt
+import site.jokersh.anime.feature.discover.generated.resources.discover_top_rated_description_alt
+import site.jokersh.anime.feature.discover.generated.resources.discover_upcoming_description
+import site.jokersh.anime.feature.discover.generated.resources.discover_curated_description
 
 @Composable
 public fun DiscoverScreen(
@@ -343,7 +356,7 @@ private fun DiscoverHeader(
                 fontWeight = FontWeight.Bold,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-                AnimeSecondaryButton(label = "播出日历", onClick = onCalendarClick)
+                AnimeSecondaryButton(label = stringResource(Res.string.discover_calendar), onClick = onCalendarClick)
                 AnimePrimaryButton(
                     label = stringResource(Res.string.discover_refresh),
                     onClick = onRefresh,
@@ -415,7 +428,7 @@ private fun DiscoverHeroCarousel(
         }
         if (subjects.size > 1) {
             CarouselArrow(
-                label = "上一部推荐",
+                label = stringResource(Res.string.discover_previous),
                 onClick = {
                     scope.launch {
                         pagerState.animateScrollToPage(
@@ -426,7 +439,7 @@ private fun DiscoverHeroCarousel(
                 modifier = Modifier.align(Alignment.CenterStart).padding(start = AnimeSpacing.xl),
             )
             CarouselArrow(
-                label = "下一部推荐",
+                label = stringResource(Res.string.discover_next),
                 onClick = {
                     scope.launch {
                         pagerState.animateScrollToPage(
@@ -449,6 +462,7 @@ private fun DiscoverHeroCarousel(
             ) {
                 subjects.indices.forEach { page ->
                     val selected = pagerState.currentPage == page
+                    val pageAccessibility = stringResource(Res.string.discover_hero_page, page + 1)
                     Box(
                         Modifier
                             .width(if (selected) 24.dp else 8.dp)
@@ -460,7 +474,7 @@ private fun DiscoverHeroCarousel(
                                 scope.launch { pagerState.animateScrollToPage(page) }
                             }.semantics {
                                 role = Role.Button
-                                contentDescription = "第 ${page + 1} 部推荐"
+                                contentDescription = pageAccessibility
                             },
                     )
                 }
@@ -500,6 +514,7 @@ private fun DiscoverHero(
     onClick: () -> Unit,
     desktopLayout: Boolean,
 ) {
+    val accessibilityLabel = subject.localizedAccessibilityLabel()
     val gradients =
         listOf(
             listOf(Color(0xFF0A4B9F), Color(0xFF4A49A3), Color(0xFF8E4E9E)),
@@ -521,7 +536,7 @@ private fun DiscoverHero(
                     ),
                 ).semantics(mergeDescendants = true) {
                     role = Role.Button
-                    contentDescription = subject.accessibilityLabel
+                    contentDescription = accessibilityLabel
                 }.clickable(onClick = onClick),
     ) {
         AnimePosterArtwork(
@@ -588,13 +603,13 @@ private fun DiscoverHero(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = subject.originalTitle ?: subject.metadata,
+                text = subject.originalTitle ?: subject.localizedMetadata(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.72f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            subject.rating?.let { rating ->
+            subject.localizedRating()?.let { rating ->
                 Surface(
                     shape = RoundedCornerShape(AnimeRadius.round),
                     color = Color.Black.copy(alpha = 0.36f),
@@ -623,7 +638,7 @@ private fun DiscoverSection(
     ) {
         AnimeSectionHeader(
             title = section.title,
-            description = section.description,
+            description = stringResource(section.description.resource()),
             actionLabel = stringResource(Res.string.discover_see_all),
             onAction = onSeeAll,
             modifier = Modifier.padding(horizontal = AnimeSpacing.lg),
@@ -655,12 +670,22 @@ private fun DiscoverSection(
     }
 }
 
+private fun DiscoverSectionDescription.resource() =
+    when (this) {
+        DiscoverSectionDescription.Continue -> Res.string.discover_continue_description
+        DiscoverSectionDescription.Airing -> Res.string.discover_airing_description_alt
+        DiscoverSectionDescription.TopRated -> Res.string.discover_top_rated_description_alt
+        DiscoverSectionDescription.Upcoming -> Res.string.discover_upcoming_description
+        DiscoverSectionDescription.Curated -> Res.string.discover_curated_description
+    }
+
 @Composable
 private fun ContinueWatchingCard(
     subject: SubjectCardUi,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val accessibilityLabel = subject.localizedAccessibilityLabel()
     Surface(
         onClick = onClick,
         modifier =
@@ -669,7 +694,7 @@ private fun ContinueWatchingCard(
                 .height(112.dp)
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
-                    contentDescription = subject.accessibilityLabel
+                    contentDescription = accessibilityLabel
                 },
         shape = RoundedCornerShape(AnimeRadius.card),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
@@ -701,7 +726,7 @@ private fun ContinueWatchingCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = subject.collectionLabel ?: subject.metadata,
+                    text = subject.localizedCollectionLabel() ?: subject.localizedMetadata(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )

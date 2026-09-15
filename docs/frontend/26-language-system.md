@@ -80,7 +80,20 @@
 - Desktop/Web 的共享 Locale bridge。
 - Discover、Subject、根应用现有 Compose 资源的英语、日语、繁体中文版本。
 
-当前资源迁移已建立完整机制，但历史 feature 中仍有部分直接写死的业务文案，后续应按页面逐批迁移到资源文件。未迁移的文案会显示默认简体中文，这是可控的 fallback，不会导致页面空白或崩溃。
+当前资源迁移已建立完整机制，并新增了 `core:designsystem` 的共享文案目录。历史 feature 中仍有部分直接写死的业务文案，后续按页面逐批迁移到资源文件，不允许继续扩大硬编码范围。
+
+## 页面迁移规则
+
+Compose 页面统一使用 `AnimeCopy` 与 `animeString`（或 Feature 自己的 `Res.string` 目录）；iOS 原生页面统一使用 `Localizable.strings`。UI 中的 `Text("...")`、`Button("...")`、`navigationTitle("...")` 等仅允许保留系统符号、路由值和业务协议值，不能放用户可见文案。
+
+仓库的 `.github/workflows/ios-ci.yml` 会运行 `scripts/check_localization.py --changed-only`。它只检查新增/修改的行，因此可以让旧页面按页迁移，同时保证后续开发不会重新写入硬编码文案。迁移完所有历史页面后，将检查模式切换为全量扫描。
+
+## 迁移顺序
+
+1. 根导航、发现、资料库、动态、我的与设置公共文案。
+2. 搜索、播出日历、作品详情、作品资料。
+3. 评价、评论、社区片单、用户详情与管理后台。
+4. iOS 原生页面逐页补齐 `.lproj/Localizable.strings`，并统一动态格式字符串。
 
 ## 6. 验收标准
 

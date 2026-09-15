@@ -38,9 +38,10 @@ internal fun DesignSystemCatalog() {
             originalTitle = null,
             poster = null,
             metadata = stringResource(Res.string.f1_subject_primary_metadata),
-            rating = "8.6 Bangumi",
+            rating = null,
             collectionLabel = null,
             accessibilityLabel = stringResource(Res.string.f1_subject_primary_accessibility),
+            ratingScore = 8.6,
         )
     val secondary =
         SubjectCardUi(

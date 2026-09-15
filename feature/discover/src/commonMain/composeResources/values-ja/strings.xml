@@ -24,4 +24,6 @@
     <string name="discover_error_data">コンテンツデータに問題があります。</string>
     <string name="discover_error_unknown">読み込みに失敗しました。既存のコンテンツには影響ありません。</string>
     <string name="discover_error_action">再試行</string>
+    <string name="discover_calendar">放送カレンダー</string><string name="discover_previous">前のおすすめ</string><string name="discover_next">次のおすすめ</string><string name="discover_hero_page">おすすめ %1$d</string><string name="discover_all_subjects">すべての作品</string><string name="discover_subject_count">%1$d 作品</string>
+    <string name="discover_continue_description">前回の続きから</string><string name="discover_airing_description_alt">今みんなが見ている作品</string><string name="discover_top_rated_description_alt">Bangumi 高評価作品</string><string name="discover_upcoming_description">早めに注目したい新作</string><string name="discover_curated_description">あなたのために選んだ作品</string>
 </resources>

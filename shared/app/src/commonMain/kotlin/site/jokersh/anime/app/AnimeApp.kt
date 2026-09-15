@@ -99,6 +99,9 @@ import site.jokersh.anime.app.generated.resources.profile_page_size
 import site.jokersh.anime.app.generated.resources.profile_page_size_value
 import site.jokersh.anime.app.generated.resources.root_activity
 import site.jokersh.anime.app.generated.resources.root_discover
+import site.jokersh.anime.app.generated.resources.sidebar_media_library
+import site.jokersh.anime.app.generated.resources.sidebar_bangumi_realtime
+import site.jokersh.anime.app.generated.resources.message_refresh_failed
 import site.jokersh.anime.app.generated.resources.root_library
 import site.jokersh.anime.app.generated.resources.root_profile
 import site.jokersh.anime.app.generated.resources.shell_environment
@@ -606,7 +609,7 @@ private fun DesktopSidebar(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "媒体资料库",
+                        text = stringResource(Res.string.sidebar_media_library),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -614,7 +617,7 @@ private fun DesktopSidebar(
             }
 
             Text(
-                text = "资料库",
+                text = stringResource(Res.string.root_library),
                 modifier = Modifier.padding(start = AnimeSpacing.md, top = AnimeSpacing.sm, bottom = AnimeSpacing.xs),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -674,7 +677,7 @@ private fun DesktopSidebar(
             Spacer(Modifier.weight(1f))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
             Text(
-                text = "Bangumi · 实时资料",
+                text = stringResource(Res.string.sidebar_bangumi_realtime),
                 modifier = Modifier.padding(AnimeSpacing.md),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -716,6 +719,7 @@ private fun AppNavigationLayer(
     modifier: Modifier = Modifier,
 ) {
     val navigationScope = rememberCoroutineScope()
+    val refreshFailedMessage = stringResource(Res.string.message_refresh_failed)
     // Keep page motion directional and bounded. Fade transitions are intentionally avoided
     // because a Compose/iOS frame can expose the opaque shell between two scene snapshots.
     val navigationOffsetPx = with(LocalDensity.current) { AnimeMotion.pageOffset.roundToPx() }
@@ -835,7 +839,7 @@ private fun AppNavigationLayer(
                                     onMessage(
                                         when (message) {
                                             site.jokersh.anime.feature.discover.DiscoverMessageUi.RefreshFailed -> {
-                                                "刷新失败，已保留上次内容"
+                                                refreshFailedMessage
                                             }
                                         },
                                     )

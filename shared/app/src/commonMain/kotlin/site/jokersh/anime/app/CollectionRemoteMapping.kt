@@ -37,7 +37,7 @@ private fun site.jokersh.anime.core.model.UserCollectionSummary.toCollectionItem
     val subject =
         SubjectSummary(
             id = subjectId,
-            title = title.trim().ifBlank { "未命名作品" },
+            title = title.trim().ifBlank { "#${subjectId.value}" },
             originalTitle = originalTitle.trim().takeIf(String::isNotBlank),
             aliases = emptyList(),
             poster = posterUrl?.takeIf(String::isNotBlank)?.let { ImageRef.Remote(it, "collection-poster-${subjectId.value}") },

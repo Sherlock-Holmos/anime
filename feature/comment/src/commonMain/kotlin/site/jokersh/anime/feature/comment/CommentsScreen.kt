@@ -19,8 +19,10 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
+import site.jokersh.anime.core.designsystem.AnimeCopy
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
+import site.jokersh.anime.core.designsystem.animeString
 import site.jokersh.anime.core.model.*
 import site.jokersh.anime.data.comment.CommentRepository
 
@@ -50,6 +52,13 @@ public fun CommentsScreen(
     var reportDetails by remember { mutableStateOf("") }
     var hasMore by remember(id, sort) { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
+    val publishedMessage = animeString(AnimeCopy.commentPublished)
+    val lengthErrorMessage = animeString(AnimeCopy.commentLengthError)
+    val publishFailedMessage = animeString(AnimeCopy.commentPublishFailed)
+    val reportSubmittedMessage = animeString(AnimeCopy.commentReportSubmitted)
+    val reportFailedMessage = animeString(AnimeCopy.commentReportFailed)
+    val updatedMessage = animeString(AnimeCopy.commentUpdated)
+    val updateFailedMessage = animeString(AnimeCopy.commentUpdateFailed)
 
     LaunchedEffect(id, sort) {
         repository.loadNext(id, sort).onSuccess { page -> hasMore = page.hasMore }
@@ -81,11 +90,11 @@ public fun CommentsScreen(
                     ) { AnimeBackIcon(MaterialTheme.colorScheme.onSurface, Modifier.size(20.dp)) }
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("评价与讨论", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("围绕作品展开讨论；剧透内容默认收起。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(animeString(AnimeCopy.screenComment), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(animeString(AnimeCopy.screenCommentDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                SortButton("最新", sort == CommentSort.Newest) { sort = CommentSort.Newest }
-                SortButton("最早", sort == CommentSort.Oldest) { sort = CommentSort.Oldest }
+                SortButton(animeString(AnimeCopy.commentSortNewest), sort == CommentSort.Newest) { sort = CommentSort.Newest }
+                SortButton(animeString(AnimeCopy.commentSortOldest), sort == CommentSort.Oldest) { sort = CommentSort.Oldest }
             }
         }
         item {
@@ -95,9 +104,9 @@ public fun CommentsScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .3f)),
             ) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    parentId?.let { Text("正在回复 · ${it.value.take(8)}", color = MaterialTheme.colorScheme.primary) }
+                    parentId?.let { Text(animeString(AnimeCopy.commentReplying, it.value.take(8)), color = MaterialTheme.colorScheme.primary) }
                     if (!canWrite) {
-                        Text("登录后可以参与讨论、回复和举报内容。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(animeString(AnimeCopy.commentLogin), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     BasicTextField(
                         value = text,
@@ -111,7 +120,7 @@ public fun CommentsScreen(
                             Box {
                                 if (text.isBlank()) {
                                     Text(
-                                        "写下你的想法（最多 300 字）",
+                                        animeString(AnimeCopy.commentPlaceholder),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -124,10 +133,10 @@ public fun CommentsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Switch(enabled = canWrite, checked = spoiler, onCheckedChange = { spoiler = it })
-                        Text("包含剧透", Modifier.weight(1f))
+                        Text(animeString(AnimeCopy.commentSpoiler), Modifier.weight(1f))
                         if (canWrite) {
-                            if (parentId != null) AnimeSecondaryButton("取消回复", { parentId = null })
-                            AnimePrimaryButton("发布", {
+                            if (parentId != null) AnimeSecondaryButton(animeString(AnimeCopy.actionCancelReply), { parentId = null })
+                            AnimePrimaryButton(animeString(AnimeCopy.actionPublish), {
                                 scope.launch {
                                     when (repository.create(id, parentId, text, spoiler)) {
                                         is MutationResult.Accepted -> {
@@ -135,30 +144,28 @@ public fun CommentsScreen(
                                             spoiler = false
                                             parentId = null
                                             message =
-                                                "已发布"
+                                                publishedMessage
                                         }
 
                                         is MutationResult.Rejected -> {
-                                            message = "内容需要 1–300 个字符"
+                                            message = lengthErrorMessage
                                         }
 
                                         else -> {
-                                            message = "发布失败，草稿已保留"
+                                            message = publishFailedMessage
                                         }
                                     }
                                 }
                             })
                         } else {
-                            AnimePrimaryButton("登录后参与讨论", onLoginClick)
+                            AnimePrimaryButton(animeString(AnimeCopy.commentLoginAction), onLoginClick)
                         }
                     }
                     message?.let {
                         Text(
                             it,
                             color =
-                                if (it ==
-                                    "已发布"
-                                ) {
+                                if (it == publishedMessage) {
                                     MaterialTheme.colorScheme.primary
                                 } else {
                                     MaterialTheme.colorScheme.error
@@ -182,9 +189,9 @@ public fun CommentsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("暂时无法加载讨论", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(animeString(AnimeCopy.commentLoadFailed), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     AnimeSecondaryButton(
-                        label = "重试",
+                        label = animeString(AnimeCopy.actionRetry),
                         onClick = {
                             scope.launch {
                                 repository.loadNext(id, sort).onSuccess { page -> hasMore = page.hasMore }
@@ -196,7 +203,7 @@ public fun CommentsScreen(
         } else if (state.value.isNullOrEmpty()) {
             item {
                 Text(
-                    "还没有讨论，来写下第一条记录。",
+                    animeString(AnimeCopy.commentEmpty),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 48.dp),
                 )
@@ -223,7 +230,7 @@ public fun CommentsScreen(
             }
             if (hasMore) {
                 item {
-                    AnimeSecondaryButton(if (state.refreshing) "加载中" else "加载更多", {
+                    AnimeSecondaryButton(if (state.refreshing) animeString(AnimeCopy.stateLoading) else animeString(AnimeCopy.actionLoadMore), {
                         if (!state.refreshing) {
                             scope.launch {
                                 repository.loadNext(id, sort).onSuccess { page -> hasMore = page.hasMore }
@@ -238,16 +245,16 @@ public fun CommentsScreen(
     reportTarget?.let { comment ->
         AlertDialog(
             onDismissRequest = { reportTarget = null },
-            title = { Text("举报这条讨论") },
+            title = { Text(animeString(AnimeCopy.commentReportTitle)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("请选择举报原因，提交后会交给审核队列处理。")
+                    Text(animeString(AnimeCopy.commentReportDescription))
                     listOf(
-                        "spam" to "垃圾信息",
-                        "harassment" to "骚扰或人身攻击",
-                        "spoiler" to "未标记剧透",
-                        "illegal" to "违法内容",
-                        "other" to "其他",
+                        "spam" to animeString(AnimeCopy.commentReportSpam),
+                        "harassment" to animeString(AnimeCopy.commentReportHarassment),
+                        "spoiler" to animeString(AnimeCopy.commentReportSpoiler),
+                        "illegal" to animeString(AnimeCopy.commentReportIllegal),
+                        "other" to animeString(AnimeCopy.commentReportOther),
                     ).forEach { (code, label) ->
                         TextButton(
                             onClick = { reportReason = code },
@@ -279,7 +286,7 @@ public fun CommentsScreen(
                                     Box(Modifier.padding(12.dp)) {
                                         if (reportDetails.isBlank()) {
                                             Text(
-                                                "补充说明（可选，最多 300 字）",
+                                                animeString(AnimeCopy.commentReportDetails),
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                         }
@@ -291,7 +298,7 @@ public fun CommentsScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { reportTarget = null }) { Text("取消") } },
+            confirmButton = { TextButton(onClick = { reportTarget = null }) { Text(animeString(AnimeCopy.actionCancel)) } },
             dismissButton = {
                 TextButton(
                     enabled = reportReason != null,
@@ -304,20 +311,20 @@ public fun CommentsScreen(
                         scope.launch {
                             message =
                                 if (repository.report(comment.id, reason, details) is MutationResult.Accepted) {
-                                    "举报已提交"
+                                    reportSubmittedMessage
                                 } else {
-                                    "举报失败，请稍后重试"
+                                    reportFailedMessage
                                 }
                         }
                     },
-                ) { Text("提交举报") }
+                ) { Text(animeString(AnimeCopy.commentSubmitReport)) }
             },
         )
     }
     editTarget?.let { comment ->
         AlertDialog(
             onDismissRequest = { editTarget = null },
-            title = { Text("编辑讨论") },
+            title = { Text(animeString(AnimeCopy.commentEditTitle)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -325,11 +332,11 @@ public fun CommentsScreen(
                         onValueChange = { editBody = it.take(300) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 4,
-                        label = { Text("内容") },
+                        label = { Text(animeString(AnimeCopy.commentContent)) },
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = editSpoiler, onCheckedChange = { editSpoiler = it })
-                        Text("包含剧透")
+                        Text(animeString(AnimeCopy.commentSpoiler))
                     }
                 }
             },
@@ -337,12 +344,12 @@ public fun CommentsScreen(
                 TextButton(onClick = {
                     scope.launch {
                         repository.update(comment.id, editBody, editSpoiler)
-                            .onSuccess { editTarget = null; message = "讨论已更新" }
-                            .onFailure { message = "更新失败，请稍后重试" }
+                            .onSuccess { editTarget = null; message = updatedMessage }
+                            .onFailure { message = updateFailedMessage }
                     }
-                }) { Text("保存") }
+                }) { Text(animeString(AnimeCopy.actionSave)) }
             },
-            dismissButton = { TextButton(onClick = { editTarget = null }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { editTarget = null }) { Text(animeString(AnimeCopy.actionCancel)) } },
         )
     }
 }
@@ -405,21 +412,21 @@ private fun CommentCard(
             }
             comment.parentId?.let {
                 Text(
-                    "回复 ${it.value.take(8)}",
+                    animeString(AnimeCopy.commentReplyTo, it.value.take(8)),
                     color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
             if (comment.spoiler && !revealSpoiler) {
-                AnimeSecondaryButton("显示剧透内容", { revealSpoiler = true })
+                AnimeSecondaryButton(animeString(AnimeCopy.commentRevealSpoiler), { revealSpoiler = true })
             } else {
                 Text(comment.body, style = MaterialTheme.typography.bodyLarge)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                AnimeSecondaryButton("回复", if (canWrite) onReply else onLoginClick)
-                if (comment.ownership == Ownership.Self) AnimeSecondaryButton("编辑", if (canWrite) onEdit else onLoginClick)
-                if (comment.ownership == Ownership.Self) AnimeSecondaryButton("删除", if (canWrite) onDelete else onLoginClick)
-                if (comment.ownership == Ownership.Other) AnimeSecondaryButton("举报", if (canWrite) onReport else onLoginClick)
+                AnimeSecondaryButton(animeString(AnimeCopy.actionReply), if (canWrite) onReply else onLoginClick)
+                if (comment.ownership == Ownership.Self) AnimeSecondaryButton(animeString(AnimeCopy.actionEdit), if (canWrite) onEdit else onLoginClick)
+                if (comment.ownership == Ownership.Self) AnimeSecondaryButton(animeString(AnimeCopy.commentDelete), if (canWrite) onDelete else onLoginClick)
+                if (comment.ownership == Ownership.Other) AnimeSecondaryButton(animeString(AnimeCopy.actionReport), if (canWrite) onReport else onLoginClick)
             }
         }
     }

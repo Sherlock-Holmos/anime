@@ -2,7 +2,10 @@ package site.jokersh.anime.feature.subject
 
 import androidx.compose.runtime.Immutable
 import site.jokersh.anime.core.model.AppError
+import site.jokersh.anime.core.model.AiringStatus
+import site.jokersh.anime.core.model.FreshnessKind
 import site.jokersh.anime.core.model.ImageRef
+import site.jokersh.anime.core.model.SubjectType
 import site.jokersh.anime.data.comment.CommunityComment
 import site.jokersh.anime.data.comment.CommunityListSummary
 import site.jokersh.anime.data.comment.CommunityReview
@@ -28,13 +31,15 @@ public data class SubjectContentUi(
     val title: String,
     val originalTitle: String?,
     val poster: ImageRef?,
-    val metadata: String,
-    val status: String,
+    val year: Int?,
+    val type: SubjectType,
+    val airingStatus: AiringStatus,
     val score: String?,
     val votes: Int,
     val episodeCount: Int?,
     val summary: String,
     val tags: List<String>,
     val ratingDistribution: Map<Int, Int>,
-    val dataStatusLabel: String,
+    val freshness: FreshnessKind?,
+    val dataUpdatedAt: String,
 )

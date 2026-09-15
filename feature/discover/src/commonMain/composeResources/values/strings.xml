@@ -24,4 +24,15 @@
     <string name="discover_error_data">内容格式出现异常</string>
     <string name="discover_error_unknown">没有加载成功，已有内容不会受到影响。</string>
     <string name="discover_error_action">再试一次</string>
+    <string name="discover_calendar">播出日历</string>
+    <string name="discover_previous">上一部推荐</string>
+    <string name="discover_next">下一部推荐</string>
+    <string name="discover_hero_page">第 %1$d 部推荐</string>
+    <string name="discover_all_subjects">全部作品</string>
+    <string name="discover_subject_count">%1$d 部作品</string>
+    <string name="discover_continue_description">从上次停下的地方继续</string>
+    <string name="discover_airing_description_alt">这一刻，大家正在追</string>
+    <string name="discover_top_rated_description_alt">来自 Bangumi 的高口碑作品</string>
+    <string name="discover_upcoming_description">值得提前留意的新作</string>
+    <string name="discover_curated_description">为你整理的作品</string>
 </resources>

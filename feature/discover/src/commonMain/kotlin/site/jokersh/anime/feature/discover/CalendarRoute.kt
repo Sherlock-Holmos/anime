@@ -35,10 +35,13 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.StringResource
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
+import site.jokersh.anime.core.designsystem.AnimeCopy
 import site.jokersh.anime.core.designsystem.AnimePosterArtwork
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
 import site.jokersh.anime.core.designsystem.AnimeSpacing
+import site.jokersh.anime.core.designsystem.animeString
 import site.jokersh.anime.data.catalog.CalendarPage
 import site.jokersh.anime.data.catalog.CatalogRepository
 import kotlin.time.Clock
@@ -62,6 +65,7 @@ public fun CalendarRoute(
     var page by remember(selectedDate) { mutableStateOf<CalendarPage?>(null) }
     var loading by remember(selectedDate) { mutableStateOf(true) }
     var error by remember(selectedDate) { mutableStateOf<String?>(null) }
+    val calendarLoadFallback = animeString(AnimeCopy.calendarTitle)
 
     LaunchedEffect(repository, selectedDate) {
         loading = true
@@ -69,7 +73,7 @@ public fun CalendarRoute(
         repository
             .calendar(selectedDate)
             .onSuccess { page = it }
-            .onFailure { error = it.message ?: "播出日历暂时不可用" }
+            .onFailure { error = it.message ?: calendarLoadFallback }
         loading = false
     }
 
@@ -96,9 +100,9 @@ public fun CalendarRoute(
                     }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("发现", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                    Text("播出日历", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    Text("按日期查看当天更新的作品。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(animeString(AnimeCopy.rootDiscover), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                    Text(animeString(AnimeCopy.calendarTitle), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                    Text(animeString(AnimeCopy.calendarDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -144,9 +148,9 @@ public fun CalendarRoute(
                                 if (date ==
                                     today
                                 ) {
-                                    "今天"
+                                    animeString(AnimeCopy.calendarToday)
                                 } else {
-                                    shortWeekday(date)
+                                    animeString(shortWeekday(date))
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                             )
@@ -171,7 +175,7 @@ public fun CalendarRoute(
             }
 
             page?.items.isNullOrEmpty() -> {
-                item { Text("这一天还没有已同步的播出作品。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(animeString(AnimeCopy.stateNoAiring), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
 
             else -> {
@@ -196,12 +200,9 @@ public fun CalendarRoute(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 subject.rating?.score?.let {
-                                    Text(
-                                        "Bangumi $it",
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
+                                    Text(animeString(AnimeCopy.calendarRating, it.toString()), color = MaterialTheme.colorScheme.primary)
                                 }
-                                AnimeSecondaryButton("查看作品", { onSubjectClick(subject.id.value) })
+                                AnimeSecondaryButton(animeString(AnimeCopy.calendarViewSubject), { onSubjectClick(subject.id.value) })
                             }
                         }
                     }
@@ -211,13 +212,13 @@ public fun CalendarRoute(
     }
 }
 
-private fun shortWeekday(date: LocalDate): String =
+private fun shortWeekday(date: LocalDate): StringResource =
     when (date.dayOfWeek.name) {
-        "MONDAY" -> "周一"
-        "TUESDAY" -> "周二"
-        "WEDNESDAY" -> "周三"
-        "THURSDAY" -> "周四"
-        "FRIDAY" -> "周五"
-        "SATURDAY" -> "周六"
-        else -> "周日"
+        "MONDAY" -> AnimeCopy.calendarMonday
+        "TUESDAY" -> AnimeCopy.calendarTuesday
+        "WEDNESDAY" -> AnimeCopy.calendarWednesday
+        "THURSDAY" -> AnimeCopy.calendarThursday
+        "FRIDAY" -> AnimeCopy.calendarFriday
+        "SATURDAY" -> AnimeCopy.calendarSaturday
+        else -> AnimeCopy.calendarSunday
     }

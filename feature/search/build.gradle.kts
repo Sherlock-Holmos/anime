@@ -16,9 +16,15 @@ kotlin {
         implementation(libs.compose.foundation)
         implementation(libs.compose.material3)
         implementation(libs.compose.runtime)
+        implementation(libs.compose.resources)
         implementation(libs.compose.ui)
     }
     sourceSets.commonTest.dependencies {
         implementation(libs.kotlinx.coroutines.test)
     }
+}
+
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "site.jokersh.anime.feature.search.generated.resources"
 }

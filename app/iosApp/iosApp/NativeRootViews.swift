@@ -402,7 +402,7 @@ struct NativeLibraryView: View {
                     if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         recommendationContent
                     } else if isSearching && results.isEmpty {
-                        ProgressView("正在搜索")
+                        ProgressView(AnimeL10n.key(.searchLoading))
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else if results.isEmpty {
                         ContentUnavailableView.search(text: query)
@@ -431,12 +431,12 @@ struct NativeLibraryView: View {
                     libraryTitleOpacity = nextOpacity
                 }
             }
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索作品")
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: AnimeL10n.key(.searchPrompt))
             .onSubmit(of: .search, submitSearch)
             .refreshable { await refreshRecommendations() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Text("资料库")
+                    Text(AnimeL10n.key(.library))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
@@ -452,7 +452,7 @@ struct NativeLibraryView: View {
                     } label: {
                         Image(systemName: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     }
-                    .accessibilityLabel("搜索筛选")
+                    .accessibilityLabel(AnimeL10n.key(.searchFilters))
                 }
             }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
@@ -484,7 +484,7 @@ struct NativeLibraryView: View {
         if let discovery = model.searchDiscovery {
             if !discovery.trending.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("大家正在搜")
+                    Text(AnimeL10n.key(.searchTrending))
                         .font(.title3.weight(.bold))
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -502,7 +502,7 @@ struct NativeLibraryView: View {
             }
             if !discovery.recommendations.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(discovery.personalized ? "为你推荐" : "精选作品")
+                    Text(AnimeL10n.key(discovery.personalized ? .profileLoginTitle : .searchCurated))
                         .font(.title3.weight(.bold))
                     LazyVGrid(columns: posterGridColumns, spacing: 18) {
                         ForEach(discovery.recommendations) { subject in
@@ -523,7 +523,7 @@ struct NativeLibraryView: View {
     private var resultGrid: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("搜索结果")
+                Text(AnimeL10n.key(.searchResults))
                     .font(.title3.weight(.bold))
                 Spacer()
                 if hasActiveFilters {
@@ -541,7 +541,7 @@ struct NativeLibraryView: View {
                 }
             }
             if let nextCursor {
-                Button("加载更多") { loadMore(cursor: nextCursor) }
+                Button(AnimeL10n.key(.actionLoadMore)) { loadMore(cursor: nextCursor) }
                     .frame(maxWidth: .infinity)
                     .buttonStyle(.bordered)
             }
@@ -612,7 +612,7 @@ struct NativeLibraryView: View {
         if selectedAiring != "all" { values.append(selectedAiring.searchAiringName) }
         if selectedSort != "relevance" { values.append(selectedSort.searchSortName) }
         if !yearStartText.isEmpty || !yearEndText.isEmpty {
-            values.append("年份")
+            values.append(AnimeL10n.string(.filterYear))
         }
         return values.joined(separator: " · ")
     }
@@ -631,32 +631,32 @@ private struct NativeSearchFiltersSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("筛选") {
-                    Picker("类型", selection: $selectedType) {
-                        Text("全部类型").tag("all")
-                        Text("TV").tag("tv")
-                        Text("Web").tag("web")
-                        Text("OVA").tag("ova")
-                        Text("剧场版").tag("movie")
-                        Text("其他").tag("other")
+                Section(AnimeL10n.key(.searchFilters)) {
+                    Picker(AnimeL10n.key(.filterType), selection: $selectedType) {
+                        Text(AnimeL10n.key(.filterAllTypes)).tag("all")
+                        Text(AnimeL10n.key(.subjectTypeTv)).tag("tv")
+                        Text(AnimeL10n.key(.subjectTypeWeb)).tag("web")
+                        Text(AnimeL10n.key(.subjectTypeOva)).tag("ova")
+                        Text(AnimeL10n.key(.filterMovie)).tag("movie")
+                        Text(AnimeL10n.key(.filterOther)).tag("other")
                     }
-                    Picker("播出状态", selection: $selectedAiring) {
-                        Text("全部状态").tag("all")
-                        Text("未开播").tag("announced")
-                        Text("连载中").tag("airing")
-                        Text("已完结").tag("finished")
+                    Picker(AnimeL10n.key(.filterAiring), selection: $selectedAiring) {
+                        Text(AnimeL10n.key(.filterAllStatuses)).tag("all")
+                        Text(AnimeL10n.key(.filterAnnounced)).tag("announced")
+                        Text(AnimeL10n.key(.filterCurrentlyAiring)).tag("airing")
+                        Text(AnimeL10n.key(.filterFinished)).tag("finished")
                     }
-                    Picker("排序", selection: $selectedSort) {
-                        Text("相关度").tag("relevance")
-                        Text("评分优先").tag("rating")
-                        Text("最近更新").tag("updated")
+                    Picker(AnimeL10n.key(.filterSort), selection: $selectedSort) {
+                        Text(AnimeL10n.key(.sortRelevance)).tag("relevance")
+                        Text(AnimeL10n.key(.sortRating)).tag("rating")
+                        Text(AnimeL10n.key(.sortUpdated)).tag("updated")
                     }
                 }
 
-                Section("年份范围") {
-                    TextField("起始年份（可选）", text: $yearStartText)
+                Section(AnimeL10n.key(.filterYearRange)) {
+                    TextField(AnimeL10n.key(.filterYearStart), text: $yearStartText)
                         .keyboardType(.numberPad)
-                    TextField("结束年份（可选）", text: $yearEndText)
+                    TextField(AnimeL10n.key(.filterYearEnd), text: $yearEndText)
                         .keyboardType(.numberPad)
                     if let validationMessage {
                         Text(validationMessage)
@@ -666,7 +666,7 @@ private struct NativeSearchFiltersSheet: View {
                 }
 
                 Section {
-                    Button("清除筛选") {
+                    Button(AnimeL10n.key(.clearFilters)) {
                         selectedType = "all"
                         selectedAiring = "all"
                         selectedSort = "relevance"
@@ -676,14 +676,14 @@ private struct NativeSearchFiltersSheet: View {
                     }
                 }
             }
-            .navigationTitle("搜索筛选")
+            .navigationTitle(AnimeL10n.key(.searchFilters))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(AnimeL10n.key(.actionCancel)) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("应用") { apply() }
+                    Button(AnimeL10n.key(.applyFilters)) { apply() }
                 }
             }
         }
@@ -695,15 +695,15 @@ private struct NativeSearchFiltersSheet: View {
         let startValue = start.isEmpty ? nil : Int(start)
         let endValue = end.isEmpty ? nil : Int(end)
         guard (start.isEmpty || startValue != nil), (end.isEmpty || endValue != nil) else {
-            validationMessage = "年份必须是数字"
+            validationMessage = AnimeL10n.string(.validationYearNumber)
             return
         }
         guard (startValue == nil || startValue! >= 1900), (endValue == nil || endValue! >= 1900) else {
-            validationMessage = "年份应不早于 1900 年"
+            validationMessage = AnimeL10n.string(.validationYearMinimum)
             return
         }
         guard startValue == nil || endValue == nil || startValue! <= endValue! else {
-            validationMessage = "起始年份不能晚于结束年份"
+            validationMessage = AnimeL10n.string(.validationYearOrder)
             return
         }
         onApply()
@@ -749,7 +749,7 @@ struct NativeCollectionView: View {
                         }
                         .id(selectedStatus)
                         if let cursor = page.nextCursor {
-                            Button("加载更多") {
+                            Button(AnimeL10n.key(.actionLoadMore)) {
                                 model.loadCollection(status: selectedStatus, cursor: cursor, append: true) { _, error in
                                     errorMessage = error
                                 }
@@ -758,10 +758,10 @@ struct NativeCollectionView: View {
                             .buttonStyle(.bordered)
                         }
                     } else if !model.isSessionReady || model.isLoadingCollection {
-                        ProgressView("正在恢复片库")
+                        ProgressView(AnimeL10n.key(.libraryRestoring))
                             .frame(maxWidth: .infinity, minHeight: 220)
                     } else {
-                        ContentUnavailableView("还没有作品", systemImage: "books.vertical", description: Text("在作品详情中收藏后，会显示在这里。"))
+                        ContentUnavailableView(AnimeL10n.key(.libraryEmpty), systemImage: "books.vertical", description: Text(AnimeL10n.key(.libraryEmptyDescription)))
                             .frame(maxWidth: .infinity, minHeight: 220)
                     }
                 }
@@ -771,7 +771,7 @@ struct NativeCollectionView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .navigationTitle("片库")
+            .navigationTitle(AnimeL10n.key(.libraryTitle))
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 await withCheckedContinuation { continuation in
@@ -830,11 +830,11 @@ struct NativeRatingsView: View {
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
-                                Button("删除评分", role: .destructive) { deletingRating = rating }
+                                Button(AnimeL10n.key(.ratingsDelete), role: .destructive) { deletingRating = rating }
                             }
                         }
                         if let cursor = page.nextCursor {
-                            Button("加载更多") {
+                            Button(AnimeL10n.key(.actionLoadMore)) {
                                 model.loadMyRatings(cursor: cursor, append: true) { _, error in errorMessage = error }
                             }
                             .buttonStyle(.bordered)
@@ -842,7 +842,7 @@ struct NativeRatingsView: View {
                     } else if let errorMessage {
                         NativeInlineError(message: errorMessage) { load() }
                     } else {
-                        ContentUnavailableView("还没有评分", systemImage: "star", description: Text("在作品详情中评分后，会显示在这里。"))
+                        ContentUnavailableView(AnimeL10n.key(.ratingsEmpty), systemImage: "star", description: Text(AnimeL10n.key(.ratingsEmptyDescription)))
                             .frame(maxWidth: .infinity, minHeight: 220)
                     }
                     if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
@@ -850,19 +850,19 @@ struct NativeRatingsView: View {
                 .padding(16)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("我的评分")
+            .navigationTitle(AnimeL10n.key(.ratingsTitle))
             .navigationBarTitleDisplayMode(.large)
             .task { load() }
             .refreshable { await refresh() }
-            .confirmationDialog("删除这条评分？", isPresented: Binding(
+            .confirmationDialog(AnimeL10n.string(.ratingsDeleteConfirmation), isPresented: Binding(
                 get: { deletingRating != nil },
                 set: { if !$0 { deletingRating = nil } },
             ), titleVisibility: .visible) {
-                Button("删除评分", role: .destructive) {
+                Button(AnimeL10n.key(.ratingsDelete), role: .destructive) {
                     guard let rating = deletingRating else { return }
                     model.deleteRating(subjectId: rating.subjectId) { error in
-                        if let error { message = "删除失败：\(error)" }
-                        else { message = "评分已删除"; load() }
+                        if let error { message = AnimeL10n.string(.ratingsDeleteFailed, error) }
+                        else { message = AnimeL10n.string(.ratingsDeleted); load() }
                         deletingRating = nil
                     }
                 }
@@ -899,7 +899,7 @@ struct NativeMyReviewsView: View {
                             .buttonStyle(.plain)
                         }
                         if let cursor = page.nextCursor {
-                            Button("加载更多") {
+                            Button(AnimeL10n.key(.actionLoadMore)) {
                                 model.loadUserReviews(id: userId, cursor: cursor) { _, error in errorMessage = error }
                             }
                             .buttonStyle(.bordered)
@@ -907,14 +907,14 @@ struct NativeMyReviewsView: View {
                     } else if let errorMessage {
                         NativeInlineError(message: errorMessage) { load() }
                     } else {
-                        ContentUnavailableView("还没有评价", systemImage: "text.quote", description: Text("在作品详情中发布评价后，会显示在这里。"))
+                        ContentUnavailableView(AnimeL10n.key(.reviewsEmpty), systemImage: "text.quote", description: Text(AnimeL10n.key(.reviewsEmptyDescription)))
                             .frame(maxWidth: .infinity, minHeight: 220)
                     }
                 }
                 .padding(16)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("我的评价")
+        .navigationTitle(AnimeL10n.key(.reviewsTitle))
         .navigationBarTitleDisplayMode(.large)
         .task { load() }
         .refreshable { await refresh() }
@@ -950,20 +950,20 @@ struct NativeAdminView: View {
         ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     if let overview = model.adminOverview {
-                        Text("维护者工作台").font(.title2.weight(.bold))
-                        Text("当前角色：\(overview.role)").font(.subheadline).foregroundStyle(.secondary)
+                        Text(AnimeL10n.key(.adminConsole)).font(.title2.weight(.bold))
+                        Text(AnimeL10n.string(.adminRole, overview.role)).font(.subheadline).foregroundStyle(.secondary)
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                            NativeMetric(value: Int(overview.usersActive), title: "活跃用户")
-                            NativeMetric(value: Int(overview.usersTotal), title: "用户总数")
-                            NativeMetric(value: Int(overview.reviewsPublished), title: "已发布评价")
-                            NativeMetric(value: Int(overview.commentsPublished), title: "已发布评论")
-                            NativeMetric(value: Int(overview.openCommentReports), title: "待处理举报")
+                            NativeMetric(value: Int(overview.usersActive), title: AnimeL10n.string(.adminActiveUsers))
+                            NativeMetric(value: Int(overview.usersTotal), title: AnimeL10n.string(.adminTotalUsers))
+                            NativeMetric(value: Int(overview.reviewsPublished), title: AnimeL10n.string(.adminPublishedReviews))
+                            NativeMetric(value: Int(overview.commentsPublished), title: AnimeL10n.string(.adminPublishedComments))
+                            NativeMetric(value: Int(overview.openCommentReports), title: AnimeL10n.string(.adminOpenReports))
                         }
-                        Text("举报队列")
+                        Text(AnimeL10n.key(.adminReportQueue))
                             .font(.headline)
                             .padding(.top, 8)
                         if model.adminReports.isEmpty {
-                            Text("当前没有待处理举报")
+                            Text(AnimeL10n.key(.adminNoReports))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         } else {
@@ -976,7 +976,7 @@ struct NativeAdminView: View {
                                             .font(.caption.weight(.semibold))
                                             .foregroundStyle(.secondary)
                                     }
-                                    Text("举报人：\(report.reporterName) · 作者：\(report.authorName)")
+                                    Text(AnimeL10n.string(.adminReportPeople, report.reporterName, report.authorName))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                     if let subjectTitle = report.subjectTitle {
@@ -984,14 +984,14 @@ struct NativeAdminView: View {
                                     }
                                     Text(report.body).lineLimit(4)
                                     HStack(spacing: 8) {
-                                        Button("认领") { reportAction(report, action: "claim") }
+                                        Button(AnimeL10n.key(.adminClaim)) { reportAction(report, action: "claim") }
                                             .buttonStyle(.bordered)
                                             .disabled(report.status != "open")
-                                        Button("保留") { reportAction(report, action: "resolve", contentAction: "published") }
+                                        Button(AnimeL10n.key(.adminKeep)) { reportAction(report, action: "resolve", contentAction: "published") }
                                             .buttonStyle(.bordered)
-                                        Button("隐藏", role: .destructive) { reportAction(report, action: "resolve", contentAction: "hidden") }
+                                        Button(AnimeL10n.key(.adminHide), role: .destructive) { reportAction(report, action: "resolve", contentAction: "hidden") }
                                             .buttonStyle(.bordered)
-                                        Button("驳回") { reportAction(report, action: "dismiss") }
+                                        Button(AnimeL10n.key(.adminDismiss)) { reportAction(report, action: "dismiss") }
                                             .buttonStyle(.bordered)
                                     }
                                 }
@@ -1000,11 +1000,11 @@ struct NativeAdminView: View {
                                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                         }
-                        Text("评论审核")
+                        Text(AnimeL10n.key(.adminCommentModeration))
                             .font(.headline)
                             .padding(.top, 8)
                         if model.adminComments.isEmpty {
-                            Text("当前没有评论记录")
+                            Text(AnimeL10n.key(.adminNoComments))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         } else {
@@ -1025,13 +1025,13 @@ struct NativeAdminView: View {
                                     Text(comment.body)
                                         .lineLimit(4)
                                     HStack(spacing: 8) {
-                                        Button("发布") { moderate(comment.id, action: "published") }
+                                        Button(AnimeL10n.key(.actionPublish)) { moderate(comment.id, action: "published") }
                                             .buttonStyle(.bordered)
                                             .disabled(comment.moderationStatus == "published")
-                                        Button("隐藏") { moderate(comment.id, action: "hidden") }
+                                        Button(AnimeL10n.key(.adminHide)) { moderate(comment.id, action: "hidden") }
                                             .buttonStyle(.bordered)
                                             .disabled(comment.moderationStatus == "hidden")
-                                        Button("删除", role: .destructive) { moderate(comment.id, action: "deleted") }
+                                        Button(AnimeL10n.key(.actionDelete), role: .destructive) { moderate(comment.id, action: "deleted") }
                                             .buttonStyle(.bordered)
                                     }
                                 }
@@ -1040,18 +1040,18 @@ struct NativeAdminView: View {
                                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                         }
-                        NativeActionRow(title: "管理员账号", subtitle: "仅服务端 maintainer 角色可以进入此页面", systemImage: "person.badge.key")
+                        NativeActionRow(title: AnimeL10n.string(.adminAccount), subtitle: AnimeL10n.string(.adminAccountDescription), systemImage: "person.badge.key")
                     } else if let errorMessage {
                         NativeInlineError(message: errorMessage) { load() }
                     } else {
-                        ProgressView("正在加载管理概览")
+                        ProgressView(AnimeL10n.key(.adminLoading))
                             .frame(maxWidth: .infinity, minHeight: 220)
                     }
                 }
                 .padding(16)
         }
         .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("管理后台")
+            .navigationTitle(AnimeL10n.key(.adminConsole))
             .navigationBarTitleDisplayMode(.large)
             .task { load() }
             .refreshable { await refresh() }
@@ -1072,7 +1072,7 @@ struct NativeAdminView: View {
 
     private func reportAction(_ report: NativeAdminReportSnapshot, action: String, contentAction: String? = nil) {
         model.adminReportAction(id: report.id, action: action, contentAction: contentAction) { error in
-            if let error { errorMessage = "操作失败：\(error)" }
+            if let error { errorMessage = AnimeL10n.string(.activityOperationFailed, error) }
         }
     }
 
@@ -1108,7 +1108,7 @@ struct NativeCalendarView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                DatePicker("播出日期", selection: $selectedDate, displayedComponents: .date)
+                DatePicker(AnimeL10n.key(.calendarDate), selection: $selectedDate, displayedComponents: .date)
                     .datePickerStyle(.compact)
                     .padding(16)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -1117,7 +1117,7 @@ struct NativeCalendarView: View {
                     NativeInlineError(message: errorMessage) { load() }
                 } else if let calendar = model.calendar, calendar.date == dateString {
                     if calendar.items.isEmpty {
-                        ContentUnavailableView("当天没有播出", systemImage: "calendar.badge.clock", description: Text("可以切换到其他日期查看。"))
+                        ContentUnavailableView(AnimeL10n.key(.calendarEmpty), systemImage: "calendar.badge.clock", description: Text(AnimeL10n.key(.calendarEmptyDescription)))
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else {
                         ForEach(calendar.items) { subject in
@@ -1130,7 +1130,7 @@ struct NativeCalendarView: View {
                         }
                     }
                 } else {
-                    ProgressView("正在加载日历")
+                    ProgressView(AnimeL10n.key(.calendarLoading))
                         .frame(maxWidth: .infinity, minHeight: 180)
                 }
             }
@@ -1139,7 +1139,7 @@ struct NativeCalendarView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .navigationTitle("播出日历")
+        .navigationTitle(AnimeL10n.key(.calendar))
         .navigationBarTitleDisplayMode(.inline)
         .task { load() }
         .onChange(of: selectedDate) { _, _ in load() }
@@ -1202,10 +1202,10 @@ struct NativeSubjectSectionsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
-                Picker("资料类型", selection: $selectedSection) {
-                    Text("分集").tag("episodes")
-                    Text("角色").tag("characters")
-                    Text("关联").tag("relations")
+                Picker(AnimeL10n.key(.subjectMaterial), selection: $selectedSection) {
+                    Text(AnimeL10n.key(.subjectEpisodes)).tag("episodes")
+                    Text(AnimeL10n.key(.subjectCharacters)).tag("characters")
+                    Text(AnimeL10n.key(.subjectRelations)).tag("relations")
                 }
                 .pickerStyle(.segmented)
 
@@ -1214,7 +1214,7 @@ struct NativeSubjectSectionsView: View {
                 } else if let sections = model.subjectSections[subjectId] {
                     sectionContent(sections)
                 } else {
-                    ProgressView("正在加载作品资料")
+                    ProgressView(AnimeL10n.key(.subjectLoadingMaterial))
                         .frame(maxWidth: .infinity, minHeight: 220)
                 }
             }
@@ -1223,7 +1223,7 @@ struct NativeSubjectSectionsView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .navigationTitle("作品资料")
+        .navigationTitle(AnimeL10n.key(.subjectDetails))
         .navigationBarTitleDisplayMode(.inline)
         .task { load() }
         .refreshable { await refresh() }
@@ -1234,7 +1234,7 @@ struct NativeSubjectSectionsView: View {
         switch selectedSection {
         case "characters":
             if sections.characters.isEmpty {
-                ContentUnavailableView("暂无角色资料", systemImage: "person.2")
+                ContentUnavailableView(AnimeL10n.key(.subjectNoCharacters), systemImage: "person.2")
             } else {
                 ForEach(sections.characters) { character in
                     HStack(spacing: 12) {
@@ -1247,7 +1247,7 @@ struct NativeSubjectSectionsView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             if !character.actors.isEmpty {
-                                Text("配音：" + character.actors.map(\.name).joined(separator: "、"))
+                                Text(AnimeL10n.string(.subjectVoiceActor, character.actors.map(\.name).joined(separator: "、")))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
@@ -1261,7 +1261,7 @@ struct NativeSubjectSectionsView: View {
             }
         case "relations":
             if sections.relations.isEmpty {
-                ContentUnavailableView("暂无关联作品", systemImage: "link")
+                ContentUnavailableView(AnimeL10n.key(.subjectNoRelations), systemImage: "link")
             } else {
                 ForEach(sections.relations) { relation in
                     NavigationLink {
@@ -1289,7 +1289,7 @@ struct NativeSubjectSectionsView: View {
             }
         default:
             if sections.episodes.isEmpty {
-                ContentUnavailableView("暂无分集资料", systemImage: "list.number")
+                ContentUnavailableView(AnimeL10n.key(.subjectNoEpisodes), systemImage: "list.number")
             } else {
                 ForEach(sections.episodes) { episode in
                     HStack(spacing: 12) {
@@ -1297,7 +1297,7 @@ struct NativeSubjectSectionsView: View {
                             .font(.headline.monospacedDigit())
                             .frame(width: 42)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(episode.title ?? "未命名分集")
+                            Text(episode.title ?? AnimeL10n.string(.subjectUnnamedEpisode))
                                 .font(.headline)
                                 .lineLimit(2)
                             Text([episode.airDate, episode.airStatus.displayName].compactMap { $0 }.joined(separator: " · "))
@@ -1331,7 +1331,7 @@ struct NativeSubjectSectionsView: View {
 struct NativeActivityView: View {
     @ObservedObject var model: NativeAppModel
     @State private var activityTitleOpacity = 1.0
-    @State private var selectedMode = "动态"
+    @State private var selectedMode = "feed"
     @State private var selectedFeed = "public"
     @State private var errorMessage: String?
     @State private var activityToDelete: NativeActivityItemSnapshot?
@@ -1341,12 +1341,12 @@ struct NativeActivityView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    Picker("内容", selection: $selectedMode) {
-                        Text("动态").tag("动态")
-                        Text("通知").tag("通知")
+                    Picker(AnimeL10n.key(.activityContent), selection: $selectedMode) {
+                        Text(AnimeL10n.key(.activityFeedMode)).tag("feed")
+                        Text(AnimeL10n.key(.activityNotificationsMode)).tag("notifications")
                     }
                     .pickerStyle(.segmented)
-                    if selectedMode == "动态" {
+                    if selectedMode == "feed" {
                         feedPicker
                         activityContent
                     } else {
@@ -1371,7 +1371,7 @@ struct NativeActivityView: View {
             .refreshable { await refresh() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Text("动态")
+                    Text(AnimeL10n.key(.communityTitle))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
@@ -1387,17 +1387,17 @@ struct NativeActivityView: View {
                     } label: {
                         Image(systemName: "list.bullet.rectangle")
                     }
-                    .accessibilityLabel("片单")
+                    .accessibilityLabel(AnimeL10n.string(.activityLists))
                 }
             }
             .navigationDestination(for: NativeSubjectSummary.self) { subject in
                 NativeSubjectDetailView(summary: subject, model: model)
             }
-            .confirmationDialog("撤回这条动态？", isPresented: Binding(
+            .confirmationDialog(AnimeL10n.string(.activityRetractConfirmation), isPresented: Binding(
                 get: { activityToDelete != nil },
                 set: { if !$0 { activityToDelete = nil } },
             ), titleVisibility: .visible) {
-                Button("撤回", role: .destructive) { deleteActivity() }
+                Button(AnimeL10n.key(.activityRetract), role: .destructive) { deleteActivity() }
             }
         }
         .task {
@@ -1434,14 +1434,14 @@ struct NativeActivityView: View {
                 )
             }
             if page.nextCursor != nil {
-                Button("加载更多") {
+                Button(AnimeL10n.key(.actionLoadMore)) {
                     model.loadActivity(feed: selectedFeed, cursor: page.nextCursor, append: true)
                 }
                 .frame(maxWidth: .infinity)
                 .buttonStyle(.bordered)
             }
         } else {
-            ContentUnavailableView("还没有动态", systemImage: "bubble.left.and.bubble.right", description: Text("完成一次评分、评价或讨论后，内容会显示在这里。"))
+            ContentUnavailableView(AnimeL10n.key(.activityEmptyTitle), systemImage: "bubble.left.and.bubble.right", description: Text(AnimeL10n.key(.activityEmptyMessage)))
                 .frame(maxWidth: .infinity, minHeight: 220)
         }
     }
@@ -1449,7 +1449,7 @@ struct NativeActivityView: View {
     @ViewBuilder
     private var notificationContent: some View {
         if model.notifications.isEmpty {
-            ContentUnavailableView("没有新通知", systemImage: "bell", description: Text("新的互动会在这里提醒你。"))
+            ContentUnavailableView(AnimeL10n.key(.notificationEmptyTitle), systemImage: "bell", description: Text(AnimeL10n.key(.notificationEmptyMessage)))
                 .frame(maxWidth: .infinity, minHeight: 220)
         } else {
             ForEach(model.notifications) { notification in
@@ -1462,7 +1462,7 @@ struct NativeActivityView: View {
 
     private func loadCurrentMode() {
         errorMessage = nil
-        if selectedMode == "通知" {
+        if selectedMode == "notifications" {
             model.loadNotifications { _, error in errorMessage = error }
         } else {
             model.loadActivity(feed: selectedFeed) { _, error in errorMessage = error }
@@ -1492,8 +1492,8 @@ struct NativeActivityView: View {
     private func deleteActivity() {
         guard let item = activityToDelete else { return }
         let finish: (String?) -> Void = { error in
-            if let error { activityMessage = "删除失败：\(error)" }
-            else { activityMessage = "动态已撤回"; loadCurrentMode() }
+            if let error { activityMessage = "\(AnimeL10n.string(.errorActionFailed))：\(error)" }
+            else { activityMessage = AnimeL10n.string(.activityRetract); loadCurrentMode() }
             activityToDelete = nil
         }
         model.withdrawActivity(id: item.id, completion: finish)
@@ -1506,7 +1506,7 @@ struct NativeActivityView: View {
         if let commentId = notification.commentId, let subjectId = notification.subjectId {
             return AnyView(
                 NativeSubjectDetailView(
-                    summary: NativeSubjectSummary.placeholder(id: subjectId, title: "讨论"),
+                    summary: NativeSubjectSummary.placeholder(id: subjectId, title: AnimeL10n.string(.discussion)),
                     model: model,
                     focusCommentId: commentId,
                 )
@@ -1523,7 +1523,7 @@ struct NativeActivityView: View {
 
     private func refresh() async {
         await withCheckedContinuation { continuation in
-            if selectedMode == "通知" {
+            if selectedMode == "notifications" {
                 model.loadNotifications { _, error in errorMessage = error; continuation.resume() }
             } else {
                 model.loadActivity(feed: selectedFeed) { _, error in errorMessage = error; continuation.resume() }
@@ -1545,7 +1545,7 @@ struct NativeProfileView: View {
                     if model.session.status == "authenticated" {
                         authenticatedContent
                     } else if model.session.status == "restoring" {
-                        ProgressView("正在恢复账号")
+                        ProgressView(AnimeL10n.key(.statusRestoring))
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else {
                         guestContent
@@ -1553,7 +1553,7 @@ struct NativeProfileView: View {
                     if let message {
                         Text(message)
                             .font(.footnote)
-                            .foregroundStyle(message.contains("失败") ? .red : .secondary)
+                            .foregroundStyle(message.contains(AnimeL10n.string(.errorFailureMarker)) ? .red : .secondary)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -1573,7 +1573,7 @@ struct NativeProfileView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Text("我的")
+                    Text(AnimeL10n.key(.profile))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
@@ -1589,7 +1589,7 @@ struct NativeProfileView: View {
                     } label: {
                         Image(systemName: "gearshape")
                     }
-                    .accessibilityLabel("设置")
+                    .accessibilityLabel(AnimeL10n.key(.settings))
                 }
             }
             .sheet(isPresented: $showingAccount) {
@@ -1613,18 +1613,18 @@ struct NativeProfileView: View {
             NativeAvatar(url: model.profile?.avatarURL ?? model.session.avatarURL, name: model.profile?.displayName ?? model.session.displayName)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(model.profile?.displayName ?? model.session.displayName ?? "Anime 用户")
+                    Text(model.profile?.displayName ?? model.session.displayName ?? AnimeL10n.string(.userFallback))
                         .font(.title3.weight(.bold))
                     if let location = model.networkContext?.displayLocation,
                        !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                         Text("IP: \(location)")
+                         Text(AnimeL10n.string(.profileIPAddress, location))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
                 }
-                Text("已登录 · \(model.profile?.provider ?? "Anime")")
+                Text(AnimeL10n.string(.loggedInAs, model.profile?.provider ?? AnimeL10n.string(.appName)))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -1638,19 +1638,19 @@ struct NativeProfileView: View {
                 NavigationLink {
                     NativeCollectionView(model: model)
                 } label: {
-                    NativeMetric(value: profile.watchingCount + profile.completedCount, title: "收藏")
+                    NativeMetric(value: profile.watchingCount + profile.completedCount, title: AnimeL10n.string(.profileCollectionMetric))
                 }
                 .buttonStyle(.plain)
                 NavigationLink {
                     NativeRatingsView(model: model)
                 } label: {
-                    NativeMetric(value: profile.ratingCount, title: "评分")
+                    NativeMetric(value: profile.ratingCount, title: AnimeL10n.string(.profileRatingMetric))
                 }
                 .buttonStyle(.plain)
                 NavigationLink {
                     NativeMyReviewsView(model: model)
                 } label: {
-                    NativeMetric(value: profile.reviewCount, title: "评价")
+                    NativeMetric(value: profile.reviewCount, title: AnimeL10n.string(.profileReviewMetric))
                 }
                 .buttonStyle(.plain)
             }
@@ -1659,7 +1659,7 @@ struct NativeProfileView: View {
         NavigationLink {
             NativeCollectionView(model: model)
         } label: {
-            NativeActionRow(title: "我的片库", subtitle: "浏览正在追、想看和已完成的作品", systemImage: "books.vertical")
+            NativeActionRow(title: AnimeL10n.string(.profileLibrary), subtitle: AnimeL10n.string(.profileLibrarySubtitle), systemImage: "books.vertical")
         }
         .buttonStyle(.plain)
 
@@ -1667,15 +1667,15 @@ struct NativeProfileView: View {
             NavigationLink {
                 NativeAdminView(model: model)
             } label: {
-                NativeActionRow(title: "管理后台", subtitle: "内容审核与服务概览", systemImage: "shield.lefthalf.filled")
+                NativeActionRow(title: AnimeL10n.string(.profileAdminConsole), subtitle: AnimeL10n.string(.profileAdminDescription), systemImage: "shield.lefthalf.filled")
             }
             .buttonStyle(.plain)
         }
 
         Button {
-            model.logout { error in message = error ?? "已退出登录" }
+            model.logout { error in message = error ?? AnimeL10n.string(.profileLoggedOut) }
         } label: {
-            NativeActionRow(title: "退出登录", subtitle: "清除本机凭据并返回访客状态", systemImage: "rectangle.portrait.and.arrow.right", tint: .red)
+            NativeActionRow(title: AnimeL10n.key(.actionLogout), subtitle: AnimeL10n.string(.profileLogoutDescription), systemImage: "rectangle.portrait.and.arrow.right", tint: .red)
         }
         .buttonStyle(.plain)
     }
@@ -1685,11 +1685,11 @@ struct NativeProfileView: View {
             Image(systemName: "person.crop.circle.badge.plus")
                 .font(.system(size: 42))
                 .foregroundStyle(.tint)
-            Text("登录 Anime")
+            Text(AnimeL10n.key(.profileLoginTitle))
                 .font(.title2.weight(.bold))
-            Text("登录后可同步片库、评分、评价和社区互动。")
+            Text(AnimeL10n.key(.profileLoginMessage))
                 .foregroundStyle(.secondary)
-            Button("登录或注册") { showingAccount = true }
+            Button(AnimeL10n.key(.actionLoginOrRegister)) { showingAccount = true }
                 .buttonStyle(.borderedProminent)
         }
         .padding(20)
@@ -1717,13 +1717,13 @@ struct NativeReviewDetailView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
                 if isLoading && review == nil {
-                    ProgressView("正在加载评价")
+                    ProgressView(AnimeL10n.key(.reviewLoading))
                         .frame(maxWidth: .infinity, minHeight: 220)
                 } else if let review {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(review.title ?? "作品评价")
+                                Text(review.title ?? AnimeL10n.string(.reviewTitleFallback))
                                     .font(.title2.weight(.bold))
                                 Text(review.createdAt.replacingOccurrences(of: "T", with: " ").prefix(16))
                                     .font(.caption)
@@ -1731,7 +1731,7 @@ struct NativeReviewDetailView: View {
                             }
                             Spacer()
                             if review.spoiler {
-                                Label("剧透", systemImage: "eye.slash")
+                                Label(AnimeL10n.key(.reviewSpoiler), systemImage: "eye.slash")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.orange)
                             }
@@ -1761,16 +1761,16 @@ struct NativeReviewDetailView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
 
                     NavigationLink {
-                        NativeSubjectDetailView(summary: NativeSubjectSummary.placeholder(id: review.subjectId, title: "作品"), model: model)
+                        NativeSubjectDetailView(summary: NativeSubjectSummary.placeholder(id: review.subjectId, title: AnimeL10n.string(.subjectTitleFallback)), model: model)
                     } label: {
-                        NativeActionRow(title: "查看所属作品", subtitle: "打开作品详情和社区讨论", systemImage: "film")
+                        NativeActionRow(title: AnimeL10n.string(.reviewSubjectAction), subtitle: AnimeL10n.string(.reviewSubjectActionDescription), systemImage: "film")
                     }
                     .buttonStyle(.plain)
 
                     if let message {
                         Text(message)
                             .font(.footnote)
-                            .foregroundStyle(message.hasPrefix("操作失败") ? .red : .secondary)
+                            .foregroundStyle(message.hasPrefix(AnimeL10n.string(.errorFailureMarker)) ? .red : .secondary)
                     }
                 } else if let errorMessage {
                     NativeInlineError(message: errorMessage) { load() }
@@ -1781,17 +1781,17 @@ struct NativeReviewDetailView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .navigationTitle("评价")
+        .navigationTitle(AnimeL10n.key(.reviewTitle))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if let review, review.owned, review.kind == "short" {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("编辑") {
+                        Button(AnimeL10n.key(.actionEdit)) {
                             guard authorizeWrite() else { return }
                             showingEditor = true
                         }
-                        Button("删除评价", role: .destructive) {
+                        Button(AnimeL10n.key(.actionDelete), role: .destructive) {
                             guard authorizeWrite() else { return }
                             showingDeleteConfirmation = true
                         }
@@ -1806,22 +1806,22 @@ struct NativeReviewDetailView: View {
         .sheet(isPresented: $showingEditor) {
             if let review {
                 NativeReviewEditor(review: review, model: model) { updated, error in
-                    if let updated { self.review = updated; message = "评价已更新" }
-                    if let error { message = "更新失败：\(error)" }
+                    if let updated { self.review = updated; message = AnimeL10n.string(.reviewUpdated) }
+                    if let error { message = AnimeL10n.string(.reviewUpdateFailed, error) }
                 }
             }
         }
         .sheet(isPresented: $showingAccount) {
             NativeAccountSheet(model: model)
         }
-        .confirmationDialog("确定删除这条评价吗？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
-            Button("删除评价", role: .destructive) {
+        .confirmationDialog(AnimeL10n.key(.reviewDeleteConfirmation), isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+            Button(AnimeL10n.key(.actionDelete), role: .destructive) {
                 guard authorizeWrite(), !isDeleting else { return }
                 isDeleting = true
                 model.deleteReview(id: reviewId) { error in
                     isDeleting = false
-                    if let error { message = "删除失败：\(error)" }
-                    else { message = "评价已删除"; review = nil }
+                    if let error { message = AnimeL10n.string(.reviewDeleteFailed, error) }
+                    else { message = AnimeL10n.string(.reviewDeleted); review = nil }
                 }
             }
         }
@@ -1858,16 +1858,16 @@ struct NativeReviewDetailView: View {
             if let value {
                 if reaction == "like" { isLiked = value.active }
                 if reaction == "bookmark" { isBookmarked = value.active }
-                message = "操作已完成"
+                message = AnimeL10n.string(.operationCompleted)
             } else if let error {
-                message = "操作失败：\(error)"
+                message = AnimeL10n.string(.activityOperationFailed, error)
             }
         }
     }
 
     private func authorizeWrite() -> Bool {
         if model.isRestoringSession {
-            message = "正在恢复登录状态，请稍候"
+            message = AnimeL10n.string(.loginRestoring)
             return false
         }
         guard model.isAuthenticated else {
@@ -1901,17 +1901,17 @@ private struct NativeReviewEditor: View {
         NavigationStack {
             Form {
                 TextEditor(text: $reviewText).frame(minHeight: 170)
-                Toggle("包含剧透", isOn: $spoiler)
-                Picker("可见性", selection: $visibility) {
-                    Text("公开").tag("public")
-                    Text("仅自己").tag("private")
+                Toggle(AnimeL10n.key(.formSpoiler), isOn: $spoiler)
+                Picker(AnimeL10n.key(.visibility), selection: $visibility) {
+                    Text(AnimeL10n.key(.visibilityPublic)).tag("public")
+                    Text(AnimeL10n.key(.visibilityPrivate)).tag("private")
                 }
-                Button(isSaving ? "保存中…" : "保存修改") { save() }
+                Button(isSaving ? AnimeL10n.key(.actionSaving) : AnimeL10n.key(.actionSaveChanges)) { save() }
                     .disabled(isSaving || reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .navigationTitle("编辑评价")
+            .navigationTitle(AnimeL10n.key(.actionEdit))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(AnimeL10n.key(.actionCancel)) { dismiss() } }
             }
         }
     }
@@ -1953,15 +1953,15 @@ struct NativeUserProfileView: View {
                         NativeAvatar(url: profile.avatarURL, name: profile.displayName)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(profile.displayName).font(.title3.weight(.bold))
-                            Text("加入于 \(profile.createdAt.prefix(10))")
+                            Text(AnimeL10n.string(.userJoinedAt, String(profile.createdAt.prefix(10))))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button(isFollowing ? "已关注" : "关注") {
+                        Button(isFollowing ? AnimeL10n.key(.actionFollowing) : AnimeL10n.key(.actionFollow)) {
                             model.followUser(id: userId, following: !isFollowing) { value, error in
                                 if let value { isFollowing = value }
-                                message = error.map { "操作失败：\($0)" }
+                                message = error.map { AnimeL10n.string(.activityOperationFailed, $0) }
                             }
                         }
                         .buttonStyle(.borderedProminent)
@@ -1970,13 +1970,13 @@ struct NativeUserProfileView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        NativeMetric(value: Int(profile.reviewCount), title: "评价")
-                        NativeMetric(value: Int(profile.ratingCount), title: "评分")
-                        NativeMetric(value: Int(profile.followerCount), title: "粉丝")
+                        NativeMetric(value: Int(profile.reviewCount), title: AnimeL10n.string(.profileReviewMetric))
+                        NativeMetric(value: Int(profile.ratingCount), title: AnimeL10n.string(.profileRatingMetric))
+                        NativeMetric(value: Int(profile.followerCount), title: AnimeL10n.string(.userFollowers))
                     }
 
                     if let reviews = model.userReviews[userId]?.items, !reviews.isEmpty {
-                        Text("评价").font(.title3.weight(.bold))
+                        Text(AnimeL10n.key(.userReviews)).font(.title3.weight(.bold))
                         ForEach(reviews) { review in
                             NavigationLink {
                                 NativeReviewDetailView(reviewId: review.id, model: model)
@@ -1988,7 +1988,7 @@ struct NativeUserProfileView: View {
                     }
 
                     if let lists = model.userLists[userId], !lists.isEmpty {
-                        Text("片单").font(.title3.weight(.bold))
+                        Text(AnimeL10n.key(.userLists)).font(.title3.weight(.bold))
                         ForEach(lists) { list in
                             NavigationLink {
                                 NativeListDetailView(listId: list.id, model: model)
@@ -2002,7 +2002,7 @@ struct NativeUserProfileView: View {
                         Text(message).font(.footnote).foregroundStyle(.secondary)
                     }
                 } else if isLoading {
-                    ProgressView("正在加载用户")
+                    ProgressView(AnimeL10n.key(.userLoading))
                         .frame(maxWidth: .infinity, minHeight: 220)
                 } else if let errorMessage {
                     NativeInlineError(message: errorMessage) { load() }
@@ -2013,7 +2013,7 @@ struct NativeUserProfileView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .navigationTitle("用户")
+        .navigationTitle(AnimeL10n.key(.userTitle))
         .navigationBarTitleDisplayMode(.inline)
         .task { load() }
         .refreshable { await refresh() }
@@ -2022,7 +2022,7 @@ struct NativeUserProfileView: View {
     private func load() {
         isLoading = true
         errorMessage = nil
-        var remaining = 2
+        var remaining = 3
         func finish() {
             remaining -= 1
             if remaining == 0 { isLoading = false }
@@ -2038,6 +2038,7 @@ struct NativeUserProfileView: View {
         }
         model.loadUserLists(id: userId) { _, error in
             if errorMessage == nil { errorMessage = error }
+            finish()
         }
     }
 
@@ -2059,7 +2060,7 @@ private struct NativeReviewRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(review.title ?? "作品评价").font(.headline)
+            Text(review.title ?? AnimeL10n.string(.reviewTitleFallback)).font(.headline)
             Text(review.body).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
             Text(review.createdAt.replacingOccurrences(of: "T", with: " ").prefix(10))
                 .font(.caption)
@@ -2081,7 +2082,7 @@ private struct NativeListSummaryRow: View {
                 .foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 4) {
                 Text(list.title).font(.headline)
-                Text("\(list.itemCount) 部作品 · \(list.followerCount) 人关注")
+                Text(AnimeL10n.string(.listSummary, String(list.itemCount), String(list.followerCount)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -2105,7 +2106,7 @@ struct NativeListsView: View {
                 Section { Text(errorMessage).foregroundStyle(.red) }
             }
             if model.lists.isEmpty {
-                ContentUnavailableView("还没有片单", systemImage: "list.bullet.rectangle", description: Text("创建片单来整理喜欢的作品。"))
+                ContentUnavailableView(AnimeL10n.key(.listEmpty), systemImage: "list.bullet.rectangle", description: Text(AnimeL10n.key(.listEmptyDescription)))
             } else {
                 ForEach(model.lists) { list in
                     NavigationLink {
@@ -2118,7 +2119,7 @@ struct NativeListsView: View {
         }
         .listStyle(.insetGrouped)
         .scrollIndicators(.hidden)
-        .navigationTitle("片单")
+        .navigationTitle(AnimeL10n.key(.listTitle))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -2160,21 +2161,21 @@ struct NativeListDetailView: View {
                 if let detail {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(detail.summary.title).font(.title2.weight(.bold))
-                        Text(detail.summary.description.isEmpty ? "暂无描述" : detail.summary.description)
+                        Text(detail.summary.description.isEmpty ? AnimeL10n.string(.listDescription) : detail.summary.description)
                             .foregroundStyle(.secondary)
-                        Text("创建者：\(detail.summary.ownerName) · \(detail.summary.itemCount) 部作品")
+                        Text(AnimeL10n.string(.listCreator, detail.summary.ownerName, String(detail.summary.itemCount)))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                         HStack {
-                            Button(isFollowing ? "已关注" : "关注片单") {
+                            Button(isFollowing ? AnimeL10n.key(.actionFollowing) : AnimeL10n.key(.listFollow)) {
                                 model.followList(id: listId, following: !isFollowing) { value, error in
                                     if let value { isFollowing = value }
-                                    message = error.map { "操作失败：\($0)" }
+                                    message = error.map { AnimeL10n.string(.activityOperationFailed, $0) }
                                 }
                             }
                             .buttonStyle(.borderedProminent)
                             if let ownerId = detail.summary.ownerId {
-                                NavigationLink("查看创建者") {
+                                NavigationLink(AnimeL10n.key(.listCreatorAction)) {
                                     NativeUserProfileView(userId: ownerId, model: model)
                                 }
                                 .buttonStyle(.bordered)
@@ -2185,7 +2186,7 @@ struct NativeListDetailView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                     if detail.items.isEmpty {
-                        ContentUnavailableView("片单暂无作品", systemImage: "books.vertical")
+                        ContentUnavailableView(AnimeL10n.key(.listNoItems), systemImage: "books.vertical")
                     } else {
                         ForEach(detail.items) { item in
                             NavigationLink {
@@ -2212,7 +2213,7 @@ struct NativeListDetailView: View {
                 } else if let errorMessage {
                     NativeInlineError(message: errorMessage) { load() }
                 } else {
-                    ProgressView("正在加载片单").frame(maxWidth: .infinity, minHeight: 220)
+                    ProgressView(AnimeL10n.key(.listLoading)).frame(maxWidth: .infinity, minHeight: 220)
                 }
             }
             .padding(16)
@@ -2220,14 +2221,14 @@ struct NativeListDetailView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .scrollIndicators(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .navigationTitle("片单")
+        .navigationTitle(AnimeL10n.key(.listTitle))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if detail?.summary.owned == true {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("编辑") { showingEditor = true }
-                        Button("删除片单", role: .destructive) { showingDeleteConfirmation = true }
+                        Button(AnimeL10n.key(.actionEdit)) { showingEditor = true }
+                        Button(AnimeL10n.key(.actionDelete), role: .destructive) { showingDeleteConfirmation = true }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -2244,10 +2245,10 @@ struct NativeListDetailView: View {
                 }
             }
         }
-        .confirmationDialog("确定删除这个片单吗？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
-            Button("删除片单", role: .destructive) {
+        .confirmationDialog(AnimeL10n.key(.listDeleteConfirmation), isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+            Button(AnimeL10n.key(.actionDelete), role: .destructive) {
                 model.deleteList(id: listId) { error in
-                    message = error.map { "删除失败：\($0)" } ?? "片单已删除"
+                    message = error.map { AnimeL10n.string(.listDeleteFailed, $0) } ?? AnimeL10n.string(.listDeleted)
                 }
             }
         }
@@ -2296,26 +2297,26 @@ private struct NativeListEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("片单名称", text: $title)
-                TextField("描述（可选）", text: $description, axis: .vertical)
+                TextField(AnimeL10n.key(.listName), text: $title)
+                TextField(AnimeL10n.key(.listDescription), text: $description, axis: .vertical)
                     .lineLimit(2...5)
-                Picker("可见性", selection: $visibility) {
-                    Text("公开").tag("public")
-                    Text("仅自己").tag("private")
+                Picker(AnimeL10n.key(.visibility), selection: $visibility) {
+                    Text(AnimeL10n.key(.visibilityPublic)).tag("public")
+                    Text(AnimeL10n.key(.visibilityPrivate)).tag("private")
                 }
-                Section("作品") {
-                    TextField("作品 ID，逗号分隔", text: $subjectIdsText, axis: .vertical)
+                Section(AnimeL10n.key(.listItems)) {
+                    TextField(AnimeL10n.key(.listSubjectIds), text: $subjectIdsText, axis: .vertical)
                         .keyboardType(.numbersAndPunctuation)
-                    Text("可以在作品详情或 Bangumi 中查看作品 ID。")
+                    Text(AnimeL10n.key(.listSubjectIdsDescription))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Button(isSaving ? "保存中…" : (existing == nil ? "创建片单" : "保存修改")) { save() }
+                Button(isSaving ? AnimeL10n.key(.listSaving) : (existing == nil ? AnimeL10n.key(.listCreate) : AnimeL10n.key(.actionSaveChanges))) { save() }
                     .disabled(isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .navigationTitle(existing == nil ? "新建片单" : "编辑片单")
+            .navigationTitle(existing == nil ? AnimeL10n.key(.listNew) : AnimeL10n.key(.actionEdit))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(AnimeL10n.key(.actionCancel)) { dismiss() } }
             }
         }
     }
@@ -2369,21 +2370,15 @@ struct NativeSubjectCommunityView: View {
     @State private var didLoadCommentDraft = false
     @FocusState private var commentEditorFocused: Bool
 
-    private let collectionStatuses = [
-        ("Watching", "在看"),
-        ("Wish", "想看"),
-        ("Completed", "看过"),
-        ("OnHold", "搁置"),
-        ("Dropped", "抛弃"),
-    ]
+    private let collectionStatuses = ["Watching", "Wish", "Completed", "OnHold", "Dropped"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("社区")
+                    Text(AnimeL10n.key(.communityTitle))
                         .font(.title2.weight(.bold))
-                    Text("评分、评价和讨论")
+                    Text(AnimeL10n.key(.communityDescription))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -2391,15 +2386,15 @@ struct NativeSubjectCommunityView: View {
                 Button(action: onReload) {
                     Image(systemName: "arrow.clockwise")
                 }
-                .accessibilityLabel("刷新社区内容")
+                .accessibilityLabel(AnimeL10n.key(.communityRefresh))
             }
 
             if model.isRestoringSession {
-                Label("正在恢复账号状态…", systemImage: "arrow.triangle.2.circlepath")
+                Label(AnimeL10n.key(.communityRestoring), systemImage: "arrow.triangle.2.circlepath")
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(.secondary)
             } else if !model.isAuthenticated {
-                Label("登录后可评分、收藏、写评价和参与讨论", systemImage: "lock.open")
+                Label(AnimeL10n.key(.communityLoginDescription), systemImage: "lock.open")
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(.secondary)
             }
@@ -2411,14 +2406,14 @@ struct NativeSubjectCommunityView: View {
                 reviewSection(mergedReviews(community.reviews))
                 commentSection(community.comments)
             } else {
-                ProgressView("正在加载社区内容")
+                ProgressView(AnimeL10n.key(.communityLoading))
                     .frame(maxWidth: .infinity, minHeight: 100)
             }
 
             if let message {
                 Text(message)
                     .font(.footnote)
-                    .foregroundStyle(message.contains("失败") ? .red : .secondary)
+                    .foregroundStyle(message.contains(AnimeL10n.string(.errorFailureMarker)) ? .red : .secondary)
             }
         }
         .onAppear {
@@ -2456,9 +2451,9 @@ struct NativeSubjectCommunityView: View {
             NativeReviewComposer(subjectId: subjectId, model: model) { review, error in
                 if let review {
                     localReviews.insert(review, at: 0)
-                    message = "评价已发布"
+                    message = AnimeL10n.string(.reviewPublished)
                 } else if let error {
-                    message = "发布失败：\(error)"
+                    message = AnimeL10n.string(.reviewPublishFailed, error)
                 }
             }
             .presentationDetents([.medium, .large])
@@ -2469,24 +2464,24 @@ struct NativeSubjectCommunityView: View {
         .sheet(item: $editingComment) { comment in
             NativeCommentEditor(comment: comment, model: model) { updated, error in
                 if let error {
-                    message = "更新失败：\(error)"
+                    message = AnimeL10n.string(.discussionUpdateFailed, error)
                 } else {
                     if let updated, let index = localComments.firstIndex(where: { $0.id == updated.id }) {
                         localComments[index] = updated
                     }
-                    message = "讨论已更新"
+                    message = AnimeL10n.string(.discussionUpdated)
                     onReload()
                 }
             }
         }
-        .confirmationDialog("确定删除这条讨论吗？", isPresented: Binding(
+        .confirmationDialog(AnimeL10n.key(.discussionDeleteConfirmation), isPresented: Binding(
             get: { deletingCommentId != nil },
             set: { if !$0 { deletingCommentId = nil } },
         ), titleVisibility: .visible) {
-            Button("删除讨论", role: .destructive) {
+            Button(AnimeL10n.key(.actionDelete), role: .destructive) {
                 guard let deletingCommentId else { return }
                 model.deleteComment(id: deletingCommentId) { error in
-                    message = error.map { "删除失败：\($0)" } ?? "讨论已删除"
+                    message = error.map { AnimeL10n.string(.discussionDeleteFailed, $0) } ?? AnimeL10n.string(.discussionDeleted)
                     if error == nil {
                         localComments.removeAll { $0.id == deletingCommentId }
                         if replyTargetId == deletingCommentId { cancelReply() }
@@ -2504,13 +2499,13 @@ struct NativeSubjectCommunityView: View {
                 Image(systemName: "star.fill")
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("社区平均分")
+                    Text(AnimeL10n.key(.communityAverageRating))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
-                    Text(rating.score.map { String(format: "%.1f", $0) } ?? "暂无评分")
+                    Text(rating.score.map { String(format: "%.1f", $0) } ?? AnimeL10n.string(.noRating))
                         .font(.title3.weight(.bold))
                 }
-                Text("· \(rating.votes) 人评分")
+                Text(AnimeL10n.string(.ratingVotes, String(rating.votes)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -2519,7 +2514,7 @@ struct NativeSubjectCommunityView: View {
             HStack(spacing: 10) {
                 Menu {
                     ForEach(1...10, id: \.self) { score in
-                        Button(score == selectedScore ? "✓ 我的评分 \(score)" : "我的评分 \(score)") {
+                        Button(AnimeL10n.string(.myRatingScore, "\(score)", score == selectedScore ? AnimeL10n.string(.ratingSelectedMark) : "")) {
                             guard authorizeWrite() else { return }
                             let previousScore = selectedScore
                             selectedScore = score
@@ -2528,7 +2523,7 @@ struct NativeSubjectCommunityView: View {
                     }
                 } label: {
                     Label(
-                        selectedScore == 0 ? "我的评分" : "我的评分 \(selectedScore)/10",
+                        selectedScore == 0 ? AnimeL10n.key(.myRating) : LocalizedStringKey(AnimeL10n.string(.myRatingScore, "\(selectedScore)/10", "")),
                         systemImage: selectedScore == 0 ? "star" : "star.fill",
                     )
                 }
@@ -2537,18 +2532,18 @@ struct NativeSubjectCommunityView: View {
 
                 Menu {
                     ForEach(collectionStatuses, id: \.0) { status in
-                        Button(status.1) {
+                        Button(status.collectionDisplayName) {
                             guard authorizeWrite() else { return }
                             saveCollection(status.0)
                         }
                     }
                     Divider()
-                    Button("移出片库", role: .destructive) {
+                    Button(AnimeL10n.key(.collectionRemove), role: .destructive) {
                         guard authorizeWrite() else { return }
                         saveCollection(nil)
                     }
                 } label: {
-                    Label(selectedCollectionStatus?.displayName ?? "收藏状态", systemImage: selectedCollectionStatus == nil ? "plus.circle" : "checkmark.circle.fill")
+                    Label(selectedCollectionStatus?.collectionDisplayName ?? AnimeL10n.string(.collectionStatus), systemImage: selectedCollectionStatus == nil ? "plus.circle" : "checkmark.circle.fill")
                 }
                 .buttonStyle(.bordered)
                 .disabled(model.isRestoringSession || isSavingCollection)
@@ -2560,7 +2555,7 @@ struct NativeSubjectCommunityView: View {
                     set: { saveCollectionProgress($0) },
                 ), in: 0...max(0, totalEpisodes ?? 999)) {
                     HStack {
-                        Label("观看进度", systemImage: "play.rectangle")
+                        Label(AnimeL10n.key(.watchProgress), systemImage: "play.rectangle")
                         Spacer()
                         Text(progressLabel)
                             .foregroundStyle(.secondary)
@@ -2577,10 +2572,10 @@ struct NativeSubjectCommunityView: View {
     private func reviewSection(_ reviews: [NativeReviewSnapshot]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("评价")
+                Text(AnimeL10n.key(.profileReviewMetric))
                     .font(.title3.weight(.bold))
                 Spacer()
-                Button("写短评价") {
+                Button(AnimeL10n.key(.writeShortReview)) {
                     guard authorizeWrite() else { return }
                     showingReviewComposer = true
                 }
@@ -2591,7 +2586,7 @@ struct NativeSubjectCommunityView: View {
             }
 
             if reviews.isEmpty {
-                Text("还没有评价，成为第一个分享感受的人吧。")
+                Text(AnimeL10n.key(.noReviewsPrompt))
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
             } else {
@@ -2605,7 +2600,7 @@ struct NativeSubjectCommunityView: View {
     private func reviewCard(_ review: NativeReviewSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline) {
-                Text(review.title ?? "作品评价")
+                Text(review.title ?? AnimeL10n.string(.reviewTitleFallback))
                     .font(.headline)
                 Spacer()
                 Text(review.createdAt.replacingOccurrences(of: "T", with: " ").prefix(10))
@@ -2613,7 +2608,7 @@ struct NativeSubjectCommunityView: View {
                     .foregroundStyle(.secondary)
             }
             if review.spoiler {
-                Label("包含剧透", systemImage: "eye.slash")
+                Label(AnimeL10n.key(.formSpoiler), systemImage: "eye.slash")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.orange)
             }
@@ -2635,7 +2630,7 @@ struct NativeSubjectCommunityView: View {
                     model.reactReview(id: review.id, reaction: "like", active: active) { reaction, error in
                         pendingReactionKeys.remove(key)
                         if let reaction { reviewReactions[key] = reaction }
-                        message = error.map { "操作失败：\($0)" }
+                        message = error.map { AnimeL10n.string(.activityOperationFailed, $0) }
                     }
                 }
                 reactionButton(
@@ -2652,7 +2647,7 @@ struct NativeSubjectCommunityView: View {
                     model.reactReview(id: review.id, reaction: "bookmark", active: active) { reaction, error in
                         pendingReactionKeys.remove(key)
                         if let reaction { reviewReactions[key] = reaction }
-                        message = error.map { "操作失败：\($0)" }
+                        message = error.map { AnimeL10n.string(.activityOperationFailed, $0) }
                     }
                 }
             }
@@ -2666,7 +2661,7 @@ struct NativeSubjectCommunityView: View {
     private func commentSection(_ comments: [NativeCommentSnapshot]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("讨论")
+                Text(AnimeL10n.key(.commentTitle))
                     .font(.title3.weight(.bold))
                 Spacer()
                 Text("\(mergedComments(comments).count)")
@@ -2677,10 +2672,10 @@ struct NativeSubjectCommunityView: View {
                 if let replyTarget {
                     HStack(spacing: 8) {
                         Image(systemName: "arrowshape.turn.up.left")
-                        Text("回复 \(replyTarget.authorName)")
+                        Text(AnimeL10n.string(.commentReply, replyTarget.authorName))
                             .font(.caption.weight(.medium))
                         Spacer()
-                        Button("取消") { cancelReply() }
+                        Button(AnimeL10n.key(.actionCancel)) { cancelReply() }
                             .font(.caption.weight(.semibold))
                     }
                     .foregroundStyle(.secondary)
@@ -2694,7 +2689,7 @@ struct NativeSubjectCommunityView: View {
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(alignment: .topLeading) {
                         if commentText.isEmpty {
-                            Text("说点什么…")
+                            Text(AnimeL10n.key(.commentPlaceholder))
                                 .foregroundStyle(.tertiary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 16)
@@ -2702,10 +2697,10 @@ struct NativeSubjectCommunityView: View {
                         }
                     }
                 HStack {
-                    Toggle("剧透", isOn: $commentSpoiler)
+                    Toggle(AnimeL10n.key(.commentSpoiler), isOn: $commentSpoiler)
                         .font(.caption)
                     Spacer()
-                    Button(isSubmitting ? "发布中…" : "发布") { submitComment() }
+                    Button(isSubmitting ? AnimeL10n.key(.commentPublishing) : AnimeL10n.key(.actionPublish)) { submitComment() }
                         .buttonStyle(.borderedProminent)
                         .disabled(model.isRestoringSession || isSubmitting || commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
@@ -2713,7 +2708,7 @@ struct NativeSubjectCommunityView: View {
 
             let visibleComments = mergedComments(comments)
             if visibleComments.isEmpty {
-                Text("还没有讨论，欢迎开启话题。")
+                Text(AnimeL10n.key(.noCommentsPrompt))
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
             } else {
@@ -2741,7 +2736,7 @@ struct NativeSubjectCommunityView: View {
                 Text(comment.authorName)
                     .font(.headline)
                 if comment.owned {
-                    Text("我")
+                    Text(AnimeL10n.key(.currentUser))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.tint)
                 }
@@ -2751,22 +2746,22 @@ struct NativeSubjectCommunityView: View {
                     .foregroundStyle(.secondary)
                 Menu {
                     if comment.owned {
-                        Button("编辑") {
+                        Button(AnimeL10n.key(.commentEdit)) {
                             guard authorizeWrite() else { return }
                             editingComment = comment
                         }
-                        Button("删除", role: .destructive) {
+                        Button(AnimeL10n.key(.commentDelete), role: .destructive) {
                             guard authorizeWrite() else { return }
                             deletingCommentId = comment.id
                         }
                     } else {
-                        Button("举报") {
+                        Button(AnimeL10n.key(.commentReport)) {
                             guard authorizeWrite() else { return }
                             guard !pendingReportIds.contains(comment.id) else { return }
                             pendingReportIds.insert(comment.id)
                             model.reportComment(id: comment.id) { error in
                                 pendingReportIds.remove(comment.id)
-                                message = error.map { "举报失败：\($0)" } ?? "举报已提交"
+                                message = error.map { AnimeL10n.string(.commentReportFailed, $0) } ?? AnimeL10n.string(.commentReportSubmitted)
                             }
                         }
                     }
@@ -2779,7 +2774,7 @@ struct NativeSubjectCommunityView: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 16) {
                 if !isReply, comment.parentId == nil {
-                    Button("回复") { beginReply(to: comment) }
+                    Button(AnimeL10n.key(.commentReplyAction)) { beginReply(to: comment) }
                         .foregroundStyle(.tint)
                 }
                 reactionButton(
@@ -2796,7 +2791,7 @@ struct NativeSubjectCommunityView: View {
                     model.reactComment(id: comment.id, reaction: "like", active: active) { reaction, error in
                         pendingReactionKeys.remove(key)
                         if let reaction { commentReactions[key] = reaction }
-                        message = error.map { "操作失败：\($0)" }
+                        message = error.map { AnimeL10n.string(.activityOperationFailed, $0) }
                     }
                 }
                 reactionButton(
@@ -2813,7 +2808,7 @@ struct NativeSubjectCommunityView: View {
                     model.reactComment(id: comment.id, reaction: "bookmark", active: active) { reaction, error in
                         pendingReactionKeys.remove(key)
                         if let reaction { commentReactions[key] = reaction }
-                        message = error.map { "操作失败：\($0)" }
+                        message = error.map { AnimeL10n.string(.activityOperationFailed, $0) }
                     }
                 }
             }
@@ -2873,7 +2868,7 @@ struct NativeSubjectCommunityView: View {
 
     private func authorizeWrite() -> Bool {
         if model.isRestoringSession {
-            message = "正在恢复登录状态，请稍候"
+            message = AnimeL10n.string(.loginRestoring)
             return false
         }
         guard model.isAuthenticated else {
@@ -2947,9 +2942,9 @@ struct NativeSubjectCommunityView: View {
             isSavingRating = false
             if let error {
                 selectedScore = previousScore ?? 0
-                message = "评分失败：\(error)"
+                message = AnimeL10n.string(.ratingSaveFailed, error)
             } else {
-                message = "评分已保存"
+                message = AnimeL10n.string(.ratingSaved)
             }
             if error == nil { onReload() }
         }
@@ -2963,10 +2958,10 @@ struct NativeSubjectCommunityView: View {
             isSavingCollection = false
             if error == nil {
                 selectedCollectionStatus = status
-                message = status.map { "已加入\($0.displayName)" } ?? "已移出片库"
+                message = status.map { AnimeL10n.string(.collectionAdded, $0.collectionDisplayName) } ?? AnimeL10n.string(.collectionRemoved)
                 onReload()
             } else if let error {
-                message = "收藏失败：\(error)"
+                message = AnimeL10n.string(.collectionSaveFailed, error)
             }
         }
     }
@@ -2983,9 +2978,9 @@ struct NativeSubjectCommunityView: View {
             isSavingCollection = false
             if let error {
                 selectedCollectionProgress = previous
-                message = "进度保存失败：\(error)"
+                message = AnimeL10n.string(.progressSaveFailed, error)
             } else {
-                message = "观看进度已保存"
+                message = AnimeL10n.string(.progressSaved)
                 onReload()
             }
         }
@@ -2995,7 +2990,7 @@ struct NativeSubjectCommunityView: View {
         if let totalEpisodes, totalEpisodes > 0 {
             return "\(selectedCollectionProgress)/\(totalEpisodes)"
         }
-        return "第 \(selectedCollectionProgress) 集"
+        return AnimeL10n.string(.episodeProgress, String(selectedCollectionProgress))
     }
 
     private func submitComment() {
@@ -3017,9 +3012,9 @@ struct NativeSubjectCommunityView: View {
                 replyTargetId = nil
                 commentEditorFocused = false
                 persistCommentDraft()
-                message = "讨论已发布"
+                message = AnimeL10n.string(.discussionPublished)
             } else if let error {
-                message = "发布失败：\(error)"
+                message = AnimeL10n.string(.discussionPublishFailed, error)
             }
         }
     }
@@ -3052,13 +3047,13 @@ private struct NativeCommentEditor: View {
         NavigationStack {
             Form {
                 TextEditor(text: $commentText).frame(minHeight: 150)
-                Toggle("包含剧透", isOn: $spoiler)
-                Button(isSaving ? "保存中…" : "保存修改") { save() }
+                Toggle(AnimeL10n.key(.formSpoiler), isOn: $spoiler)
+                Button(isSaving ? AnimeL10n.key(.actionSaving) : AnimeL10n.key(.actionSaveChanges)) { save() }
                     .disabled(isSaving || commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .navigationTitle("编辑讨论")
+            .navigationTitle(AnimeL10n.key(.commentEdit))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(AnimeL10n.key(.actionCancel)) { dismiss() } }
             }
         }
     }
@@ -3082,49 +3077,49 @@ struct NativeSettingsView: View {
 
     var body: some View {
         Form {
-            Section("账号") {
+            Section(AnimeL10n.key(.accountSection)) {
                 if model.session.status == "authenticated" {
-                    LabeledContent("当前账号", value: model.session.displayName ?? "Anime 用户")
+                    LabeledContent(AnimeL10n.key(.username), value: model.session.displayName ?? AnimeL10n.string(.userFallback))
                     NavigationLink {
                         NativeAccountManagementView(model: model)
                     } label: {
-                        Label("账号与数据", systemImage: "person.crop.circle.badge.checkmark")
+                        Label(AnimeL10n.key(.accountData), systemImage: "person.crop.circle.badge.checkmark")
                     }
-                    Button("切换账号") { showingAccount = true }
+                    Button(AnimeL10n.key(.accountSwitch)) { showingAccount = true }
                 } else {
-                    Button("登录或注册") { showingAccount = true }
+                    Button(AnimeL10n.key(.actionLoginOrRegister)) { showingAccount = true }
                 }
             }
 
-            Section("服务") {
+            Section(AnimeL10n.key(.serviceSection)) {
                 NavigationLink {
                     NativeDiagnosticsView(model: model)
                 } label: {
-                    Label("服务诊断", systemImage: "waveform.path.ecg")
+                    Label(AnimeL10n.key(.diagnostics), systemImage: "waveform.path.ecg")
                 }
             }
 
-            Section("外观") {
-                Picker("主题", selection: Binding(
+            Section(AnimeL10n.key(.appearanceSection)) {
+                Picker(AnimeL10n.key(.profileTheme), selection: Binding(
                     get: { model.appearanceTheme },
                     set: { model.setAppearanceTheme($0) },
                 )) {
-                    Text("跟随系统").tag("system")
-                    Text("浅色").tag("light")
-                    Text("深色").tag("dark")
+                    Text(AnimeL10n.key(.profileSystem)).tag("system")
+                    Text(AnimeL10n.key(.profileLight)).tag("light")
+                    Text(AnimeL10n.key(.profileDark)).tag("dark")
                 }
-                Toggle("原生玻璃效果", isOn: Binding(
+                Toggle(AnimeL10n.key(.profileGlass), isOn: Binding(
                     get: { model.glassEnabled },
                     set: { model.setGlassEnabled($0) },
                 ))
-                Toggle("减少动态效果", isOn: Binding(
+                Toggle(AnimeL10n.key(.profileReduceMotion), isOn: Binding(
                     get: { model.reduceMotionEnabled },
                     set: { model.setReduceMotionEnabled($0) },
                 ))
             }
 
-            Section("语言") {
-                Picker("应用语言", selection: Binding(
+            Section(AnimeL10n.key(.languageSection)) {
+                Picker(AnimeL10n.key(.profileAppLanguage), selection: Binding(
                     get: { model.languagePreference.rawValue },
                     set: { model.setLanguage($0) },
                 )) {
@@ -3134,12 +3129,12 @@ struct NativeSettingsView: View {
                 }
             }
 
-            Section("关于") {
-                LabeledContent("版本", value: appVersion)
-                LabeledContent("界面", value: "SwiftUI 原生")
+            Section(AnimeL10n.key(.aboutSection)) {
+                LabeledContent(AnimeL10n.key(.version), value: appVersion)
+                LabeledContent(AnimeL10n.key(.interfaceValue), value: AnimeL10n.string(.interfaceValue))
             }
         }
-        .navigationTitle("设置")
+        .navigationTitle(AnimeL10n.key(.settings))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingAccount) {
             NativeAccountSheet(model: model)
@@ -3148,7 +3143,7 @@ struct NativeSettingsView: View {
     }
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "未知"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? AnimeL10n.string(.genericUnknown)
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
         return build.map { "\(version) (\($0))" } ?? version
     }
@@ -3167,12 +3162,12 @@ struct NativeAccountManagementView: View {
 
     var body: some View {
         Form {
-            Section("个人资料") {
+                Section(AnimeL10n.key(.profileTitle)) {
                 HStack(spacing: 12) {
                     NativeAvatar(url: model.profile?.avatarURL ?? model.session.avatarURL, name: model.profile?.displayName ?? model.session.displayName)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("个人头像").font(.headline)
-                        Text("仅支持 JPEG、PNG 或 WebP，最大 5 MB")
+                        Text(AnimeL10n.key(.profilePicture)).font(.headline)
+                        Text(AnimeL10n.key(.profilePictureFormats))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -3183,52 +3178,52 @@ struct NativeAccountManagementView: View {
                     .buttonStyle(.bordered)
                     .disabled(isUploadingAvatar)
                 }
-                TextField("显示名称", text: $displayName)
-                Button("保存显示名称") {
+                TextField(AnimeL10n.key(.displayName), text: $displayName)
+                Button(AnimeL10n.key(.profileSaveDisplayName)) {
                     model.updateProfile(displayName: displayName) { error in
-                        message = error.map { "保存失败：\($0)" } ?? "资料已更新"
+                        message = error.map { AnimeL10n.string(.profileSaveFailed, $0) } ?? AnimeL10n.string(.profileSaved)
                         if error == nil { model.loadProfile() }
                     }
                 }
                 .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
-            Section("修改密码") {
-                SecureField("当前密码", text: $currentPassword)
-                SecureField("新密码", text: $newPassword)
-                Button("修改密码") {
+            Section(AnimeL10n.key(.passwordChange)) {
+                SecureField(AnimeL10n.key(.passwordCurrent), text: $currentPassword)
+                SecureField(AnimeL10n.key(.passwordNew), text: $newPassword)
+                Button(AnimeL10n.key(.passwordChange)) {
                     model.changePassword(currentPassword: currentPassword, newPassword: newPassword) { error in
-                        message = error.map { "修改失败：\($0)" } ?? "密码已修改"
+                        message = error.map { AnimeL10n.string(.passwordChangeFailed, $0) } ?? AnimeL10n.string(.passwordChanged)
                         if error == nil { currentPassword = ""; newPassword = "" }
                     }
                 }
                 .disabled(currentPassword.isEmpty || newPassword.count < 8)
             }
 
-            Section("数据与同步") {
+            Section(AnimeL10n.key(.accountData)) {
                 NavigationLink {
                     NativeSyncView(model: model)
                 } label: {
-                    Label("Bangumi 同步", systemImage: "arrow.triangle.2.circlepath")
+                    Label(AnimeL10n.key(.bangumiSync), systemImage: "arrow.triangle.2.circlepath")
                 }
-                Button("导出我的数据") {
+                Button(AnimeL10n.key(.exportData)) {
                     model.exportMyData { data, error in
-                        if let data { exportText = "导出成功，共 \(data.utf8.count) 字节" }
-                        else { exportText = "导出失败：\(error ?? "未知错误")" }
+                        if let data { exportText = AnimeL10n.string(.exportSuccess, String(data.utf8.count)) }
+                        else { exportText = AnimeL10n.string(.exportFailed, error ?? AnimeL10n.string(.genericUnknown)) }
                     }
                 }
             }
 
             Section {
-                Button("注销账号", role: .destructive) { showingDeleteConfirmation = true }
+                Button(AnimeL10n.key(.actionDeleteAccount), role: .destructive) { showingDeleteConfirmation = true }
             } footer: {
-                Text("注销会删除服务器账号及其社区数据，且无法恢复。")
+                Text(AnimeL10n.key(.accountDeleteWarning))
             }
 
-            if let message { Section { Text(message).foregroundStyle(message.contains("失败") ? .red : .secondary) } }
-            if let exportText { Section("导出结果") { Text(exportText).font(.footnote) } }
+            if let message { Section { Text(message).foregroundStyle(message.contains(AnimeL10n.string(.errorFailureMarker)) ? .red : .secondary) } }
+            if let exportText { Section(AnimeL10n.key(.exportResult)) { Text(exportText).font(.footnote) } }
         }
-        .navigationTitle("账号与数据")
+        .navigationTitle(AnimeL10n.key(.accountData))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             displayName = model.profile?.displayName ?? model.session.displayName ?? ""
@@ -3239,24 +3234,24 @@ struct NativeAccountManagementView: View {
             Task {
                 do {
                     guard let data = try await item.loadTransferable(type: Data.self) else {
-                        message = "头像读取失败"
+                        message = AnimeL10n.string(.avatarReadFailed)
                         return
                     }
                     isUploadingAvatar = true
                     let jpegData = UIImage(data: data)?.jpegData(compressionQuality: 0.86) ?? data
                     model.uploadAvatar(base64: jpegData.base64EncodedString(), contentType: "image/jpeg") { error in
                         isUploadingAvatar = false
-                        message = error.map { "头像上传失败：\($0)" } ?? "头像已更新"
+                        message = error.map { AnimeL10n.string(.avatarUploadFailed, $0) } ?? AnimeL10n.string(.avatarUpdated)
                         if error == nil { selectedAvatar = nil }
                     }
                 } catch {
-                    message = "头像读取失败：\(error.localizedDescription)"
+                    message = AnimeL10n.string(.avatarReadFailed, error.localizedDescription)
                 }
             }
         }
-        .confirmationDialog("确定注销账号吗？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
-            Button("永久注销", role: .destructive) {
-                model.deleteAccount { error in message = error.map { "注销失败：\($0)" } ?? "账号已注销" }
+        .confirmationDialog(AnimeL10n.key(.accountDeleteConfirmation), isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+            Button(AnimeL10n.key(.accountDeleteForever), role: .destructive) {
+                model.deleteAccount { error in message = error.map { AnimeL10n.string(.accountDeleteFailed, $0) } ?? AnimeL10n.string(.accountDeleted) }
             }
         }
     }
@@ -3268,21 +3263,21 @@ struct NativeSyncView: View {
 
     var body: some View {
         List {
-            Section("同步状态") {
+            Section(AnimeL10n.key(.syncSection)) {
                 if let status = model.syncStatus {
-                    LabeledContent("待同步", value: String(status.pendingCount))
-                    LabeledContent("失败", value: String(status.failedCount))
-                    LabeledContent("冲突", value: String(status.conflictCount))
-                    LabeledContent("Bangumi", value: status.bangumiLinked ? "已连接" : "未连接")
+                    LabeledContent(AnimeL10n.key(.syncPending), value: String(status.pendingCount))
+                    LabeledContent(AnimeL10n.key(.syncFailed), value: String(status.failedCount))
+                    LabeledContent(AnimeL10n.key(.syncConflicts), value: String(status.conflictCount))
+                    LabeledContent("Bangumi", value: status.bangumiLinked ? AnimeL10n.string(.syncConnected) : AnimeL10n.string(.syncDisconnected))
                     if let last = status.lastSuccessfulAt {
-                        LabeledContent("上次成功", value: last.prefix(16).description)
+                        LabeledContent(AnimeL10n.key(.syncLastSuccess), value: last.prefix(16).description)
                     }
                 } else {
-                    ProgressView("正在加载同步状态")
+                    ProgressView(AnimeL10n.key(.syncLoading))
                 }
-                Button("立即同步") {
+                Button(AnimeL10n.key(.syncNow)) {
                     model.startSync { error in
-                        message = error.map { "同步失败：\($0)" } ?? "同步请求已提交"
+                        message = error.map { AnimeL10n.string(.syncRequestFailed, $0) } ?? AnimeL10n.string(.syncRequestSubmitted)
                         model.loadSyncStatus()
                         model.loadSyncConflicts()
                     }
@@ -3290,20 +3285,20 @@ struct NativeSyncView: View {
                 if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
             }
 
-            Section("冲突处理") {
+            Section(AnimeL10n.key(.syncConflictSection)) {
                 if model.syncConflicts.isEmpty {
-                    Text("没有待处理冲突")
+                    Text(AnimeL10n.key(.syncNoConflicts))
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(model.syncConflicts) { conflict in
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("作品 \(conflict.subjectId) · \(conflict.fieldName)").font(.headline)
-                            Text("本地：\(conflict.localValue)").font(.caption).foregroundStyle(.secondary)
-                            Text("远端：\(conflict.remoteValue)").font(.caption).foregroundStyle(.secondary)
+                            Text(AnimeL10n.string(.syncConflictTitle, String(conflict.subjectId), conflict.fieldName)).font(.headline)
+                            Text(AnimeL10n.string(.syncLocal, conflict.localValue)).font(.caption).foregroundStyle(.secondary)
+                            Text(AnimeL10n.string(.syncRemote, conflict.remoteValue)).font(.caption).foregroundStyle(.secondary)
                             HStack {
-                                Button("保留本地") { resolve(conflict, choice: "keep_local") }
-                                Button("使用远端") { resolve(conflict, choice: "use_remote") }
-                                Button("稍后") { resolve(conflict, choice: "later") }
+                                Button(AnimeL10n.key(.syncKeepLocal)) { resolve(conflict, choice: "keep_local") }
+                                Button(AnimeL10n.key(.syncUseRemote)) { resolve(conflict, choice: "use_remote") }
+                                Button(AnimeL10n.key(.syncLater)) { resolve(conflict, choice: "later") }
                             }
                             .font(.caption.weight(.semibold))
                         }
@@ -3313,7 +3308,7 @@ struct NativeSyncView: View {
             }
         }
         .scrollIndicators(.hidden)
-        .navigationTitle("Bangumi 同步")
+        .navigationTitle(AnimeL10n.key(.bangumiSync))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             model.loadSyncStatus()
@@ -3330,7 +3325,7 @@ struct NativeSyncView: View {
 
     private func resolve(_ conflict: NativeSyncConflictSnapshot, choice: String) {
         model.resolveSyncConflict(id: conflict.id, expectedVersion: conflict.localVersion, choice: choice) { error in
-            message = error.map { "处理失败：\($0)" } ?? "冲突已处理"
+            message = error.map { AnimeL10n.string(.syncResolveFailed, $0) } ?? AnimeL10n.string(.syncResolved)
             model.loadSyncStatus()
             model.loadSyncConflicts()
         }
@@ -3349,15 +3344,15 @@ struct NativeDiagnosticsView: View {
                     if model.isLoadingDiagnostics {
                         HStack {
                             ProgressView()
-                            Text("测试中…")
+                            Text(AnimeL10n.key(.diagnosticsTesting))
                         }
                     } else {
-                        Text("重新测试")
+                        Text(AnimeL10n.key(.diagnosticsRetest))
                     }
                 }
                 .disabled(model.isLoadingDiagnostics)
             }
-            Section("服务") {
+            Section(AnimeL10n.key(.serviceSection)) {
                 ForEach(model.diagnostics) { item in
                     HStack {
                         Image(systemName: item.healthy ? "checkmark.circle.fill" : "xmark.octagon.fill")
@@ -3373,19 +3368,19 @@ struct NativeDiagnosticsView: View {
             }
         }
         .scrollIndicators(.hidden)
-        .navigationTitle("服务诊断")
+        .navigationTitle(AnimeL10n.key(.diagnostics))
         .task { if model.diagnostics.isEmpty { model.loadDiagnostics() } }
     }
 
     private func diagnosticStatusText(_ item: NativeDiagnosticSnapshot) -> String {
-        let latency = item.latencyMs.map { "\($0) ms" } ?? "无响应"
+        let latency = item.latencyMs.map { "\($0) ms" } ?? AnimeL10n.string(.diagnosticsNoResponse)
         if item.healthy {
-            return "\(latency) · HTTP \(item.statusCode.map(String.init) ?? "—")"
+            return AnimeL10n.string(.diagnosticsHTTP, latency, item.statusCode.map(String.init) ?? "—")
         }
         if let error = item.errorMessage, !error.isEmpty {
             return "\(latency) · \(error)"
         }
-        return "\(latency) · HTTP \(item.statusCode.map(String.init) ?? "—")"
+        return AnimeL10n.string(.diagnosticsHTTP, latency, item.statusCode.map(String.init) ?? "—")
     }
 }
 
@@ -3403,13 +3398,13 @@ private struct NativeReviewComposer: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("你的感受") {
+                Section(AnimeL10n.key(.formFeeling)) {
                     TextEditor(text: $reviewBody)
                         .frame(minHeight: 160)
-                    Toggle("包含剧透", isOn: $spoiler)
-                    Picker("可见性", selection: $visibility) {
-                        Text("公开").tag("public")
-                        Text("仅自己").tag("private")
+                    Toggle(AnimeL10n.key(.formSpoiler), isOn: $spoiler)
+                    Picker(AnimeL10n.key(.visibility), selection: $visibility) {
+                        Text(AnimeL10n.key(.visibilityPublic)).tag("public")
+                        Text(AnimeL10n.key(.visibilityPrivate)).tag("private")
                     }
                 }
                 if let errorMessage {
@@ -3419,16 +3414,16 @@ private struct NativeReviewComposer: View {
                     }
                 }
                 Section {
-                    Button(isSubmitting ? "发布中…" : "发布评价") {
+                    Button(isSubmitting ? AnimeL10n.key(.formPosting) : AnimeL10n.key(.actionPublish)) {
                         submit()
                     }
                         .disabled(isSubmitting || reviewBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .navigationTitle("写评价")
+            .navigationTitle(AnimeL10n.key(.writeReview))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(AnimeL10n.key(.actionCancel)) { dismiss() }
                 }
             }
         }
@@ -3453,7 +3448,7 @@ private struct NativeReviewComposer: View {
                 onComplete(review, nil)
                 dismiss()
             } else {
-                errorMessage = error ?? "评价发布失败"
+                errorMessage = error ?? AnimeL10n.string(.reviewPublishFailed)
                 onComplete(nil, errorMessage)
             }
         }
@@ -3473,24 +3468,24 @@ private struct NativeAccountSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Anime 账号") {
-                    TextField("用户名", text: $username)
+                Section(AnimeL10n.key(.bangumiAccount)) {
+                    TextField(AnimeL10n.key(.accountUsername), text: $username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    SecureField("密码", text: $password)
-                    if isRegistering { TextField("显示名称", text: $displayName) }
+                    SecureField(AnimeL10n.key(.accountPassword), text: $password)
+                    if isRegistering { TextField(AnimeL10n.key(.accountDisplayName), text: $displayName) }
                 }
                 Section {
-                    Button(isLoading ? "提交中…" : (isRegistering ? "注册并登录" : "登录")) {
+                    Button(isLoading ? AnimeL10n.key(.accountSubmitting) : (isRegistering ? AnimeL10n.key(.accountRegisterLogin) : AnimeL10n.key(.actionLogin))) {
                         submit()
                     }
                     .disabled(isLoading || username.isEmpty || password.isEmpty || (isRegistering && displayName.isEmpty))
-                    Button(isRegistering ? "已有账号，直接登录" : "没有账号，注册") {
+                    Button(isRegistering ? AnimeL10n.key(.accountExistingLogin) : AnimeL10n.key(.accountNoAccountRegister)) {
                         isRegistering.toggle()
                     }
                 }
                 Section {
-                    Button("使用 Bangumi 登录") {
+                    Button(AnimeL10n.key(.accountBangumiLogin)) {
                         model.beginBangumiLogin { errorMessage = $0 }
                     }
                 }
@@ -3498,9 +3493,9 @@ private struct NativeAccountSheet: View {
                     Section { Text(errorMessage).foregroundStyle(.red) }
                 }
             }
-            .navigationTitle("账号")
+            .navigationTitle(AnimeL10n.key(.account))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(AnimeL10n.key(.accountClose)) { dismiss() } }
             }
         }
     }
@@ -3532,7 +3527,7 @@ private struct NativeCatalogCard: View {
             HStack(spacing: 5) {
                 Image(systemName: "star.fill")
                     .foregroundStyle(.orange)
-                Text(subject.rating.map { String(format: "%.1f", $0) } ?? "暂无评分")
+            Text(subject.rating.map { String(format: "%.1f", $0) } ?? AnimeL10n.string(.subjectNoRating))
             }
             .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
@@ -3606,7 +3601,7 @@ private struct NativeActivityCard: View {
         .buttonStyle(.plain)
         .contextMenu {
             if let onDelete {
-                Button("撤回动态", role: .destructive, action: onDelete)
+                Button(AnimeL10n.key(.activityWithdraw), role: .destructive, action: onDelete)
             }
         }
     }
@@ -3680,10 +3675,10 @@ private struct NativeInlineError: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("加载失败", systemImage: "exclamationmark.triangle")
+            Label(AnimeL10n.key(.statusLoadingFailed), systemImage: "exclamationmark.triangle")
                 .font(.headline)
             Text(message).font(.subheadline).foregroundStyle(.secondary)
-            Button("重试", action: retry).buttonStyle(.borderedProminent)
+            Button(AnimeL10n.key(.actionRetry), action: retry).buttonStyle(.borderedProminent)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -3879,13 +3874,13 @@ private extension NativeActivityItemSnapshot {
 
 private extension NativeNotificationSnapshot {
     var title: String {
-        let actor = actorName ?? "有人"
+        let actor = actorName ?? AnimeL10n.string(.someone)
         switch kind {
-        case "review_liked": return "\(actor) 赞了你的评价"
-        case "comment_liked": return "\(actor) 赞了你的评论"
-        case "comment_replied": return "\(actor) 回复了你的评论"
-        case "followed": return "\(actor) 关注了你"
-        default: return "\(actor) 与你产生了互动"
+        case "review_liked": return AnimeL10n.string(.notificationReviewLiked, actor)
+        case "comment_liked": return AnimeL10n.string(.notificationCommentLiked, actor)
+        case "comment_replied": return AnimeL10n.string(.notificationCommentReplied, actor)
+        case "followed": return AnimeL10n.string(.notificationFollowed, actor)
+        default: return AnimeL10n.string(.notificationDefault, actor)
         }
     }
 }
@@ -3895,52 +3890,52 @@ private extension NativeSessionSnapshot {
 }
 
 private extension String {
-    var displayName: String {
+    var collectionDisplayName: String {
         switch self {
-        case "Wish", "wish", "想看": return "想看"
-        case "Watching", "watching", "在看": return "在看"
-        case "Completed", "completed", "看过": return "看过"
-        case "OnHold", "on_hold", "onhold", "搁置": return "搁置"
-        case "Dropped", "dropped", "抛弃": return "抛弃"
+        case "Wish", "wish": return AnimeL10n.string(.statusWish)
+        case "Watching", "watching": return AnimeL10n.string(.statusWatching)
+        case "Completed", "completed": return AnimeL10n.string(.statusCompleted)
+        case "OnHold", "on_hold", "onhold": return AnimeL10n.string(.statusOnHold)
+        case "Dropped", "dropped": return AnimeL10n.string(.statusDropped)
         default: return self
         }
     }
 
     var feedDisplayName: String {
         switch self {
-        case "following": return "关注"
-        case "popular": return "热门"
-        case "public": return "全站"
+        case "following": return AnimeL10n.string(.feedFollowing)
+        case "popular": return AnimeL10n.string(.feedPopular)
+        case "public": return AnimeL10n.string(.feedPublic)
         default: return self
         }
     }
 
     var adminDisplayName: String {
         switch self {
-        case "published": return "已发布"
-        case "hidden": return "已隐藏"
-        case "deleted": return "已删除"
+        case "published": return AnimeL10n.string(.moderationPublished)
+        case "hidden": return AnimeL10n.string(.moderationHidden)
+        case "deleted": return AnimeL10n.string(.moderationDeleted)
         default: return self
         }
     }
 
     var reportDisplayName: String {
         switch self {
-        case "spam": return "垃圾内容"
-        case "harassment": return "骚扰攻击"
-        case "spoiler": return "恶意剧透"
-        case "illegal": return "违法内容"
-        case "other": return "其他举报"
+        case "spam": return AnimeL10n.string(.reportSpam)
+        case "harassment": return AnimeL10n.string(.reportHarassment)
+        case "spoiler": return AnimeL10n.string(.reportSpoiler)
+        case "illegal": return AnimeL10n.string(.reportIllegal)
+        case "other": return AnimeL10n.string(.reportOther)
         default: return self
         }
     }
 
     var adminReportDisplayName: String {
         switch self {
-        case "open": return "待处理"
-        case "claimed": return "处理中"
-        case "resolved": return "已解决"
-        case "dismissed": return "已驳回"
+        case "open": return AnimeL10n.string(.reportOpen)
+        case "claimed": return AnimeL10n.string(.reportClaimed)
+        case "resolved": return AnimeL10n.string(.reportResolved)
+        case "dismissed": return AnimeL10n.string(.reportDismissed)
         default: return self
         }
     }
@@ -3950,26 +3945,26 @@ private extension String {
         case "tv": return "TV"
         case "web": return "Web"
         case "ova": return "OVA"
-        case "movie": return "剧场版"
-        case "other": return "其他"
+        case "movie": return AnimeL10n.string(.subjectTypeMovie)
+        case "other": return AnimeL10n.string(.subjectTypeOther)
         default: return self
         }
     }
 
     var searchAiringName: String {
         switch self {
-        case "announced": return "未开播"
-        case "airing": return "连载中"
-        case "finished": return "已完结"
+        case "announced": return AnimeL10n.string(.subjectAiringAnnounced)
+        case "airing": return AnimeL10n.string(.subjectAiring)
+        case "finished": return AnimeL10n.string(.subjectFinished)
         default: return self
         }
     }
 
     var searchSortName: String {
         switch self {
-        case "rating": return "评分优先"
-        case "updated": return "最近更新"
-        default: return "相关度"
+        case "rating": return AnimeL10n.string(.searchSortRating)
+        case "updated": return AnimeL10n.string(.searchSortUpdated)
+        default: return AnimeL10n.string(.searchSortRelevance)
         }
     }
 }

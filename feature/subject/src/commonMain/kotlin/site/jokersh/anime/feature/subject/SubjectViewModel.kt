@@ -107,42 +107,15 @@ private fun SubjectDetail.toUi(freshnessKind: FreshnessKind?): SubjectContentUi 
         title = summary.title,
         originalTitle = summary.originalTitle,
         poster = summary.poster,
-        metadata =
-            listOfNotNull(
-                summary.year?.toString(),
-                summary.type.label,
-                summary.airingStatus.label,
-            ).joinToString(" · "),
-        status = summary.airingStatus.label,
+        year = summary.year,
+        type = summary.type,
+        airingStatus = summary.airingStatus,
         score = summary.rating?.score?.toString(),
         votes = summary.rating?.votes ?: 0,
         episodeCount = totalEpisodes,
         summary = summaryText.orEmpty(),
         tags = tags.sortedBy { it.order }.map { it.name },
         ratingDistribution = summary.rating?.distribution.orEmpty(),
-        dataStatusLabel =
-            when (freshnessKind) {
-                FreshnessKind.OfflineCache -> "离线缓存 · 更新于 ${dataUpdatedAt.toString().take(16).replace('T', ' ')}"
-                FreshnessKind.Stale -> "数据可能已过期 · 更新于 ${dataUpdatedAt.toString().take(16).replace('T', ' ')}"
-                else -> "Bangumi 最近同步 · ${dataUpdatedAt.toString().take(16).replace('T', ' ')}"
-            },
+        freshness = freshnessKind,
+        dataUpdatedAt = dataUpdatedAt.toString().take(16).replace('T', ' '),
     )
-
-private val SubjectType.label: String
-    get() =
-        when (this) {
-            SubjectType.Tv -> "TV"
-            SubjectType.Web -> "Web"
-            SubjectType.Ova -> "OVA"
-            SubjectType.Movie -> "剧场版"
-            SubjectType.Other -> "其他"
-        }
-
-private val AiringStatus.label: String
-    get() =
-        when (this) {
-            AiringStatus.Announced -> "未开播"
-            AiringStatus.Airing -> "连载中"
-            AiringStatus.Finished -> "已完结"
-            AiringStatus.Unknown -> "状态未知"
-        }

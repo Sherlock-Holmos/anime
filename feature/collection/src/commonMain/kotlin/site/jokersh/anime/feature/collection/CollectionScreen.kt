@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import site.jokersh.anime.core.designsystem.AnimeCopy
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeRadius
@@ -56,6 +57,7 @@ import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.animeColors
+import site.jokersh.anime.core.designsystem.animeString
 import site.jokersh.anime.core.model.CollectionStatus
 import site.jokersh.anime.core.model.CollectionItem
 import site.jokersh.anime.core.model.ResourceState
@@ -80,9 +82,12 @@ public fun CollectionScreen(
         .collectAsState(ResourceState(null, null, false, null))
     var message by remember(selectedFilter, profile?.summary?.id) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val syncFailedLabel = animeString(AnimeCopy.collectionSyncFailed)
+    val removedLabel = animeString(AnimeCopy.collectionRemoved)
+    val removeFailedLabel = animeString(AnimeCopy.collectionRemoveFailed)
     LaunchedEffect(selectedFilter, profile?.summary?.id) {
         if (profile == null) return@LaunchedEffect
-        collectionRepository.requestSync().onFailure { message = "云端同步失败，保留本机数据" }
+        collectionRepository.requestSync().onFailure { message = syncFailedLabel }
     }
     val visibleItems = collectionState.value.orEmpty()
     val overviewItems = visibleItems
@@ -128,7 +133,7 @@ public fun CollectionScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(AnimeRadius.panel),
                     ) {
-                        Text("正在恢复片库…", style = MaterialTheme.typography.titleLarge)
+                        Text(animeString(AnimeCopy.stateLoadingCollection), style = MaterialTheme.typography.titleLarge)
                     }
                 }
             } else if (visibleItems.isEmpty()) {
@@ -143,8 +148,8 @@ public fun CollectionScreen(
                         onRemove = {
                         scope.launch {
                                 when (collectionRepository.setStatus(item.subject.id, null)) {
-                                    is site.jokersh.anime.core.model.MutationResult.Accepted -> message = "已移出收藏"
-                                    else -> message = "移除收藏失败"
+                                    is site.jokersh.anime.core.model.MutationResult.Accepted -> message = removedLabel
+                                    else -> message = removeFailedLabel
                                 }
                             }
                         },
@@ -153,7 +158,7 @@ public fun CollectionScreen(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         message?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        if (collectionState.refreshing) Text("正在同步片库…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (collectionState.refreshing) Text(animeString(AnimeCopy.stateSyncingCollection), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -176,17 +181,17 @@ private fun CollectionHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             site.jokersh.anime.core.designsystem
-                .AnimeSecondaryButton(label = "返回", onClick = onBack)
+                .AnimeSecondaryButton(label = animeString(AnimeCopy.actionBack), onClick = onBack)
             Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
                 Text(
-                    text = "个人片库",
+                    text = animeString(AnimeCopy.screenLibrary),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text(text = "收藏", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                Text(text = animeString(AnimeCopy.collectionAll), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "把想看的、正在追的和看过的作品收在一处。",
+                    text = animeString(AnimeCopy.screenLibraryDescription),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -198,7 +203,7 @@ private fun CollectionHeader(
             border = BorderStroke(AnimeSize.border, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)),
         ) {
             Text(
-                text = "$itemCount 部作品",
+                text = animeString(AnimeCopy.formatSubjectCount, itemCount),
                 modifier = Modifier.padding(horizontal = AnimeSpacing.lg, vertical = AnimeSpacing.sm),
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -214,6 +219,14 @@ private fun CollectionOverview(
 ) {
     val watching = collection.count { it.collection.status == CollectionStatus.Watching }
     val completed = collection.count { it.collection.status == CollectionStatus.Completed }
+    val syncDescription = syncedAt?.let {
+        animeString(
+            AnimeCopy.collectionSyncDescription,
+            animeString(AnimeCopy.subjectBangumi),
+            it.replace('T', ' ').take(16),
+        )
+    }
+        ?: animeString(AnimeCopy.collectionSyncLogin)
     AnimeGlassPanel(
         role = GlassRole.StaticHero,
         shape = RoundedCornerShape(AnimeRadius.panel),
@@ -224,24 +237,24 @@ private fun CollectionOverview(
             horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.xxl),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            OverviewMetric(value = watching.toString(), label = "正在追")
-            OverviewMetric(value = completed.toString(), label = "已看完")
-            OverviewMetric(value = collection.size.toString(), label = "全部收藏")
+            OverviewMetric(value = watching.toString(), label = animeString(AnimeCopy.collectionWatching))
+            OverviewMetric(value = completed.toString(), label = animeString(AnimeCopy.collectionCompleted))
+            OverviewMetric(value = collection.size.toString(), label = animeString(AnimeCopy.collectionAll))
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     if (restoring) {
-                        "正在恢复"
+                        animeString(AnimeCopy.stateRestoring)
                     } else if (syncedAt == null) {
-                        "等待登录"
+                        animeString(AnimeCopy.stateWaitingLogin)
                     } else {
-                        "已同步"
+                        animeString(AnimeCopy.stateSynced)
                     },
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.animeColors.success,
                 )
                 Text(
-                    syncedAt?.let { "Bangumi · ${it.replace('T', ' ').take(16)}" } ?: "登录后同步 Bangumi 片库",
+                    syncDescription,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -268,18 +281,18 @@ private fun CollectionFilters(
 ) {
     val filters =
         listOf(
-            null to "全部",
-            CollectionStatus.Watching to "在看",
-            CollectionStatus.Wish to "想看",
-            CollectionStatus.Completed to "看过",
-            CollectionStatus.OnHold to "搁置",
-            CollectionStatus.Dropped to "抛弃",
+            null to AnimeCopy.collectionFilterAll,
+            CollectionStatus.Watching to AnimeCopy.collectionFilterWatching,
+            CollectionStatus.Wish to AnimeCopy.collectionFilterWish,
+            CollectionStatus.Completed to AnimeCopy.collectionFilterCompleted,
+            CollectionStatus.OnHold to AnimeCopy.collectionFilterOnHold,
+            CollectionStatus.Dropped to AnimeCopy.collectionFilterDropped,
         )
     Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
     ) {
-        filters.forEach { (status, label) ->
+        filters.forEach { (status, resource) ->
             val active = selected == status
             Surface(
                 onClick = { onSelected(status) },
@@ -301,7 +314,7 @@ private fun CollectionFilters(
                     ),
             ) {
                 Box(Modifier.padding(horizontal = AnimeSpacing.lg), contentAlignment = Alignment.Center) {
-                    Text(label, style = MaterialTheme.typography.labelLarge)
+                    Text(animeString(resource), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -339,7 +352,7 @@ private fun CollectionCard(
                 if (poster != null) {
                     AsyncImage(
                         model = poster.url,
-                        contentDescription = "${item.subject.title} 海报",
+                        contentDescription = animeString(AnimeCopy.accessibilityPoster, item.subject.title),
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
@@ -369,14 +382,21 @@ private fun CollectionCard(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        StatusBadge(item.collection.status.label)
+                        StatusBadge(animeString(item.collection.status.labelResource()))
+                    }
+                    val unknownYearLabel = animeString(AnimeCopy.collectionUnknownYear)
+                    val ratingLabel = item.subject.rating?.score?.let {
+                        animeString(AnimeCopy.subjectRating, it.toString())
                     }
                     Text(
                         text =
-                            buildString {
-                                 append(item.subject.year ?: "年份未知")
-                                 item.subject.rating?.score?.let { append(" · $it Bangumi") }
-                            },
+                            ratingLabel?.let {
+                                animeString(
+                                    AnimeCopy.collectionYearRating,
+                                    item.subject.year?.toString() ?: unknownYearLabel,
+                                    it,
+                                )
+                            } ?: (item.subject.year?.toString() ?: unknownYearLabel),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -392,9 +412,9 @@ private fun CollectionCard(
                                 if (item.collection.status ==
                                     CollectionStatus.Watching
                                 ) {
-                                    "已看 ${item.collection.watchedEpisodes} 集"
+                                    animeString(AnimeCopy.collectionWatchedEpisodes, item.collection.watchedEpisodes)
                                 } else {
-                                    item.collection.note ?: item.collection.status.detail
+                                    item.collection.note ?: animeString(item.collection.status.detailResource())
                                 },
                             style = MaterialTheme.typography.labelLarge,
                         )
@@ -406,7 +426,7 @@ private fun CollectionCard(
                             trackColor = MaterialTheme.colorScheme.surfaceVariant,
                         )
                     }
-                    AnimeSecondaryButton("移除收藏", onRemove)
+                    AnimeSecondaryButton(animeString(AnimeCopy.actionRemove), onRemove)
                 }
             }
         }
@@ -439,29 +459,27 @@ private fun EmptyCollection(onDiscoverClick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
         ) {
-            Text("这个分类还是空的", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("从发现页挑一部作品加入收藏。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            AnimePrimaryButton(label = "去发现", onClick = onDiscoverClick)
+            Text(animeString(AnimeCopy.stateNoCollection), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            Text(animeString(AnimeCopy.stateNoCollectionDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AnimePrimaryButton(label = animeString(AnimeCopy.actionGoDiscover), onClick = onDiscoverClick)
         }
     }
 }
 
-private val CollectionStatus.label: String
-    get() =
+private fun CollectionStatus.labelResource() =
         when (this) {
-            CollectionStatus.Wish -> "想看"
-            CollectionStatus.Watching -> "在看"
-            CollectionStatus.Completed -> "看过"
-            CollectionStatus.OnHold -> "搁置"
-            CollectionStatus.Dropped -> "抛弃"
+            CollectionStatus.Wish -> AnimeCopy.collectionFilterWish
+            CollectionStatus.Watching -> AnimeCopy.collectionFilterWatching
+            CollectionStatus.Completed -> AnimeCopy.collectionFilterCompleted
+            CollectionStatus.OnHold -> AnimeCopy.collectionFilterOnHold
+            CollectionStatus.Dropped -> AnimeCopy.collectionFilterDropped
         }
 
-private val CollectionStatus.detail: String
-    get() =
+private fun CollectionStatus.detailResource() =
         when (this) {
-            CollectionStatus.Wish -> "等待开播"
-            CollectionStatus.Completed -> "已全部看完"
-            CollectionStatus.OnHold -> "暂时搁置"
-            CollectionStatus.Dropped -> "已停止观看"
-            CollectionStatus.Watching -> "正在观看"
+            CollectionStatus.Wish -> AnimeCopy.collectionStatusWish
+            CollectionStatus.Completed -> AnimeCopy.collectionStatusCompleted
+            CollectionStatus.OnHold -> AnimeCopy.collectionStatusOnHold
+            CollectionStatus.Dropped -> AnimeCopy.collectionStatusDropped
+            CollectionStatus.Watching -> AnimeCopy.collectionStatusWatching
         }

@@ -31,6 +31,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
 import site.jokersh.anime.core.designsystem.AnimePosterArtwork
 import site.jokersh.anime.core.designsystem.AnimeRadius
@@ -46,6 +48,8 @@ import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.core.model.SubjectRelation
 import site.jokersh.anime.core.model.SubjectSection
 import site.jokersh.anime.data.catalog.CatalogRepository
+import site.jokersh.anime.feature.subject.generated.resources.Res
+import site.jokersh.anime.feature.subject.generated.resources.*
 
 @Composable
 public fun EpisodesRoute(
@@ -60,9 +64,9 @@ public fun EpisodesRoute(
         repository.refreshSection(id, SubjectSection.Episodes, RefreshPolicy.IfStale)
     }
     SubjectSectionScaffold<Episode>(
-        title = "分集",
+        title = Res.string.subject_section_episodes,
         state = state,
-        emptyMessage = "暂无分集资料",
+        emptyMessage = Res.string.subject_no_episodes,
         onBack = onBack,
         onRetry = { repository.refreshSection(id, SubjectSection.Episodes, RefreshPolicy.Force) },
         modifier = modifier,
@@ -83,9 +87,9 @@ public fun CharactersRoute(
     }
     val characters = state.value?.characters
     SubjectSectionScaffold<CharacterCredit>(
-        title = "角色与声优",
+        title = Res.string.subject_section_characters,
         state = ResourceState(characters, state.freshness, state.refreshing, state.error),
-        emptyMessage = "暂无角色资料",
+        emptyMessage = Res.string.subject_no_characters,
         onBack = onBack,
         onRetry = { repository.refreshSection(id, SubjectSection.Credits, RefreshPolicy.Force) },
         modifier = modifier,
@@ -109,9 +113,9 @@ public fun RelationsRoute(
         repository.refreshSection(id, SubjectSection.Relations, RefreshPolicy.IfStale)
     }
     SubjectSectionScaffold<SubjectRelation>(
-        title = "关联作品",
+        title = Res.string.subject_section_relations,
         state = state,
-        emptyMessage = "暂无关联作品",
+        emptyMessage = Res.string.subject_no_relations,
         onBack = onBack,
         onRetry = { repository.refreshSection(id, SubjectSection.Relations, RefreshPolicy.Force) },
         modifier = modifier,
@@ -120,9 +124,9 @@ public fun RelationsRoute(
 
 @Composable
 private fun <T> SubjectSectionScaffold(
-    title: String,
+    title: StringResource,
     state: ResourceState<List<T>>,
-    emptyMessage: String,
+    emptyMessage: StringResource,
     onBack: () -> Unit,
     onRetry: suspend () -> Unit,
     modifier: Modifier,
@@ -145,7 +149,7 @@ private fun <T> SubjectSectionScaffold(
                     AnimeBackIcon(color = MaterialTheme.colorScheme.onSurface)
                 }
             }
-            Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(title), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
         }
         when {
             state.value == null && state.refreshing -> {
@@ -158,14 +162,14 @@ private fun <T> SubjectSectionScaffold(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
                 ) {
-                    Text("暂时无法加载$title", style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(Res.string.subject_section_load_failed, stringResource(title)), style = MaterialTheme.typography.titleLarge)
                     RetryEffectButton(onRetry)
                 }
             }
 
             state.value.isNullOrEmpty() -> {
                 Box(Modifier.fillMaxWidth().padding(AnimeSpacing.huge), contentAlignment = Alignment.Center) {
-                    Text(emptyMessage, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(emptyMessage), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -182,7 +186,7 @@ private fun <T> SubjectSectionScaffold(
 private fun RetryEffectButton(onRetry: suspend () -> Unit) {
     var retrySignal by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
     LaunchedEffect(retrySignal) { if (retrySignal > 0) onRetry() }
-    AnimeSecondaryButton("重试", { retrySignal += 1 })
+    AnimeSecondaryButton(stringResource(Res.string.subject_retry), { retrySignal += 1 })
 }
 
 @Composable
@@ -190,14 +194,14 @@ private fun EpisodeRow(episode: Episode) {
     SectionRow {
         Text(
             episode.number?.let {
-                "第 ${it.toReadableNumber()} 话"
-            } ?: "特别篇",
+                stringResource(Res.string.subject_episode_number, it.toReadableNumber())
+            } ?: stringResource(Res.string.subject_special_episode),
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
             episode.title?.takeIf(String::isNotBlank) ?: episode.originalTitle.orEmpty().ifBlank {
-                "标题待补充"
+                stringResource(Res.string.subject_episode_title_placeholder)
             },
             style = MaterialTheme.typography.titleMedium,
         )
@@ -215,7 +219,7 @@ private fun CharacterRow(character: CharacterCredit) {
         Text(character.relation, color = MaterialTheme.colorScheme.primary)
         if (character.actors.isNotEmpty()) {
             Text(
-                "声优：${character.actors.joinToString { it.name }}",
+                stringResource(Res.string.subject_voice_actor, character.actors.joinToString { it.name }),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

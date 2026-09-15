@@ -5,6 +5,9 @@
     <string name="root_library">资料库</string>
     <string name="root_activity">动态</string>
     <string name="root_profile">我的</string>
+    <string name="sidebar_media_library">媒体资料库</string>
+    <string name="sidebar_bangumi_realtime">Bangumi · 实时资料</string>
+    <string name="message_refresh_failed">刷新失败，已保留上次内容</string>
     <string name="shell_environment">CMP Android · %1$s</string>
     <string name="f0_description">F0 工程骨架已就绪。业务状态与 Fixture 将按照对应 Feature 契约逐步接入。</string>
     <string name="f0_status_title">实施基线</string>

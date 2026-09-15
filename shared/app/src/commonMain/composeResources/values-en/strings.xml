@@ -5,6 +5,9 @@
     <string name="root_library">Library</string>
     <string name="root_activity">Activity</string>
     <string name="root_profile">Me</string>
+    <string name="sidebar_media_library">Media library</string>
+    <string name="sidebar_bangumi_realtime">Bangumi · Live data</string>
+    <string name="message_refresh_failed">Refresh failed; previous content was kept</string>
     <string name="shell_environment">CMP Android · %1$s</string>
     <string name="f0_description">The F0 foundation is ready. Business state and fixtures will be integrated by feature contract.</string>
     <string name="f0_status_title">Implementation baseline</string>

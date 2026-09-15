@@ -14,7 +14,7 @@ kotlin {
             api(libs.compose.foundation)
             api(libs.compose.material3)
             api(libs.compose.ui)
-            implementation(libs.compose.resources)
+            api(libs.compose.resources)
             implementation(libs.coil.compose)
             implementation(libs.backdrop)
         }
@@ -22,4 +22,9 @@ kotlin {
             implementation(libs.coil.network.ktor)
         }
     }
+}
+
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "anime.core.designsystem.generated.resources"
 }

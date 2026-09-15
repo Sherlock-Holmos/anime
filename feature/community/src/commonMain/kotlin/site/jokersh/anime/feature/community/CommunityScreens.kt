@@ -47,8 +47,10 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
+import site.jokersh.anime.core.designsystem.AnimeCopy
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
+import site.jokersh.anime.core.designsystem.animeString
 import site.jokersh.anime.data.comment.CommunityListDetail
 import site.jokersh.anime.data.comment.CommunityListSummary
 import site.jokersh.anime.data.comment.CommunityRepository
@@ -96,10 +98,10 @@ public fun SubjectReviewsScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 PageBack(onBack)
                 Column(Modifier.weight(1f)) {
-                    Text("作品短评", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("每条 1–500 字；支持按最新或最早浏览。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(animeString(AnimeCopy.screenReview), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(animeString(AnimeCopy.screenReviewDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                SelectChip("最新", !oldestFirst) {
+                SelectChip(animeString(AnimeCopy.commentSortNewest), !oldestFirst) {
                     if (oldestFirst) {
                         oldestFirst = false
                         reviews = emptyList()
@@ -108,7 +110,7 @@ public fun SubjectReviewsScreen(
                         loadSignal = 0
                     }
                 }
-                SelectChip("最早", oldestFirst) {
+                SelectChip(animeString(AnimeCopy.commentSortOldest), oldestFirst) {
                     if (!oldestFirst) {
                         oldestFirst = true
                         reviews = emptyList()
@@ -127,9 +129,9 @@ public fun SubjectReviewsScreen(
                 ) { CircularProgressIndicator() }
             }
         } else if (error != null && reviews.isEmpty()) {
-            item { StatePanel("无法加载短评", error.orEmpty()) }
+            item { StatePanel(animeString(AnimeCopy.communityReviewLoadFailed), error.orEmpty()) }
         } else if (reviews.isEmpty()) {
-            item { StatePanel("还没有短评", "成为第一个写下简短感受的人。") }
+            item { StatePanel(animeString(AnimeCopy.stateNoReviews), animeString(AnimeCopy.communityReviewEmptyDescription)) }
         } else {
             items(reviews, key = { it.id }) { review ->
                 ReviewListCard(
@@ -148,7 +150,7 @@ public fun SubjectReviewsScreen(
                 )
             }
             if (nextCursor != null) {
-                item { AnimeSecondaryButton(if (loading) "加载中" else "加载更多", { if (!loading) loadSignal++ }) }
+                item { AnimeSecondaryButton(if (loading) animeString(AnimeCopy.stateLoading) else animeString(AnimeCopy.actionLoadMore), { if (!loading) loadSignal++ }) }
             }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
         }
@@ -178,7 +180,7 @@ private fun ReviewListCard(
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    review.title ?: "短评",
+                    review.title ?: animeString(AnimeCopy.communityReviewDefaultTitle),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
@@ -195,18 +197,18 @@ private fun ReviewListCard(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             } else {
-                Text("剧透内容已收起", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(animeString(AnimeCopy.communitySpoilerCollapsed), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (review.spoiler) {
-                    AnimeSecondaryButton(if (spoilerVisible) "收起剧透" else "显示剧透", {
+                    AnimeSecondaryButton(if (spoilerVisible) animeString(AnimeCopy.communityHideSpoiler) else animeString(AnimeCopy.communityShowSpoiler), {
                         spoilerVisible =
                             !spoilerVisible
                     })
                 }
-                AnimeSecondaryButton("查看详情", onOpen)
-                if (owned) AnimeSecondaryButton("删除", onDelete)
-                AnimeSecondaryButton(if (liked) "已喜欢" else "喜欢", onClick = {
+                AnimeSecondaryButton(animeString(AnimeCopy.actionViewDetails), onOpen)
+                if (owned) AnimeSecondaryButton(animeString(AnimeCopy.actionDelete), onDelete)
+                AnimeSecondaryButton(if (liked) animeString(AnimeCopy.communityLiked) else animeString(AnimeCopy.communityLike), onClick = {
                     scope.launch {
                         repository.reactReview(review.id, "like", !liked).onSuccess {
                             liked = it.active
@@ -215,7 +217,7 @@ private fun ReviewListCard(
                         }
                     }
                 })
-                AnimeSecondaryButton(if (bookmarked) "已收藏" else "收藏", onClick = {
+                AnimeSecondaryButton(if (bookmarked) animeString(AnimeCopy.communityBookmarked) else animeString(AnimeCopy.communityBookmark), onClick = {
                     scope.launch {
                         repository.reactReview(review.id, "bookmark", !bookmarked).onSuccess {
                             bookmarked = it.active
@@ -224,7 +226,7 @@ private fun ReviewListCard(
                         }
                     }
                 })
-                Text("$likeCount 喜欢 · $bookmarkCount 收藏", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(animeString(AnimeCopy.communityReactions, likeCount, bookmarkCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -239,7 +241,7 @@ public fun RatingEditorScreen(
     modifier: Modifier = Modifier,
 ) {
     var score by rememberSaveable { mutableStateOf(8) }
-    var tag by rememberSaveable { mutableStateOf("值得重看") }
+    var tag by rememberSaveable { mutableStateOf("rewatch") }
     var visibility by rememberSaveable { mutableStateOf("public") }
     var kind by rememberSaveable { mutableStateOf("short") }
     var title by rememberSaveable { mutableStateOf("") }
@@ -293,18 +295,18 @@ public fun RatingEditorScreen(
         item {
             Column(Modifier.widthIn(max = 820.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "记录感受",
+                    animeString(AnimeCopy.communityRatingRecord),
                     color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text("评分、短评与讨论", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("评分属于 Anime 社区；短评和讨论会显示在作品页面。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(animeString(AnimeCopy.communityRatingTitle), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                Text(animeString(AnimeCopy.communityRatingDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         item {
             ContentPanel(Modifier.widthIn(max = 820.dp)) {
-                Text("我的评分 · $score.0", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(animeString(AnimeCopy.communityMyRating, score.toDouble()), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 FlowRow(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -312,51 +314,63 @@ public fun RatingEditorScreen(
                 ) {
                     (1..10).forEach { value -> SelectChip(value.toString(), score == value) { score = value } }
                 }
-                Text("标签", fontWeight = FontWeight.SemiBold)
+                Text(animeString(AnimeCopy.communityTags), fontWeight = FontWeight.SemiBold)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    listOf("值得重看", "作画出色", "氛围感", "慢热").forEach {
+                    listOf(
+                        "rewatch" to animeString(AnimeCopy.communityTagRewatch),
+                        "art" to animeString(AnimeCopy.communityTagArt),
+                        "atmosphere" to animeString(AnimeCopy.communityTagAtmosphere),
+                        "slow" to animeString(AnimeCopy.communityTagSlow),
+                    ).forEach { (value, label) ->
                         SelectChip(
-                            it,
-                            tag == it,
-                        ) { tag = it }
+                            label,
+                            tag == value,
+                        ) { tag = value }
                     }
                 }
-                Text("附加内容", fontWeight = FontWeight.SemiBold)
+                Text(animeString(AnimeCopy.communityExtraContent), fontWeight = FontWeight.SemiBold)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    listOf("short" to "短评", "comment" to "讨论").forEach { (value, label) ->
+                    listOf(
+                        "short" to animeString(AnimeCopy.communityKindReview),
+                        "comment" to animeString(AnimeCopy.communityKindComment),
+                    ).forEach { (value, label) ->
                         SelectChip(
                             label,
                             kind == value,
                         ) { kind = value }
                     }
                 }
-                if (kind == "long") EditorField(title, { title = it }, "长评标题", singleLine = true)
+                if (kind == "long") EditorField(title, { title = it }, animeString(AnimeCopy.communityLongTitle), singleLine = true)
                 EditorField(
                     body,
                     { body = it },
                     when (kind) {
-                        "long" -> "正文（至少 200 字）"
-                        "comment" -> "参与作品讨论（最多 300 字）"
-                        else -> "短评（最多 500 字，可留空）"
+                        "long" -> animeString(AnimeCopy.communityLongBody)
+                        "comment" -> animeString(AnimeCopy.communityCommentBody)
+                        else -> animeString(AnimeCopy.communityReviewBody)
                     },
                     singleLine = false,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = spoiler, onCheckedChange = { spoiler = it })
-                    Text("包含剧透")
+                    Text(animeString(AnimeCopy.commentSpoiler))
                 }
-                Text("可见范围", fontWeight = FontWeight.SemiBold)
+                Text(animeString(AnimeCopy.communityVisibility), fontWeight = FontWeight.SemiBold)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    listOf("public" to "公开", "followers" to "关注者", "private" to "仅自己").forEach { (value, label) ->
+                    listOf(
+                        "public" to animeString(AnimeCopy.communityPublic),
+                        "followers" to animeString(AnimeCopy.communityFollowers),
+                        "private" to animeString(AnimeCopy.communityPrivate),
+                    ).forEach { (value, label) ->
                         SelectChip(
                             label,
                             visibility == value,
@@ -368,8 +382,8 @@ public fun RatingEditorScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AnimePrimaryButton(if (saving) "正在保存" else "保存", { if (!saving) saveSignal++ })
-                    AnimeSecondaryButton("取消", onBack)
+                    AnimePrimaryButton(if (saving) animeString(AnimeCopy.communitySaving) else animeString(AnimeCopy.actionSave), { if (!saving) saveSignal++ })
+                    AnimeSecondaryButton(animeString(AnimeCopy.actionCancel), onBack)
                     if (saving) CircularProgressIndicator(Modifier.size(22.dp))
                 }
             }
@@ -392,6 +406,7 @@ public fun ReviewDetailScreen(
     var editing by rememberSaveable { mutableStateOf(false) }
     var mutationMessage by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val reviewUpdatedMessage = animeString(AnimeCopy.communityReviewUpdated)
     LaunchedEffect(repository, reviewId) {
         repository.review(reviewId).onSuccess { review = it }.onFailure {
             error =
@@ -407,7 +422,7 @@ public fun ReviewDetailScreen(
         item {
             when {
                 error != null -> {
-                    StatePanel("无法加载评价", error.orEmpty())
+                    StatePanel(animeString(AnimeCopy.communityReviewLoadError), error.orEmpty())
                 }
 
                 review == null -> {
@@ -452,14 +467,14 @@ public fun ReviewDetailScreen(
         var spoiler by remember(review!!.id) { mutableStateOf(review!!.spoiler) }
         AlertDialog(
             onDismissRequest = { editing = false },
-            title = { Text("编辑评价") },
+            title = { Text(animeString(AnimeCopy.communityEditReview)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(title, { title = it }, label = { Text("标题") }, singleLine = true)
-                    OutlinedTextField(body, { body = it.take(500) }, label = { Text("正文") }, minLines = 5)
+                    OutlinedTextField(title, { title = it }, label = { Text(animeString(AnimeCopy.communityTitle)) }, singleLine = true)
+                    OutlinedTextField(body, { body = it.take(500) }, label = { Text(animeString(AnimeCopy.communityBody)) }, minLines = 5)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Switch(spoiler, { spoiler = it })
-                        Text("包含剧透")
+                        Text(animeString(AnimeCopy.commentSpoiler))
                     }
                 }
             },
@@ -467,12 +482,12 @@ public fun ReviewDetailScreen(
                 TextButton(onClick = {
                     scope.launch {
                         repository.updateReview(review!!.id, title.trim().ifBlank { null }, body.trim(), spoiler, review!!.visibility)
-                            .onSuccess { review = it; editing = false; mutationMessage = "评价已更新" }
+                            .onSuccess { review = it; editing = false; mutationMessage = reviewUpdatedMessage }
                             .onFailure { mutationMessage = readableError(it) }
                     }
-                }) { Text("保存") }
+                }) { Text(animeString(AnimeCopy.actionSave)) }
             },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text(animeString(AnimeCopy.actionCancel)) } },
         )
     }
     mutationMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(24.dp)) }
@@ -497,6 +512,7 @@ public fun CuratedListScreen(
     var deleteConfirm by rememberSaveable { mutableStateOf(false) }
     var mutationMessage by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val listUpdatedMessage = animeString(AnimeCopy.communityListUpdated)
     LaunchedEffect(repository, listId) {
         repository.list(listId).onSuccess {
             detail = it
@@ -515,7 +531,7 @@ public fun CuratedListScreen(
         item {
             when {
                 error != null -> {
-                    StatePanel("无法加载片单", error.orEmpty())
+                    StatePanel(animeString(AnimeCopy.communityListLoadError), error.orEmpty())
                 }
 
                 detail == null -> {
@@ -526,14 +542,14 @@ public fun CuratedListScreen(
 
                 else -> {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("精选片单", color = MaterialTheme.colorScheme.primary)
+                        Text(animeString(AnimeCopy.communityFeaturedList), color = MaterialTheme.colorScheme.primary)
                         Text(
                             detail!!.summary.title,
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            "${detail!!.summary.ownerName} · ${detail!!.summary.itemCount} 部作品",
+                            animeString(AnimeCopy.communityOwnerItemSummary, detail!!.summary.ownerName, detail!!.summary.itemCount),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(detail!!.summary.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -543,7 +559,7 @@ public fun CuratedListScreen(
                         ) {
                             if (!detail!!.summary.owned) {
                                 AnimeSecondaryButton(
-                                    if (following) "已关注片单" else "关注片单",
+                                    if (following) animeString(AnimeCopy.communityFollowedList) else animeString(AnimeCopy.communityFollowList),
                                     onClick = {
                                         scope.launch {
                                             val result =
@@ -553,11 +569,11 @@ public fun CuratedListScreen(
                                     },
                                 )
                             } else {
-                                AnimeSecondaryButton("编辑", { editing = true })
-                                AnimeSecondaryButton("删除", { deleteConfirm = true })
+                                AnimeSecondaryButton(animeString(AnimeCopy.actionEdit), { editing = true })
+                                AnimeSecondaryButton(animeString(AnimeCopy.actionDelete), { deleteConfirm = true })
                             }
                             Text(
-                                "${detail!!.summary.followerCount} 人关注",
+                                animeString(AnimeCopy.communityFollowerCount, detail!!.summary.followerCount),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -631,12 +647,12 @@ public fun CuratedListScreen(
         var subjectIds by remember(detail!!.items) { mutableStateOf(detail!!.items.joinToString(",") { it.subjectId.toString() }) }
         AlertDialog(
             onDismissRequest = { editing = false },
-            title = { Text("编辑片单") },
+            title = { Text(animeString(AnimeCopy.communityEditList)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(title, { title = it }, label = { Text("标题") }, singleLine = true)
-                    OutlinedTextField(description, { description = it }, label = { Text("描述") }, minLines = 3)
-                    OutlinedTextField(subjectIds, { subjectIds = it }, label = { Text("作品 ID（逗号分隔，可调整顺序）") }, singleLine = true)
+                    OutlinedTextField(title, { title = it }, label = { Text(animeString(AnimeCopy.communityTitle)) }, singleLine = true)
+                    OutlinedTextField(description, { description = it }, label = { Text(animeString(AnimeCopy.communityListDescription)) }, minLines = 3)
+                    OutlinedTextField(subjectIds, { subjectIds = it }, label = { Text(animeString(AnimeCopy.communitySubjectIds)) }, singleLine = true)
                 }
             },
             confirmButton = {
@@ -648,28 +664,28 @@ public fun CuratedListScreen(
                             .onSuccess { updated ->
                                 detail = detail!!.copy(summary = updated)
                                 editing = false
-                                mutationMessage = "片单已更新"
+                                mutationMessage = listUpdatedMessage
                             }.onFailure { mutationMessage = readableError(it) }
                     }
-                }) { Text("保存") }
+                }) { Text(animeString(AnimeCopy.actionSave)) }
             },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text(animeString(AnimeCopy.actionCancel)) } },
         )
     }
     if (deleteConfirm) {
         AlertDialog(
             onDismissRequest = { deleteConfirm = false },
-            title = { Text("删除片单？") },
-            text = { Text("删除后片单及其条目将不再可见。") },
+            title = { Text(animeString(AnimeCopy.communityDeleteListTitle)) },
+            text = { Text(animeString(AnimeCopy.communityDeleteListMessage)) },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
                         repository.deleteList(listId).onSuccess { onBack() }.onFailure { mutationMessage = readableError(it) }
                         deleteConfirm = false
                     }
-                }) { Text("删除") }
+                }) { Text(animeString(AnimeCopy.actionDelete)) }
             },
-            dismissButton = { TextButton(onClick = { deleteConfirm = false }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { deleteConfirm = false }) { Text(animeString(AnimeCopy.actionCancel)) } },
         )
     }
     mutationMessage?.let { message ->
@@ -717,7 +733,7 @@ public fun UserProfileScreen(
                 loading && profile == null -> Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-                error != null && profile == null -> StatePanel("无法加载用户资料", error.orEmpty())
+                error != null && profile == null -> StatePanel(animeString(AnimeCopy.communityUserLoadError), error.orEmpty())
                 profile != null -> {
                     val value = profile!!
                     ContentPanel(Modifier.fillMaxWidth()) {
@@ -733,9 +749,9 @@ public fun UserProfileScreen(
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(value.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                                Text("加入于 ${value.createdAt.take(10)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(animeString(AnimeCopy.communityJoinedAt, value.createdAt.take(10)), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            AnimeSecondaryButton(if (following) "已关注" else "关注", onClick = {
+                            AnimeSecondaryButton(if (following) animeString(AnimeCopy.activityFollowing) else animeString(AnimeCopy.actionFollow), onClick = {
                                 scope.launch {
                                     val result = if (following) repository.unfollowUser(userId) else repository.followUser(userId)
                                     result.onSuccess { following = it }.onFailure { error = readableError(it) }
@@ -743,18 +759,18 @@ public fun UserProfileScreen(
                             })
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                            Text("${value.ratingCount} 评分")
-                            Text("${value.reviewCount} 评价")
-                            Text("${value.listCount} 片单")
-                            Text("${value.followerCount} 粉丝")
+                            Text(animeString(AnimeCopy.communityRatingCount, value.ratingCount))
+                            Text(animeString(AnimeCopy.communityReviewCount, value.reviewCount))
+                            Text(animeString(AnimeCopy.communityListCount, value.listCount))
+                            Text(animeString(AnimeCopy.communityFansCount, value.followerCount))
                         }
                     }
                 }
             }
         }
-        item { Text("评价", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item { Text(animeString(AnimeCopy.screenReview), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         if (reviews.isEmpty()) {
-            item { Text("还没有公开评价", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Text(animeString(AnimeCopy.communityPublicReviews), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             items(reviews, key = { it.id }) { review ->
                 Surface(
@@ -765,16 +781,16 @@ public fun UserProfileScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .24f)),
                 ) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(review.title ?: "短评", fontWeight = FontWeight.SemiBold)
+                        Text(review.title ?: animeString(AnimeCopy.communityReviewDefaultTitle), fontWeight = FontWeight.SemiBold)
                         Text(review.body, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                        Text("${review.likeCount} 喜欢 · ${review.createdAt.take(16).replace('T', ' ')}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(animeString(AnimeCopy.communityReviewLikeBookmark, review.likeCount, 0) + " · " + review.createdAt.take(16).replace('T', ' '), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
-        item { Text("片单", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item { Text(animeString(AnimeCopy.communityFeaturedList), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         if (lists.isEmpty()) {
-            item { Text("还没有公开片单", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Text(animeString(AnimeCopy.communityPublicLists), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             items(lists, key = { it.id }) { list ->
                 Surface(
@@ -787,7 +803,7 @@ public fun UserProfileScreen(
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(list.title, fontWeight = FontWeight.SemiBold)
                         Text(list.description, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("${list.itemCount} 部作品 · ${list.followerCount} 人关注", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(animeString(AnimeCopy.communityListItemSummary, list.itemCount, list.followerCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -805,13 +821,17 @@ private fun CreateListScreen(
     var description by rememberSaveable { mutableStateOf("") }
     var ids by rememberSaveable { mutableStateOf("") }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
+    var createdListTitle by rememberSaveable { mutableStateOf<String?>(null) }
     var signal by rememberSaveable { mutableStateOf(0) }
     LaunchedEffect(signal) {
         if (signal == 0) return@LaunchedEffect
         val parsed = ids.split(',', '，', ' ').mapNotNull { it.trim().toLongOrNull() }
         repository
             .createList(title.trim(), description.trim(), parsed)
-            .onSuccess { message = "片单“${it.title}”已创建" }
+            .onSuccess {
+                createdListTitle = it.title
+                message = null
+            }
             .onFailure { message = readableError(it) }
     }
     LazyColumn(
@@ -820,27 +840,22 @@ private fun CreateListScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item { PageBack(onBack) }
-        item { Text("创建片单", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold) }
+        item { Text(animeString(AnimeCopy.communityCreateList), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold) }
         item {
             ContentPanel(Modifier.widthIn(max = 760.dp)) {
-                EditorField(title, { title = it }, "片单标题", true)
-                EditorField(description, { description = it }, "描述", false)
-                EditorField(ids, { ids = it }, "Bangumi ID，以逗号分隔", true)
+                EditorField(title, { title = it }, animeString(AnimeCopy.communityListTitleHint), true)
+                EditorField(description, { description = it }, animeString(AnimeCopy.communityListDescription), false)
+                EditorField(ids, { ids = it }, animeString(AnimeCopy.communityBangumiIdsHint), true)
+                createdListTitle?.let {
+                    Text(animeString(AnimeCopy.communityListCreated, it), color = MaterialTheme.colorScheme.primary)
+                }
                 message?.let {
                     Text(
                         it,
-                        color =
-                            if (it.startsWith(
-                                    "片单",
-                                )
-                            ) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            },
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
-                AnimePrimaryButton("创建", { signal++ })
+                AnimePrimaryButton(animeString(AnimeCopy.actionCreate), { signal++ })
             }
         }
     }
@@ -857,19 +872,19 @@ private fun ReviewArticle(
     onEdit: () -> Unit,
 ) {
     ContentPanel(Modifier.widthIn(max = 900.dp)) {
-        Text(review.title ?: "短评", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        Text(review.title ?: animeString(AnimeCopy.communityReviewDefaultTitle), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
         Text(
-            "Anime 用户 · ${review.createdAt.take(16).replace('T', ' ')}",
+            animeString(AnimeCopy.communityReviewAuthor, review.createdAt.take(16).replace('T', ' ')),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(review.body, style = MaterialTheme.typography.bodyLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AnimeSecondaryButton("查看作品", { onSubjectClick(review.subjectId) })
-            AnimeSecondaryButton(if (liked) "已喜欢" else "喜欢", onLike)
-            AnimeSecondaryButton(if (bookmarked) "已收藏" else "收藏", onBookmark)
-            if (review.owned) AnimeSecondaryButton("编辑", onEdit)
+            AnimeSecondaryButton(animeString(AnimeCopy.actionViewSubject), { onSubjectClick(review.subjectId) })
+            AnimeSecondaryButton(if (liked) animeString(AnimeCopy.communityLiked) else animeString(AnimeCopy.communityLike), onLike)
+            AnimeSecondaryButton(if (bookmarked) animeString(AnimeCopy.communityBookmarked) else animeString(AnimeCopy.communityBookmark), onBookmark)
+            if (review.owned) AnimeSecondaryButton(animeString(AnimeCopy.actionEdit), onEdit)
             Text(
-                "${review.likeCount} 喜欢 · ${review.bookmarkCount} 收藏",
+                animeString(AnimeCopy.communityReactions, review.likeCount, review.bookmarkCount),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
             )
@@ -974,4 +989,4 @@ private fun StatePanel(
 }
 
 private fun readableError(error: Throwable): String =
-    error.message?.substringAfter("\"message\":\"")?.substringBefore('"') ?: error.message ?: "请求失败，请稍后重试"
+    error.message?.substringAfter("\"message\":\"")?.substringBefore('"') ?: error.message.orEmpty()

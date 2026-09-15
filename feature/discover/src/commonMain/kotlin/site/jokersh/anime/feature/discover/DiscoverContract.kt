@@ -38,9 +38,17 @@ public data class DiscoverContentUi(
 public data class DiscoverSectionUi(
     val id: String,
     val title: String,
-    val description: String,
+    val description: DiscoverSectionDescription,
     val subjects: List<SubjectCardUi>,
 )
+
+public enum class DiscoverSectionDescription {
+    Continue,
+    Airing,
+    TopRated,
+    Upcoming,
+    Curated,
+}
 
 public enum class DiscoverErrorUi {
     Offline,

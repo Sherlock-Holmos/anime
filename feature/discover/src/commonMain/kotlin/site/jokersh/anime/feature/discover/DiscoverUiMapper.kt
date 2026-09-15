@@ -1,7 +1,6 @@
 package site.jokersh.anime.feature.discover
 
 import site.jokersh.anime.core.designsystem.SubjectCardUi
-import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.AppError
 import site.jokersh.anime.core.model.CollectionStatus
 import site.jokersh.anime.core.model.DiscoveryFeed
@@ -66,65 +65,32 @@ internal object DiscoverUiMapper {
     internal fun subject(subject: SubjectSummary): SubjectCardUi = subjectCard(subject)
 
     private fun subjectCard(subject: SubjectSummary): SubjectCardUi {
-        val metadata =
-            listOfNotNull(
-                subject.year?.toString(),
-                subject.type.label,
-                subject.airingStatus.label,
-            ).joinToString(" · ")
-        val subjectRating = subject.rating
-        val rating = subjectRating?.score?.let { score -> "$score  Bangumi" }
-        val collectionLabel =
-            subject.collection
-                ?.takeIf { it.status == CollectionStatus.Watching }
-                ?.let { "已看 ${it.watchedEpisodes} 集" }
-        val accessibility =
-            buildList {
-                add(subject.title)
-                add(metadata)
-                collectionLabel?.let(::add)
-                subjectRating?.score?.let { score ->
-                    add("Bangumi 评分 $score 分，${subjectRating.votes} 人评分")
-                }
-            }.joinToString("，")
-
         return SubjectCardUi(
             id = subject.id,
             title = subject.title,
             originalTitle = subject.originalTitle,
             poster = subject.poster,
-            metadata = metadata,
-            rating = rating,
-            collectionLabel = collectionLabel,
-            accessibilityLabel = accessibility,
+            metadata = "",
+            rating = null,
+            collectionLabel = null,
+            accessibilityLabel = subject.title,
+            year = subject.year,
+            subjectType = subject.type,
+            airingStatus = subject.airingStatus,
+            ratingScore = subject.rating?.score,
+            ratingVotes = subject.rating?.votes,
+            watchedEpisodes = subject.collection
+                ?.takeIf { it.status == CollectionStatus.Watching }
+                ?.watchedEpisodes,
         )
     }
 
-    private fun sectionDescription(id: String): String =
+    private fun sectionDescription(id: String): DiscoverSectionDescription =
         when (id) {
-            "continue" -> "从上次停下的地方继续"
-            "airing" -> "这一刻，大家正在追"
-            "top-rated" -> "来自 Bangumi 的高口碑作品"
-            "upcoming" -> "值得提前留意的新作"
-            else -> "为你整理的作品"
+            "continue" -> DiscoverSectionDescription.Continue
+            "airing" -> DiscoverSectionDescription.Airing
+            "top-rated" -> DiscoverSectionDescription.TopRated
+            "upcoming" -> DiscoverSectionDescription.Upcoming
+            else -> DiscoverSectionDescription.Curated
         }
 }
-
-private val SubjectType.label: String
-    get() =
-        when (this) {
-            SubjectType.Tv -> "TV"
-            SubjectType.Web -> "Web"
-            SubjectType.Ova -> "OVA"
-            SubjectType.Movie -> "剧场版"
-            SubjectType.Other -> "其他"
-        }
-
-private val AiringStatus.label: String
-    get() =
-        when (this) {
-            AiringStatus.Announced -> "未开播"
-            AiringStatus.Airing -> "连载中"
-            AiringStatus.Finished -> "已完结"
-            AiringStatus.Unknown -> "状态未知"
-        }

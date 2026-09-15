@@ -24,4 +24,6 @@
     <string name="discover_error_data">內容格式出現異常</string>
     <string name="discover_error_unknown">載入未成功，已有內容不會受到影響。</string>
     <string name="discover_error_action">再試一次</string>
+    <string name="discover_calendar">播出日曆</string><string name="discover_previous">上一部推薦</string><string name="discover_next">下一部推薦</string><string name="discover_hero_page">第 %1$d 部推薦</string><string name="discover_all_subjects">全部作品</string><string name="discover_subject_count">%1$d 部作品</string>
+    <string name="discover_continue_description">從上次停下的地方繼續</string><string name="discover_airing_description_alt">此刻大家正在追</string><string name="discover_top_rated_description_alt">來自 Bangumi 的高口碑作品</string><string name="discover_upcoming_description">值得提前留意的新作</string><string name="discover_curated_description">為你整理的作品</string>
 </resources>

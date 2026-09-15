@@ -27,7 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import site.jokersh.anime.core.designsystem.AnimeBackIcon
+import site.jokersh.anime.core.designsystem.AnimeCopy
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
+import site.jokersh.anime.core.designsystem.animeString
 import site.jokersh.anime.data.session.ServiceDiagnostic
 import site.jokersh.anime.data.session.SessionRepository
 
@@ -40,12 +42,13 @@ public fun DiagnosticsScreen(
     var diagnostics by remember { mutableStateOf<List<ServiceDiagnostic>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
+    val requestFailed = animeString(AnimeCopy.diagnosticsRequestFailed)
 
     LaunchedEffect(repository, reload) {
         error = null
         repository.diagnostics()
             .onSuccess { diagnostics = it }
-            .onFailure { error = it.message ?: "诊断请求失败" }
+            .onFailure { error = it.message ?: requestFailed }
     }
 
     LazyColumn(
@@ -62,8 +65,8 @@ public fun DiagnosticsScreen(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("服务诊断", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("检查客户端到 Anime 后端的连通性与服务状态。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(animeString(AnimeCopy.diagnosticsTitle), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                Text(animeString(AnimeCopy.diagnosticsDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (diagnostics == null && error == null) {
@@ -73,7 +76,7 @@ public fun DiagnosticsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(message, color = MaterialTheme.colorScheme.error)
-                    AnimeSecondaryButton("重试", onClick = { diagnostics = null; reload++ })
+                    AnimeSecondaryButton(animeString(AnimeCopy.actionRetry), onClick = { diagnostics = null; reload++ })
                 }
             }
         }
@@ -87,11 +90,23 @@ public fun DiagnosticsScreen(
                 ) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(diagnostic.endpoint, fontWeight = FontWeight.SemiBold)
+                        val latencyLabel = diagnostic.latencyMs?.let {
+                            animeString(AnimeCopy.diagnosticsLatency, it)
+                        } ?: ""
+                        val statusLabel = diagnostic.statusCode?.toString()
+                            ?: animeString(AnimeCopy.diagnosticsUnreachable)
+                        val detailLabel = animeString(AnimeCopy.diagnosticsHttp, latencyLabel, statusLabel)
                         Text(
                             if (diagnostic.healthy) {
-                                "正常 · ${diagnostic.latencyMs?.let { "${it} ms · " } ?: ""}HTTP ${diagnostic.statusCode}"
+                                animeString(
+                                    AnimeCopy.diagnosticsHealthy,
+                                    detailLabel,
+                                )
                             } else {
-                                "异常 · ${diagnostic.latencyMs?.let { "${it} ms · " } ?: ""}${diagnostic.errorMessage ?: "HTTP ${diagnostic.statusCode ?: "无法连接"}"}"
+                                animeString(
+                                    AnimeCopy.diagnosticsUnhealthy,
+                                    diagnostic.errorMessage ?: detailLabel,
+                                )
                             },
                             color = if (diagnostic.healthy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
@@ -101,7 +116,7 @@ public fun DiagnosticsScreen(
                     }
                 }
             }
-            item { AnimeSecondaryButton("重新检查", onClick = { diagnostics = null; reload++ }) }
+            item { AnimeSecondaryButton(animeString(AnimeCopy.diagnosticsRecheck), onClick = { diagnostics = null; reload++ }) }
         }
     }
 }

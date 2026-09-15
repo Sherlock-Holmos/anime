@@ -44,6 +44,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
+import anime.core.designsystem.generated.resources.Res as DesignRes
+import anime.core.designsystem.generated.resources.copy_action_retry
 import site.jokersh.anime.core.designsystem.AnimeCompactSubjectCard
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
@@ -54,9 +58,13 @@ import site.jokersh.anime.core.designsystem.GlassRole
 import site.jokersh.anime.core.designsystem.StatePaneKind
 import site.jokersh.anime.core.designsystem.StatePaneModel
 import site.jokersh.anime.core.designsystem.SubjectCardUi
+import site.jokersh.anime.core.designsystem.localizedMetadata
+import site.jokersh.anime.core.designsystem.localizedRating
 import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.SearchSort
 import site.jokersh.anime.core.model.SubjectType
+import site.jokersh.anime.feature.search.generated.resources.Res
+import site.jokersh.anime.feature.search.generated.resources.*
 
 @Composable
 public fun SearchScreen(
@@ -172,8 +180,8 @@ public fun SearchScreen(
                     ) {
                         SearchStatePanel(
                             kind = StatePaneKind.Loading,
-                            title = "正在搜索",
-                            message = "从本地演示数据中匹配 Bangumi 条目",
+                            title = Res.string.search_loading_title,
+                            message = Res.string.search_loading_message,
                         )
                     }
                 }
@@ -220,8 +228,8 @@ public fun SearchScreen(
                     ) {
                         SearchStatePanel(
                             kind = StatePaneKind.Empty,
-                            title = "没有找到结果",
-                            message = "换一个作品名、别名或 Bangumi ID 试试。",
+                            title = Res.string.search_empty_title,
+                            message = Res.string.search_empty_message,
                         )
                     }
                 }
@@ -234,8 +242,8 @@ public fun SearchScreen(
                     ) {
                         SearchStatePanel(
                             kind = StatePaneKind.Error,
-                            title = "搜索暂时不可用",
-                            message = "稍后重试，或先回到发现页浏览演示条目。",
+                            title = Res.string.search_unavailable_title,
+                            message = Res.string.search_unavailable_message,
                         )
                     }
                 }
@@ -255,13 +263,13 @@ private fun SearchFilters(
     val chips =
         remember(types, years, airing, sort) {
             listOf(
-                "TV" to (SubjectType.Tv in types),
-                "Web" to (SubjectType.Web in types),
-                "剧场版" to (SubjectType.Movie in types),
-                "近五年" to (years != null),
-                "连载中" to (AiringStatus.Airing in airing),
-                "已完结" to (AiringStatus.Finished in airing),
-                "高分优先" to (sort == SearchSort.Rating),
+                Res.string.search_filter_tv to (SubjectType.Tv in types),
+                Res.string.search_filter_web to (SubjectType.Web in types),
+                Res.string.search_filter_movie to (SubjectType.Movie in types),
+                Res.string.search_filter_recent_years to (years != null),
+                Res.string.search_filter_airing to (AiringStatus.Airing in airing),
+                Res.string.search_filter_finished to (AiringStatus.Finished in airing),
+                Res.string.search_filter_rating to (sort == SearchSort.Rating),
             )
         }
     Row(
@@ -303,9 +311,9 @@ private fun SearchFilters(
                 }
             }
             if (chip.second) {
-                AnimePrimaryButton(label = chip.first, onClick = action)
+                AnimePrimaryButton(label = stringResource(chip.first), onClick = action)
             } else {
-                AnimeSecondaryButton(label = chip.first, onClick = action)
+                AnimeSecondaryButton(label = stringResource(chip.first), onClick = action)
             }
         }
     }
@@ -346,12 +354,12 @@ private fun TrendingSearches(
     modifier: Modifier = Modifier,
 ) {
     SearchDiscoveryPanel(
-        title = "热门搜索",
-        subtitle = "从大家最近关注的作品开始。",
+        title = Res.string.search_trending_title,
+        subtitle = Res.string.search_trending_description,
         modifier = modifier,
     ) {
         if (queries.isEmpty()) {
-            Text("还没有足够的搜索热度数据。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.search_trending_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         queries.forEachIndexed { index, query ->
             Surface(
@@ -387,8 +395,8 @@ private fun SearchPicks(
     modifier: Modifier = Modifier,
 ) {
     SearchDiscoveryPanel(
-        title = "不妨试试",
-        subtitle = if (personalized) "根据你的收藏兴趣生成。" else "来自真实高分与热度数据。",
+        title = Res.string.search_recommendation_title,
+        subtitle = if (personalized) Res.string.search_recommendation_personalized else Res.string.search_recommendation_default,
         modifier = modifier,
     ) {
         Row(
@@ -401,7 +409,7 @@ private fun SearchPicks(
                 }
 
                 recommendations.isEmpty() -> {
-                    Text("推荐数据正在积累。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(Res.string.search_recommendation_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 else -> {
@@ -454,7 +462,7 @@ private fun SearchPick(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    subject.rating ?: subject.metadata,
+                    subject.localizedRating() ?: subject.localizedMetadata(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -465,8 +473,8 @@ private fun SearchPick(
 
 @Composable
 private fun SearchDiscoveryPanel(
-    title: String,
-    subtitle: String,
+    title: StringResource,
+    subtitle: StringResource,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -485,9 +493,9 @@ private fun SearchDiscoveryPanel(
             verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
-                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Text(
-                    subtitle,
+                    stringResource(subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -509,14 +517,15 @@ private fun SearchHeader(
         modifier = if (contentUnderSystemBars) Modifier.statusBarsPadding() else Modifier,
         verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md),
     ) {
+        val clearAccessibility = stringResource(Res.string.search_clear_accessibility)
         Text(
-            text = "Anime",
+            text = stringResource(Res.string.search_brand),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = "搜索",
+            text = stringResource(Res.string.search_title),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
         )
@@ -554,7 +563,7 @@ private fun SearchHeader(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (query.isBlank()) {
                                 Text(
-                                    text = "作品名、别名、Bangumi ID",
+                                    text = stringResource(Res.string.search_prompt),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
                                 )
                             }
@@ -565,16 +574,16 @@ private fun SearchHeader(
             }
             if (query.isNotBlank()) {
                 PillButton(
-                    label = "清除",
+                    label = stringResource(Res.string.search_clear),
                     onClick = onClear,
                     modifier =
                         Modifier
                             .testTag("search.clear")
-                            .semantics { contentDescription = "清空搜索内容" },
+                            .semantics { contentDescription = clearAccessibility },
                 )
             }
             PillButton(
-                label = "搜索",
+                label = stringResource(Res.string.search_action),
                 onClick = onSubmit,
                 modifier = Modifier.testTag("search.submit"),
             )
@@ -601,10 +610,10 @@ private fun RecentSearches(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("最近搜索", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(Res.string.search_recent_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 if (items.isNotEmpty()) {
                     AnimeSecondaryButton(
-                        label = "全部清除",
+                        label = stringResource(Res.string.search_recent_clear_all),
                         onClick = onClearAll,
                         modifier = Modifier.testTag("search.recent.clearAll"),
                     )
@@ -612,7 +621,7 @@ private fun RecentSearches(
             }
             if (items.isEmpty()) {
                 Text(
-                    text = "搜索过的作品会留在这里，方便你继续探索。",
+                    text = stringResource(Res.string.search_recent_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -635,6 +644,7 @@ private fun RecentRow(
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    val deleteAccessibility = stringResource(Res.string.search_recent_delete_accessibility, item.query)
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -654,9 +664,9 @@ private fun RecentRow(
                 overflow = TextOverflow.Ellipsis,
             )
             PillButton(
-                label = "删除",
+                label = stringResource(Res.string.search_recent_delete),
                 onClick = onRemove,
-                modifier = Modifier.semantics { contentDescription = "删除最近搜索：${item.query}" },
+                modifier = Modifier.semantics { contentDescription = deleteAccessibility },
             )
         }
     }
@@ -667,6 +677,7 @@ private fun SearchSuggestionRow(
     suggestion: SearchSuggestionUi,
     onClick: () -> Unit,
 ) {
+    val suggestionAccessibility = stringResource(Res.string.search_suggestion_accessibility, suggestion.value)
     Surface(
         onClick = onClick,
         modifier =
@@ -675,7 +686,7 @@ private fun SearchSuggestionRow(
                 .defaultMinSize(minHeight = 56.dp)
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
-                    contentDescription = "搜索 ${suggestion.value}"
+                    contentDescription = suggestionAccessibility
                 }.testTag("search.suggestion.${suggestion.value}"),
         shape = RoundedCornerShape(AnimeRadius.card),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
@@ -692,7 +703,7 @@ private fun ResultsSummary(
     count: Int,
 ) {
     Text(
-        text = "“$query” 的结果 · 已显示 $count 个",
+        text = stringResource(Res.string.search_result_summary, query, count),
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.testTag("search.results"),
@@ -726,15 +737,15 @@ private fun SearchPagination(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("下一页加载失败", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    AnimeSecondaryButton(label = "重试", onClick = onRetry)
+                    Text(stringResource(DesignRes.string.copy_action_retry), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AnimeSecondaryButton(label = stringResource(DesignRes.string.copy_action_retry), onClick = onRetry)
                 }
             }
         }
 
         hasMore -> {
             AnimePrimaryButton(
-                label = "加载更多",
+                label = stringResource(Res.string.search_load_more),
                 onClick = onLoadMore,
                 modifier = Modifier.fillMaxWidth().testTag("search.loadMore"),
             )
@@ -745,11 +756,11 @@ private fun SearchPagination(
 @Composable
 private fun SearchStatePanel(
     kind: StatePaneKind,
-    title: String,
-    message: String,
+    title: StringResource,
+    message: StringResource,
 ) {
     site.jokersh.anime.core.designsystem.AnimeStatePane(
-        state = StatePaneModel(kind = kind, title = title, message = message),
+        state = StatePaneModel(kind = kind, title = stringResource(title), message = stringResource(message)),
         modifier = Modifier.testTag("search.${kind.name.lowercase()}"),
     )
 }

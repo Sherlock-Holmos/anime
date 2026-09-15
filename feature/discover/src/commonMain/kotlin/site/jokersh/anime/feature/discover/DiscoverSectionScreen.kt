@@ -17,6 +17,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import anime.core.designsystem.generated.resources.Res as DesignRes
+import anime.core.designsystem.generated.resources.copy_action_return_discover
 import site.jokersh.anime.core.designsystem.AnimePosterCard
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
 import site.jokersh.anime.core.designsystem.AnimeSpacing
@@ -24,6 +27,9 @@ import site.jokersh.anime.core.designsystem.SubjectCardUi
 import site.jokersh.anime.core.model.RefreshPolicy
 import site.jokersh.anime.core.model.SubjectId
 import site.jokersh.anime.data.catalog.CatalogRepository
+import site.jokersh.anime.feature.discover.generated.resources.Res
+import site.jokersh.anime.feature.discover.generated.resources.discover_all_subjects
+import site.jokersh.anime.feature.discover.generated.resources.discover_subject_count
 
 @Composable
 public fun DiscoverSectionRoute(
@@ -44,9 +50,9 @@ public fun DiscoverSectionRoute(
         modifier.fillMaxSize().padding(AnimeSpacing.lg),
         verticalArrangement = Arrangement.spacedBy(AnimeSpacing.lg),
     ) {
-        AnimeSecondaryButton(label = "返回发现", onClick = onBack)
-        Text(section?.title ?: "全部作品", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-        Text("${section?.subjects?.size ?: 0} 部作品", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AnimeSecondaryButton(label = stringResource(DesignRes.string.copy_action_return_discover), onClick = onBack)
+        Text(section?.title ?: stringResource(Res.string.discover_all_subjects), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        Text(stringResource(Res.string.discover_subject_count, section?.subjects?.size ?: 0), color = MaterialTheme.colorScheme.onSurfaceVariant)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(160.dp),
             modifier = Modifier.fillMaxSize(),

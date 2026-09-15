@@ -5,6 +5,9 @@
     <string name="root_library">資料庫</string>
     <string name="root_activity">動態</string>
     <string name="root_profile">我的</string>
+    <string name="sidebar_media_library">媒體資料庫</string>
+    <string name="sidebar_bangumi_realtime">Bangumi · 即時資料</string>
+    <string name="message_refresh_failed">重新整理失敗，已保留上次內容</string>
     <string name="shell_environment">CMP Android · %1$s</string>
     <string name="f0_description">F0 基礎架構已就緒，將依照功能契約逐步接入業務狀態與 Fixture。</string>
     <string name="f0_status_title">實作基線</string>

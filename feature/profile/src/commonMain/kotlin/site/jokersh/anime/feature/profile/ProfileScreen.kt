@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
 import site.jokersh.anime.core.designsystem.AnimeGlassPanel
 import site.jokersh.anime.core.designsystem.AnimeLiquidToggle
 import site.jokersh.anime.core.designsystem.AnimePrimaryButton
@@ -56,7 +57,9 @@ import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
+import site.jokersh.anime.core.designsystem.AnimeCopy
 import site.jokersh.anime.core.designsystem.GlassRole
+import site.jokersh.anime.core.designsystem.animeString
 import site.jokersh.anime.core.designsystem.animeColors
 import site.jokersh.anime.core.model.AppSettings
 import site.jokersh.anime.core.model.GlassPreference
@@ -91,9 +94,9 @@ public fun ProfileScreen(
     contentUnderSystemBars: Boolean = false,
 ) {
     var showAccountDialog by rememberSaveable { mutableStateOf(false) }
-    val theme = settings.theme.label()
-    val glass = settings.glass.label()
-    val language = settings.language.label()
+    val theme = settings.theme.key()
+    val glass = settings.glass.key()
+    val language = settings.language.key()
     val reduceMotion = settings.reduceMotion == ReduceMotionPreference.On
 
     if (showAccountDialog) {
@@ -206,8 +209,12 @@ private fun BangumiSyncPanel(
     var conflicts by remember(session.user.summary.id.value) { mutableStateOf<List<BangumiSyncConflict>>(emptyList()) }
     var loading by rememberSaveable(session.user.summary.id.value) { mutableStateOf(false) }
     var message by rememberSaveable(session.user.summary.id.value) { mutableStateOf<String?>(null) }
+    var messageIsError by rememberSaveable(session.user.summary.id.value) { mutableStateOf(false) }
     var reload by rememberSaveable(session.user.summary.id.value) { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+    val syncStatusError = animeString(AnimeCopy.profileSyncStatusError)
+    val syncCompleted = animeString(AnimeCopy.profileSyncCompleted)
+    val syncFailed = animeString(AnimeCopy.profileSyncFailed)
 
     LaunchedEffect(session.user.summary.id, reload) {
         loading = true
@@ -217,36 +224,44 @@ private fun BangumiSyncPanel(
                 status = loaded
                 conflicts =
                     if (loaded.conflictCount > 0) repository.syncConflicts().getOrDefault(emptyList()) else emptyList()
-            }.onFailure { message = it.message ?: "无法读取同步状态" }
+            }.onFailure {
+                message = it.message ?: syncStatusError
+                messageIsError = true
+            }
         loading = false
     }
 
-    SettingsPanel("Bangumi 同步", "Anime 服务器负责访问 Bangumi，客户端无需代理。") {
+    SettingsPanel(animeString(AnimeCopy.profileSyncTitle), animeString(AnimeCopy.profileSyncDescription)) {
         val current = status
         StatusLine(
-            "连接状态",
+            animeString(AnimeCopy.profileSyncConnection),
             when {
-                current == null && loading -> "正在读取"
-                current?.bangumiLinked == true -> "已绑定"
-                else -> "未绑定"
+                current == null && loading -> animeString(AnimeCopy.profileSyncReading)
+                current?.bangumiLinked == true -> animeString(AnimeCopy.profileSyncConnected)
+                else -> animeString(AnimeCopy.profileSyncUnconnected)
             },
         )
-        StatusLine("上次成功", current?.lastSuccessfulAt?.take(16)?.replace('T', ' ') ?: "尚未同步")
         StatusLine(
-            "等待 / 失败 / 冲突",
+            animeString(AnimeCopy.profileSyncLastSuccess),
+            current?.lastSuccessfulAt?.take(16)?.replace('T', ' ') ?: animeString(AnimeCopy.profileSyncNever),
+        )
+        StatusLine(
+            animeString(AnimeCopy.profileSyncQueue),
             "${current?.pendingCount ?: 0} / ${current?.failedCount ?: 0} / ${current?.conflictCount ?: 0}",
         )
-        AnimePrimaryButton(if (loading) "同步中" else "立即同步", {
+        AnimePrimaryButton(if (loading) animeString(AnimeCopy.profileSyncing) else animeString(AnimeCopy.profileSyncNow), {
             if (!loading) {
                 scope.launch {
                     loading = true
                     repository
                         .startSync()
                         .onSuccess {
-                            message = "同步已完成"
+                            message = syncCompleted
+                            messageIsError = false
                             reload++
                         }.onFailure {
-                            message = it.message ?: "同步失败"
+                            message = it.message ?: syncFailed
+                            messageIsError = true
                             loading = false
                         }
                 }
@@ -256,9 +271,7 @@ private fun BangumiSyncPanel(
             Text(
                 it,
                 color =
-                    if (it.contains("失败") ||
-                        it.contains("无法")
-                    ) {
+                    if (messageIsError) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.primary
@@ -271,13 +284,16 @@ private fun BangumiSyncPanel(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .55f),
             ) {
                 Column(Modifier.padding(AnimeSpacing.md), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-                    Text("作品 ${conflict.subjectId} · ${conflict.fieldName}", fontWeight = FontWeight.SemiBold)
                     Text(
-                        "本地 ${conflict.localValue}  /  Bangumi ${conflict.remoteValue}",
+                        animeString(AnimeCopy.profileSyncSubject, conflict.subjectId, conflict.fieldName),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        animeString(AnimeCopy.profileSyncValues, conflict.localValue, conflict.remoteValue),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-                        AnimeSecondaryButton("保留本地", {
+                        AnimeSecondaryButton(animeString(AnimeCopy.profileKeepLocal), {
                             scope.launch {
                                 repository
                                     .resolveSyncConflict(
@@ -287,12 +303,12 @@ private fun BangumiSyncPanel(
                                     ).onSuccess {
                                         reload++
                                     }.onFailure {
-                                        message =
-                                            it.message
+                                        message = it.message
+                                        messageIsError = true
                                     }
                             }
                         })
-                        AnimeSecondaryButton("采用 Bangumi", {
+                        AnimeSecondaryButton(animeString(AnimeCopy.profileUseBangumi), {
                             scope.launch {
                                 repository
                                     .resolveSyncConflict(
@@ -302,8 +318,8 @@ private fun BangumiSyncPanel(
                                     ).onSuccess {
                                         reload++
                                     }.onFailure {
-                                        message =
-                                            it.message
+                                        message = it.message
+                                        messageIsError = true
                                     }
                             }
                         })
@@ -320,17 +336,33 @@ private fun PersonalArchive(
     sessionState: SessionState,
 ) {
     val profile = (sessionState as? SessionState.Authenticated)?.user
-    val source = if (profile?.connectedProvider == Provider.Bangumi) "Bangumi" else "Anime"
+    val source = if (profile?.connectedProvider == Provider.Bangumi) {
+        animeString(AnimeCopy.subjectBangumi)
+    } else {
+        animeString(AnimeCopy.profileProviderAnime)
+    }
     val entries =
         listOf(
-            ArchiveEntry("我的评分", profile?.ratingCount?.toString() ?: "—", "$source 动画评分"),
-            ArchiveEntry("我的评价", profile?.reviewCount?.toString() ?: "—", "$source 作品评价"),
-            ArchiveEntry("我的片单", profile?.listCount?.toString() ?: "—", "Anime 主题片单"),
+            ArchiveEntry(
+                animeString(AnimeCopy.profileArchiveRating),
+                profile?.ratingCount?.toString() ?: "—",
+                animeString(AnimeCopy.profileArchiveRatingSubtitle, source),
+            ),
+            ArchiveEntry(
+                animeString(AnimeCopy.profileArchiveReview),
+                profile?.reviewCount?.toString() ?: "—",
+                animeString(AnimeCopy.profileArchiveReviewSubtitle, source),
+            ),
+            ArchiveEntry(
+                animeString(AnimeCopy.profileArchiveList),
+                profile?.listCount?.toString() ?: "—",
+                animeString(AnimeCopy.profileArchiveListSubtitle),
+            ),
         )
     Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
         Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
-            Text("我的档案", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("评分、表达和策展共同组成你的兴趣画像。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(animeString(AnimeCopy.profileArchiveTitle), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(animeString(AnimeCopy.profileArchiveDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (wide) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
@@ -394,19 +426,19 @@ private fun ProfileHeader(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
             Text(
-                text = "个人空间",
+                text = animeString(AnimeCopy.profilePersonalSpace),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(text = "我的", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            Text(text = animeString(AnimeCopy.rootProfile), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             Text(
-                text = "管理你的观看足迹与桌面体验。",
+                text = animeString(AnimeCopy.profileWatchingDescription),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        StatusPill("$environmentLabel · 本地")
+        StatusPill(animeString(AnimeCopy.profileEnvironmentStatus, environmentLabel, animeString(AnimeCopy.profileLocal)))
     }
 }
 
@@ -421,8 +453,13 @@ private fun AccountHero(
     val restoring = sessionState is SessionState.Restoring
     val loginFailure = (sessionState as? SessionState.Failed)?.message
     val provider = authenticated?.user?.connectedProvider
-    val providerName = if (provider == Provider.Bangumi) "Bangumi" else "Anime"
-    val displayName = authenticated?.user?.summary?.displayName ?: if (restoring) "正在登录" else "登录 Anime"
+    val providerName = if (provider == Provider.Bangumi) {
+        animeString(AnimeCopy.subjectBangumi)
+    } else {
+        animeString(AnimeCopy.profileProviderAnime)
+    }
+    val displayName = authenticated?.user?.summary?.displayName
+        ?: if (restoring) animeString(AnimeCopy.profileLoginLoading) else animeString(AnimeCopy.profileLoginTitle)
     val avatarLetter = displayName.firstOrNull()?.uppercase() ?: "A"
     val avatarUrl = (authenticated?.user?.summary?.avatar as? ImageRef.Remote)?.url
     AnimeGlassPanel(
@@ -445,7 +482,7 @@ private fun AccountHero(
                 if (avatarUrl != null) {
                     AsyncImage(
                         model = avatarUrl,
-                        contentDescription = "$displayName 的头像",
+                        contentDescription = animeString(AnimeCopy.profileAvatar, displayName),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )
@@ -473,9 +510,9 @@ private fun AccountHero(
                         if (authenticated != null) {
                             providerName
                         } else if (restoring) {
-                            "登录中"
+                            animeString(AnimeCopy.profileLoginInProgress)
                         } else {
-                            "未登录"
+                            animeString(AnimeCopy.profileNotLoggedIn)
                         },
                     )
                 }
@@ -484,11 +521,11 @@ private fun AccountHero(
                         ?: if (authenticated !=
                             null
                         ) {
-                            "收藏、评分和社区档案已连接。"
+                            animeString(AnimeCopy.profileConnectedDescription)
                         } else if (restoring) {
-                            "正在校验登录信息…"
+                            animeString(AnimeCopy.profileVerifying)
                         } else {
-                            "无需代理，使用 Anime 账号保存你的收藏与评分。"
+                            animeString(AnimeCopy.profileNoProxy)
                         },
                     style = MaterialTheme.typography.bodyLarge,
                     color =
@@ -501,7 +538,11 @@ private fun AccountHero(
                         },
                 )
                 Text(
-                    if (authenticated == null) "Bangumi 仅作为可选的数据导入来源。" else "$providerName 身份已连接 · Session 有效",
+                    if (authenticated == null) {
+                        animeString(AnimeCopy.profileBangumiOptional)
+                    } else {
+                        animeString(AnimeCopy.profileProviderSession, providerName)
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.animeColors.success,
                 )
@@ -510,11 +551,11 @@ private fun AccountHero(
         val actions: @Composable () -> Unit = {
             Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
                 if (authenticated != null) {
-                    AnimeSecondaryButton(label = "查看片库", onClick = onBrowseCollection)
-                    AnimePrimaryButton(label = "管理账户", onClick = onManageAccount)
+                    AnimeSecondaryButton(label = animeString(AnimeCopy.profileBrowseLibrary), onClick = onBrowseCollection)
+                    AnimePrimaryButton(label = animeString(AnimeCopy.profileManageAccount), onClick = onManageAccount)
                 } else {
                     AnimePrimaryButton(
-                        label = "登录或创建账户",
+                        label = animeString(AnimeCopy.profileLoginOrCreate),
                         onClick = onManageAccount,
                         enabled = !restoring,
                         loading = restoring,
@@ -565,18 +606,18 @@ private fun AccountHero(
                     ) {
                         if (authenticated != null) {
                             AnimeSecondaryButton(
-                                label = "查看片库",
+                                label = animeString(AnimeCopy.profileBrowseLibrary),
                                 onClick = onBrowseCollection,
                                 modifier = Modifier.weight(1f),
                             )
                             AnimePrimaryButton(
-                                label = "管理账户",
+                                label = animeString(AnimeCopy.profileManageAccount),
                                 onClick = onManageAccount,
                                 modifier = Modifier.weight(1f),
                             )
                         } else {
                             AnimePrimaryButton(
-                                label = "登录或创建账户",
+                                label = animeString(AnimeCopy.profileLoginOrCreate),
                                 onClick = onManageAccount,
                                 enabled = !restoring,
                                 loading = restoring,
@@ -596,15 +637,31 @@ private fun ProfileMetrics(
     sessionState: SessionState,
 ) {
     val profile = (sessionState as? SessionState.Authenticated)?.user
-    val source = if (profile?.connectedProvider == Provider.Bangumi) "Bangumi" else "Anime"
+    val source = if (profile?.connectedProvider == Provider.Bangumi) {
+        animeString(AnimeCopy.subjectBangumi)
+    } else {
+        animeString(AnimeCopy.profileProviderAnime)
+    }
     val total = profile?.collectionCounts?.values?.sum()
     val watching = profile?.collectionCounts?.get(site.jokersh.anime.core.model.CollectionStatus.Watching)
     val completed = profile?.collectionCounts?.get(site.jokersh.anime.core.model.CollectionStatus.Completed)
     val metrics =
         listOf(
-            Triple(total?.toString() ?: "—", "动画收藏", "$source 全部收藏"),
-            Triple(watching?.toString() ?: "—", "正在追", "$source 在看"),
-            Triple(completed?.toString() ?: "—", "已经看过", "$source 看过"),
+            Triple(
+                total?.toString() ?: "—",
+                animeString(AnimeCopy.profileMetricCollection),
+                animeString(AnimeCopy.profileMetricAll, source),
+            ),
+            Triple(
+                watching?.toString() ?: "—",
+                animeString(AnimeCopy.profileMetricWatching),
+                animeString(AnimeCopy.profileMetricWatchingDetail, source),
+            ),
+            Triple(
+                completed?.toString() ?: "—",
+                animeString(AnimeCopy.profileMetricCompleted),
+                animeString(AnimeCopy.profileMetricCompletedDetail, source),
+            ),
         )
     if (wide) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.md)) {
@@ -664,12 +721,36 @@ private fun AppearancePanel(
     onLanguageChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SettingsPanel(title = "外观", subtitle = "选择更适合当前桌面的视觉氛围。", modifier = modifier) {
-        ChoiceGroup("主题", listOf("跟随系统", "浅色", "深色"), theme, onThemeChange)
-        ChoiceGroup("玻璃效果", listOf("节能", "平衡", "通透"), glass, onGlassChange)
-        ChoiceGroup("语言", listOf("跟随系统", "简体中文", "繁体中文", "English", "日本語"), language, onLanguageChange)
+    val themeOptions =
+        listOf(
+            ChoiceOption(THEME_SYSTEM, AnimeCopy.profileLanguageSystem),
+            ChoiceOption(THEME_LIGHT, AnimeCopy.profileThemeLight),
+            ChoiceOption(THEME_DARK, AnimeCopy.profileThemeDark),
+        )
+    val glassOptions =
+        listOf(
+            ChoiceOption(GLASS_OFF, AnimeCopy.profileGlassOff),
+            ChoiceOption(GLASS_AUTO, AnimeCopy.profileGlassAuto),
+            ChoiceOption(GLASS_ON, AnimeCopy.profileGlassOn),
+        )
+    val languageOptions =
+        listOf(
+            ChoiceOption(LANGUAGE_SYSTEM, AnimeCopy.profileLanguageSystem),
+            ChoiceOption(LANGUAGE_SIMPLIFIED, AnimeCopy.profileLanguageSimplified),
+            ChoiceOption(LANGUAGE_TRADITIONAL, AnimeCopy.profileLanguageTraditional),
+            ChoiceOption(LANGUAGE_ENGLISH, AnimeCopy.profileLanguageEnglish),
+            ChoiceOption(LANGUAGE_JAPANESE, AnimeCopy.profileLanguageJapanese),
+        )
+    SettingsPanel(
+        title = animeString(AnimeCopy.profileAppearance),
+        subtitle = animeString(AnimeCopy.profileAppearanceDescription),
+        modifier = modifier,
+    ) {
+        ChoiceGroup(animeString(AnimeCopy.profileTheme), themeOptions, theme, onThemeChange)
+        ChoiceGroup(animeString(AnimeCopy.profileGlassEffect), glassOptions, glass, onGlassChange)
+        ChoiceGroup(animeString(AnimeCopy.profileLanguage), languageOptions, language, onLanguageChange)
         Text(
-            "设置在当前预览中即时生效，正式数据接入后会持久化到本机。",
+            animeString(AnimeCopy.profilePreviewPersisted),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -685,76 +766,92 @@ private fun PreferencePanel(
     onDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SettingsPanel(title = "偏好与状态", subtitle = "让动画与显示效果适应当前设备。", modifier = modifier) {
+    SettingsPanel(
+        title = animeString(AnimeCopy.profilePreferences),
+        subtitle = animeString(AnimeCopy.profilePreferencesDescription),
+        modifier = modifier,
+    ) {
         SettingSwitch(
-            title = "减少动态效果",
-            description = "降低切换动画和背景位移。",
+            title = animeString(AnimeCopy.profileReduceMotion),
+            description = animeString(AnimeCopy.profileReduceMotionDescription),
             checked = reduceMotion,
             onCheckedChange = onReduceMotionChange,
         )
         ThinDivider()
         val provider = (sessionState as? SessionState.Authenticated)?.user?.connectedProvider
         StatusLine(
-            "数据模式",
+            animeString(AnimeCopy.profileDataMode),
             if (provider ==
                 Provider.Bangumi
             ) {
-                "Bangumi 同步"
+                animeString(AnimeCopy.profileBangumiSync)
             } else if (provider == Provider.Anime) {
-                "Anime 云端"
+                animeString(AnimeCopy.profileAnimeCloud)
             } else {
-                "未连接"
+                animeString(AnimeCopy.profileSyncUnconnected)
             },
         )
-        StatusLine("运行环境", environmentLabel)
-        StatusLine("应用状态", "已启用本地偏好同步")
-        AnimeSecondaryButton("服务诊断", onDiagnostics)
+        StatusLine(animeString(AnimeCopy.profileRuntime), environmentLabel)
+        StatusLine(animeString(AnimeCopy.profileAppStatus), animeString(AnimeCopy.profileLocalSyncEnabled))
+        AnimeSecondaryButton(animeString(AnimeCopy.profileDiagnostics), onDiagnostics)
     }
 }
 
-private fun ThemePreference.label(): String =
+private const val THEME_SYSTEM = "system"
+private const val THEME_LIGHT = "light"
+private const val THEME_DARK = "dark"
+private const val GLASS_OFF = "off"
+private const val GLASS_AUTO = "auto"
+private const val GLASS_ON = "on"
+private const val LANGUAGE_SYSTEM = "system"
+private const val LANGUAGE_SIMPLIFIED = "zh-Hans"
+private const val LANGUAGE_TRADITIONAL = "zh-Hant"
+private const val LANGUAGE_ENGLISH = "en"
+private const val LANGUAGE_JAPANESE = "ja"
+
+private fun ThemePreference.key(): String =
     when (this) {
-        ThemePreference.System -> "跟随系统"
-        ThemePreference.Light -> "浅色"
-        ThemePreference.Dark -> "深色"
+        ThemePreference.System -> THEME_SYSTEM
+        ThemePreference.Light -> THEME_LIGHT
+        ThemePreference.Dark -> THEME_DARK
     }
 
 private fun String.toThemePreference(): ThemePreference =
     when (this) {
-        "浅色" -> ThemePreference.Light
-        "深色" -> ThemePreference.Dark
+        THEME_LIGHT -> ThemePreference.Light
+        THEME_DARK -> ThemePreference.Dark
         else -> ThemePreference.System
     }
 
-private fun GlassPreference.label(): String =
+private fun GlassPreference.key(): String =
     when (this) {
-        GlassPreference.Off -> "节能"
-        GlassPreference.Auto -> "平衡"
-        GlassPreference.On -> "通透"
+        GlassPreference.Off -> GLASS_OFF
+        GlassPreference.Auto -> GLASS_AUTO
+        GlassPreference.On -> GLASS_ON
     }
 
 private fun String.toGlassPreference(): GlassPreference =
     when (this) {
-        "节能" -> GlassPreference.Off
-        "通透" -> GlassPreference.On
+        GLASS_OFF -> GlassPreference.Off
+        GLASS_ON -> GlassPreference.On
         else -> GlassPreference.Auto
     }
 
-private fun LanguagePreference.label(): String =
+private fun LanguagePreference.key(): String =
     when (this) {
-        LanguagePreference.System -> "跟随系统"
-        LanguagePreference.SimplifiedChinese -> "简体中文"
-        LanguagePreference.TraditionalChinese -> "繁体中文"
-        LanguagePreference.English -> "English"
-        LanguagePreference.Japanese -> "日本語"
+        LanguagePreference.System -> LANGUAGE_SYSTEM
+        LanguagePreference.SimplifiedChinese -> LANGUAGE_SIMPLIFIED
+        LanguagePreference.TraditionalChinese -> LANGUAGE_TRADITIONAL
+        LanguagePreference.English -> LANGUAGE_ENGLISH
+        LanguagePreference.Japanese -> LANGUAGE_JAPANESE
     }
 
 private fun String.toLanguagePreference(): LanguagePreference =
     when (this) {
-        "简体中文" -> LanguagePreference.SimplifiedChinese
-        "繁体中文" -> LanguagePreference.TraditionalChinese
-        "English" -> LanguagePreference.English
-        "日本語" -> LanguagePreference.Japanese
+        LANGUAGE_SIMPLIFIED -> LanguagePreference.SimplifiedChinese
+        LANGUAGE_TRADITIONAL -> LanguagePreference.TraditionalChinese
+        LANGUAGE_ENGLISH -> LanguagePreference.English
+        LANGUAGE_JAPANESE -> LanguagePreference.Japanese
         else -> LanguagePreference.System
     }
 
@@ -780,6 +877,7 @@ public fun AnimeAccountCenter(
     var authorizationStarted by rememberSaveable { mutableStateOf(false) }
     var accountBusy by remember { mutableStateOf(false) }
     var accountMessage by remember { mutableStateOf<String?>(null) }
+    var accountExportLength by remember { mutableStateOf<Int?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var editProfile by remember { mutableStateOf(false) }
     var changePassword by remember { mutableStateOf(false) }
@@ -789,6 +887,12 @@ public fun AnimeAccountCenter(
     val authenticated = sessionState as? SessionState.Authenticated
     val connectedToBangumi = authenticated?.user?.connectedProvider == Provider.Bangumi
     val valid = username.isNotBlank() && password.isNotBlank() && (!registering || displayName.isNotBlank())
+    val exportFailed = animeString(AnimeCopy.profileExportFailed)
+    val deleteFailed = animeString(AnimeCopy.profileDeleteFailed)
+    val updateFailed = animeString(AnimeCopy.profileUpdateFailed)
+    val profileUpdated = animeString(AnimeCopy.profileUpdated)
+    val passwordUpdateFailed = animeString(AnimeCopy.profilePasswordUpdateFailed)
+    val passwordUpdated = animeString(AnimeCopy.profilePasswordUpdated)
 
     ModalBottomSheet(
         onDismissRequest = { if (!loading) onDismiss() },
@@ -811,13 +915,17 @@ public fun AnimeAccountCenter(
                 verticalAlignment = Alignment.Top,
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
-                    Text("Anime 账户", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                    Text(animeString(AnimeCopy.profileAccount), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        if (authenticated == null) "一个账户，连接收藏、评分与社区档案。" else "管理登录身份与外部数据连接。",
+                        if (authenticated == null) {
+                            animeString(AnimeCopy.profileAccountDescription)
+                        } else {
+                            animeString(AnimeCopy.profileAccountManageDescription)
+                        },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                AnimeSecondaryButton(label = "完成", onClick = onDismiss, enabled = !loading)
+                AnimeSecondaryButton(label = animeString(AnimeCopy.actionComplete), onClick = onDismiss, enabled = !loading)
             }
 
             if (authenticated == null) {
@@ -825,19 +933,23 @@ public fun AnimeAccountCenter(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
                 ) {
-                    AccountModeButton("登录", !registering, { registering = false }, Modifier.weight(1f))
-                    AccountModeButton("创建账户", registering, { registering = true }, Modifier.weight(1f))
+                    AccountModeButton(animeString(AnimeCopy.actionLogin), !registering, { registering = false }, Modifier.weight(1f))
+                    AccountModeButton(animeString(AnimeCopy.actionRegister), registering, { registering = true }, Modifier.weight(1f))
                 }
 
                 Text(
-                    if (registering) "创建后即可跨设备保存收藏、评分与社区内容。" else "使用 Anime 账号登录，无需代理。",
+                    if (registering) {
+                        animeString(AnimeCopy.profileRegisterDescription)
+                    } else {
+                        animeString(AnimeCopy.profileLoginDescription)
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
-                    label = { Text("用户名") },
-                    supportingText = { if (registering) Text("3–32 位字母、数字或下划线") },
+                    label = { Text(animeString(AnimeCopy.profileUsername)) },
+                    supportingText = { if (registering) Text(animeString(AnimeCopy.profileUsernameHint)) },
                     singleLine = true,
                     enabled = !loading,
                     modifier = Modifier.fillMaxWidth(),
@@ -846,7 +958,7 @@ public fun AnimeAccountCenter(
                     OutlinedTextField(
                         value = displayName,
                         onValueChange = { displayName = it },
-                        label = { Text("昵称") },
+                        label = { Text(animeString(AnimeCopy.profileDisplayName)) },
                         singleLine = true,
                         enabled = !loading,
                         modifier = Modifier.fillMaxWidth(),
@@ -855,8 +967,8 @@ public fun AnimeAccountCenter(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("密码") },
-                    supportingText = { if (registering) Text("至少 10 个字符") },
+                    label = { Text(animeString(AnimeCopy.profilePassword)) },
+                    supportingText = { if (registering) Text(animeString(AnimeCopy.profilePasswordHint)) },
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     enabled = !loading,
@@ -866,7 +978,11 @@ public fun AnimeAccountCenter(
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
                 AnimePrimaryButton(
-                    label = if (registering) "创建并登录" else "登录 Anime",
+                    label = if (registering) {
+                        animeString(AnimeCopy.profileCreateAndLogin)
+                    } else {
+                        animeString(AnimeCopy.profileLoginTitle)
+                    },
                     onClick = {
                         if (registering) {
                             onRegister(username.trim(), password, displayName.trim())
@@ -893,7 +1009,7 @@ public fun AnimeAccountCenter(
             )
 
             Text(
-                "Bangumi 密码不会交给 Anime。授权令牌仅加密保存在服务器，客户端始终使用 Anime Session。",
+                animeString(AnimeCopy.profileBangumiSecurity),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -905,28 +1021,35 @@ public fun AnimeAccountCenter(
                         horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm),
                     ) {
                         AnimeSecondaryButton(
-                            label = "查看我的收藏",
+                            label = animeString(AnimeCopy.profileMyCollection),
                             onClick = {
                                 onBrowseCollection()
                                 onDismiss()
                             },
                         )
-                        AnimeSecondaryButton(label = "退出登录", onClick = onLogout)
+                        AnimeSecondaryButton(label = animeString(AnimeCopy.actionLogout), onClick = onLogout)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-                        onUpdateProfile?.let { AnimeSecondaryButton("编辑资料", onClick = { editProfile = true }) }
-                        onChangePassword?.let { AnimeSecondaryButton("修改密码", onClick = { changePassword = true }) }
+                        onUpdateProfile?.let { AnimeSecondaryButton(animeString(AnimeCopy.profileEdit), onClick = { editProfile = true }) }
+                        onChangePassword?.let { AnimeSecondaryButton(animeString(AnimeCopy.profileChangePassword), onClick = { changePassword = true }) }
                     }
                     onExportData?.let { export ->
                         AnimeSecondaryButton(
-                            label = if (accountBusy) "导出中…" else "导出我的数据",
+                            label = if (accountBusy) {
+                                animeString(AnimeCopy.profileExporting)
+                            } else {
+                                animeString(AnimeCopy.profileExportData)
+                            },
                             onClick = {
                                 if (!accountBusy) {
                                     scope.launch {
                                         accountBusy = true
                                         export()
-                                            .onSuccess { accountMessage = "数据导出完成（${it.length} 个字符）" }
-                                            .onFailure { accountMessage = it.message ?: "导出失败" }
+                                            .onSuccess {
+                                                accountMessage = null
+                                                accountExportLength = it.length
+                                            }
+                                            .onFailure { accountMessage = it.message ?: exportFailed }
                                         accountBusy = false
                                     }
                                 }
@@ -936,10 +1059,16 @@ public fun AnimeAccountCenter(
                     }
                     onDeleteAccount?.let { delete ->
                         TextButton(onClick = { confirmDelete = true }, enabled = !accountBusy) {
-                            Text("注销账户", color = MaterialTheme.colorScheme.error)
+                            Text(animeString(AnimeCopy.profileDeleteAccount), color = MaterialTheme.colorScheme.error)
                         }
                     }
                     accountMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    accountExportLength?.let {
+                        Text(
+                            animeString(AnimeCopy.profileExportCompleted, it),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -948,9 +1077,9 @@ public fun AnimeAccountCenter(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { if (!accountBusy) confirmDelete = false },
-            title = { Text("注销 Anime 账户？") },
-            text = { Text("这会删除账户数据并清理当前设备会话，操作不可撤销。建议先导出数据。") },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }, enabled = !accountBusy) { Text("取消") } },
+            title = { Text(animeString(AnimeCopy.profileDeleteConfirmTitle)) },
+            text = { Text(animeString(AnimeCopy.profileDeleteConfirmMessage)) },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }, enabled = !accountBusy) { Text(animeString(AnimeCopy.actionCancel)) } },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -961,12 +1090,12 @@ public fun AnimeAccountCenter(
                                 .onSuccess {
                                     confirmDelete = false
                                     onDismiss()
-                                }.onFailure { accountMessage = it.message ?: "注销失败" }
+                                }.onFailure { accountMessage = it.message ?: deleteFailed }
                             accountBusy = false
                         }
                     },
                     enabled = !accountBusy,
-                ) { Text("确认注销", color = MaterialTheme.colorScheme.error) }
+                ) { Text(animeString(AnimeCopy.profileConfirmDelete), color = MaterialTheme.colorScheme.error) }
             },
         )
     }
@@ -974,21 +1103,21 @@ public fun AnimeAccountCenter(
         var name by remember(authenticated.user.summary.displayName) { mutableStateOf(authenticated.user.summary.displayName) }
         AlertDialog(
             onDismissRequest = { editProfile = false },
-            title = { Text("编辑个人资料") },
-            text = { OutlinedTextField(name, { name = it }, label = { Text("昵称") }, singleLine = true) },
+            title = { Text(animeString(AnimeCopy.profileEditTitle)) },
+            text = { OutlinedTextField(name, { name = it }, label = { Text(animeString(AnimeCopy.profileDisplayName)) }, singleLine = true) },
             confirmButton = {
                 TextButton(onClick = {
                     val update = onUpdateProfile ?: return@TextButton
                     scope.launch {
                         accountBusy = true
                         update(name.trim())
-                            .onSuccess { editProfile = false; accountMessage = "资料已更新" }
-                            .onFailure { accountMessage = it.message ?: "资料更新失败" }
+                            .onSuccess { editProfile = false; accountMessage = profileUpdated }
+                            .onFailure { accountMessage = it.message ?: updateFailed }
                         accountBusy = false
                     }
-                }, enabled = !accountBusy && name.isNotBlank()) { Text("保存") }
+                }, enabled = !accountBusy && name.isNotBlank()) { Text(animeString(AnimeCopy.actionSave)) }
             },
-            dismissButton = { TextButton(onClick = { editProfile = false }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { editProfile = false }) { Text(animeString(AnimeCopy.actionCancel)) } },
         )
     }
     if (changePassword) {
@@ -996,11 +1125,11 @@ public fun AnimeAccountCenter(
         var next by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { changePassword = false },
-            title = { Text("修改密码") },
+            title = { Text(animeString(AnimeCopy.profileChangePassword)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(current, { current = it }, label = { Text("当前密码") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                    OutlinedTextField(next, { next = it }, label = { Text("新密码") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                    OutlinedTextField(current, { current = it }, label = { Text(animeString(AnimeCopy.profilePasswordCurrent)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                    OutlinedTextField(next, { next = it }, label = { Text(animeString(AnimeCopy.profilePasswordNew)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
                 }
             },
             confirmButton = {
@@ -1009,13 +1138,13 @@ public fun AnimeAccountCenter(
                     scope.launch {
                         accountBusy = true
                         update(current, next)
-                            .onSuccess { changePassword = false; accountMessage = "密码已更新" }
-                            .onFailure { accountMessage = it.message ?: "密码更新失败" }
+                            .onSuccess { changePassword = false; accountMessage = passwordUpdated }
+                            .onFailure { accountMessage = it.message ?: passwordUpdateFailed }
                         accountBusy = false
                     }
-                }, enabled = !accountBusy && current.isNotBlank() && next.isNotBlank()) { Text("保存") }
+                }, enabled = !accountBusy && current.isNotBlank() && next.isNotBlank()) { Text(animeString(AnimeCopy.actionSave)) }
             },
-            dismissButton = { TextButton(onClick = { changePassword = false }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { changePassword = false }) { Text(animeString(AnimeCopy.actionCancel)) } },
         )
     }
 }
@@ -1043,7 +1172,11 @@ private fun AccountModeButton(
 @Composable
 private fun AccountIdentityCard(session: SessionState.Authenticated) {
     val profile = session.user
-    val provider = if (profile.connectedProvider == Provider.Bangumi) "Anime + Bangumi" else "Anime"
+    val provider = if (profile.connectedProvider == Provider.Bangumi) {
+        animeString(AnimeCopy.profileProviderAnimeBangumi)
+    } else {
+        animeString(AnimeCopy.profileProviderAnime)
+    }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(AnimeRadius.card),
@@ -1060,7 +1193,7 @@ private fun AccountIdentityCard(session: SessionState.Authenticated) {
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
-                Text("当前登录账户", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(animeString(AnimeCopy.profileCurrentAccount), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             StatusPill(provider)
         }
@@ -1088,29 +1221,33 @@ private fun BangumiConnectionCard(
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AnimeSpacing.xs)) {
                 Text(
-                    if (connected) "Bangumi 已连接" else "连接 Bangumi",
+                    if (connected) {
+                        animeString(AnimeCopy.profileBangumiConnected)
+                    } else {
+                        animeString(AnimeCopy.profileConnectBangumi)
+                    },
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
                     when {
-                        connected -> "收藏与头像可由 Anime 服务器同步，无需客户端代理。"
-                        authorizationStarted -> "授权页已打开；完成后这里会自动更新连接状态。"
-                        authenticated != null -> "绑定到当前 Anime 账户，并导入你的收藏与观看状态。"
-                        else -> "也可以通过 Bangumi 授权创建 Anime 身份并导入已有收藏。"
+                        connected -> animeString(AnimeCopy.profileBangumiSyncDescription)
+                        authorizationStarted -> animeString(AnimeCopy.profileAuthorizationOpened)
+                        authenticated != null -> animeString(AnimeCopy.profileBindImport)
+                        else -> animeString(AnimeCopy.profileCreateImport)
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (connected) {
-                StatusPill("已绑定")
+                StatusPill(animeString(AnimeCopy.profileSyncConnected))
             } else {
                 AnimePrimaryButton(
                     label =
                         when {
-                            authorizationStarted -> "重新打开授权"
-                            authenticated == null -> "使用 Bangumi 继续"
-                            else -> "绑定账户"
+                            authorizationStarted -> animeString(AnimeCopy.profileReopenAuthorization)
+                            authenticated == null -> animeString(AnimeCopy.profileUseBangumiContinue)
+                            else -> animeString(AnimeCopy.profileBindAccount)
                         },
                     onClick = onConnect,
                     enabled = !loading,
@@ -1154,17 +1291,17 @@ private fun SettingsPanel(
 @Composable
 private fun ChoiceGroup(
     label: String,
-    values: List<String>,
+    values: List<ChoiceOption>,
     selected: String,
     onSelected: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
         Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AnimeSpacing.sm)) {
-            values.forEach { value ->
-                val active = value == selected
+            values.forEach { option ->
+                val active = option.key == selected
                 Surface(
-                    onClick = { onSelected(value) },
+                    onClick = { onSelected(option.key) },
                     modifier = Modifier.weight(1f).heightIn(min = AnimeSize.touch),
                     shape = RoundedCornerShape(AnimeRadius.control),
                     color =
@@ -1194,13 +1331,22 @@ private fun ChoiceGroup(
                         Modifier.fillMaxWidth().padding(horizontal = AnimeSpacing.sm),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(value, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+                        Text(
+                            animeString(option.label),
+                            style = MaterialTheme.typography.labelMedium,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }
         }
     }
 }
+
+private data class ChoiceOption(
+    val key: String,
+    val label: StringResource,
+)
 
 @Composable
 private fun SettingSwitch(

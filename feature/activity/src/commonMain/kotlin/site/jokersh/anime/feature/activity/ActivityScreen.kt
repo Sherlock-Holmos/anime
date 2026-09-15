@@ -42,11 +42,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import site.jokersh.anime.core.designsystem.AnimeCopy
 import site.jokersh.anime.core.designsystem.AnimeSecondaryButton
+import site.jokersh.anime.core.designsystem.animeString
 import site.jokersh.anime.data.comment.CommunityActivity
 import site.jokersh.anime.data.comment.CommunityListSummary
 import site.jokersh.anime.data.comment.CommunityNotification
 import site.jokersh.anime.data.comment.CommunityRepository
+
+private const val MODE_FEED = "feed"
+private const val MODE_NOTIFICATIONS = "notifications"
+private const val FEED_FOLLOWING = "following"
+private const val FEED_POPULAR = "popular"
+private const val FEED_ALL = "all"
+private const val FEED_DISCUSSION = "discussion"
 
 @Composable
 public fun ActivityScreen(
@@ -62,7 +71,7 @@ public fun ActivityScreen(
     contentUnderSystemBars: Boolean = false,
 ) {
     var selectedFeed by rememberSaveable { mutableStateOf(initialFeedLabel(initialFeed)) }
-    var selectedMode by rememberSaveable { mutableStateOf("动态") }
+    var selectedMode by rememberSaveable { mutableStateOf(MODE_FEED) }
     var loading by rememberSaveable { mutableStateOf(true) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var feed by remember { mutableStateOf(emptyList<CommunityActivity>()) }
@@ -74,7 +83,7 @@ public fun ActivityScreen(
     LaunchedEffect(repository, selectedMode, selectedFeed, reload) {
         loading = true
         error = null
-        if (selectedMode == "通知") {
+        if (selectedMode == MODE_NOTIFICATIONS) {
             repository.notifications().onSuccess { notifications = it }.onFailure { error = it.message }
         } else {
             repository
@@ -87,7 +96,7 @@ public fun ActivityScreen(
         }
         loading = false
     }
-    val visibleFeed = if (selectedFeed == "讨论") feed.filter { it.kind == "commented" } else feed
+    val visibleFeed = if (selectedFeed == FEED_DISCUSSION) feed.filter { it.kind == "commented" } else feed
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         val wide = maxWidth >= 1040.dp
@@ -112,18 +121,18 @@ public fun ActivityScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                "社区",
+                                animeString(AnimeCopy.screenCommunity),
                                 color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                             )
-                            Text("动态", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-                            Text("来自 Anime 社区的真实评分、评价、片单与讨论。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(animeString(AnimeCopy.rootActivity), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+                            Text(animeString(AnimeCopy.screenActivityDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         ActivityModeFilters(selectedMode) { selectedMode = it }
-                        if (selectedMode == "动态") {
+                        if (selectedMode == MODE_FEED) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("关注", "热门", "全站", "讨论").forEach { label ->
+                                listOf(FEED_FOLLOWING, FEED_POPULAR, FEED_ALL, FEED_DISCUSSION).forEach { label ->
                                     Surface(
                                         onClick = { selectedFeed = label },
                                         shape = CircleShape,
@@ -137,7 +146,7 @@ public fun ActivityScreen(
                                             },
                                     ) {
                                         Text(
-                                            label,
+                                            animeString(feedResource(label)),
                                             Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
                                             color =
                                                 if (label ==
@@ -157,19 +166,19 @@ public fun ActivityScreen(
                     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Bottom) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                "社区",
+                                animeString(AnimeCopy.screenCommunity),
                                 color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                             )
-                            Text("动态", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-                            Text("来自 Anime 社区的真实评分、评价、片单与讨论。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(animeString(AnimeCopy.rootActivity), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+                            Text(animeString(AnimeCopy.screenActivityDescription), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             ActivityModeFilters(selectedMode) { selectedMode = it }
-                            if (selectedMode == "动态") {
+                            if (selectedMode == MODE_FEED) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    listOf("关注", "热门", "全站", "讨论").forEach { label ->
+                                    listOf(FEED_FOLLOWING, FEED_POPULAR, FEED_ALL, FEED_DISCUSSION).forEach { label ->
                                         Surface(
                                             onClick = { selectedFeed = label },
                                             shape = CircleShape,
@@ -183,7 +192,7 @@ public fun ActivityScreen(
                                                 },
                                         ) {
                                             Text(
-                                                label,
+                                                animeString(feedResource(label)),
                                                 Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
                                                 color =
                                                     if (label ==
@@ -214,20 +223,27 @@ public fun ActivityScreen(
                 item {
                     EmptyPanel(
                         if (selectedMode ==
-                            "通知"
+                            MODE_NOTIFICATIONS
                         ) {
-                            "暂时无法加载通知"
+                            animeString(AnimeCopy.activityNotificationsUnavailable)
                         } else {
-                            "暂时无法加载社区动态"
+                            animeString(AnimeCopy.activityFeedUnavailable)
                         },
                         error.orEmpty(),
-                        "重试",
+                        animeString(AnimeCopy.actionRetry),
                     ) { reload++ }
                 }
-            } else if (selectedMode == "通知") {
+            } else if (selectedMode == MODE_NOTIFICATIONS) {
                 item { NotificationPanel(notifications, repository, onSubjectClick, onReviewClick, onListClick, onCommentsClick) }
             } else if (visibleFeed.isEmpty()) {
-                item { EmptyPanel("这里还没有内容", "完成一次评分、评价或讨论后，动态会出现在这里。", null, {}) }
+                item {
+                    EmptyPanel(
+                        animeString(AnimeCopy.stateNoContent),
+                        animeString(AnimeCopy.activityEmptyDescription),
+                        null,
+                        {},
+                    )
+                }
             } else if (wide) {
                 item {
                     Row(
@@ -238,7 +254,7 @@ public fun ActivityScreen(
                         Column(Modifier.weight(1.55f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             visibleFeed.forEach { FeedCard(it, repository, onSubjectClick, onReviewClick, onListClick, onUserClick) }
                             if (nextCursor != null) {
-                                AnimeSecondaryButton(if (loading) "加载中" else "加载更多", onClick = {
+                                AnimeSecondaryButton(if (loading) animeString(AnimeCopy.stateLoading) else animeString(AnimeCopy.actionLoadMore), onClick = {
                                     if (!loading && nextCursor != null) {
                                         scope.launch {
                                             loading = true
@@ -265,7 +281,7 @@ public fun ActivityScreen(
                     visibleFeed.size,
                 ) { FeedCard(visibleFeed[it], repository, onSubjectClick, onReviewClick, onListClick, onUserClick) }
                 if (nextCursor != null) {
-                    item { AnimeSecondaryButton(if (loading) "加载中" else "加载更多", onClick = {
+                    item { AnimeSecondaryButton(if (loading) animeString(AnimeCopy.stateLoading) else animeString(AnimeCopy.actionLoadMore), onClick = {
                         if (!loading && nextCursor != null) {
                             scope.launch {
                                 loading = true
@@ -299,6 +315,7 @@ private fun FeedCard(
     var following by remember(item.actorId) { mutableStateOf(false) }
     var followMessage by remember(item.actorId) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val actionFailedLabel = animeString(AnimeCopy.activityActionFailed)
     LaunchedEffect(item.actorId) {
         item.actorId?.let { actorId -> repository.followUserStatus(actorId).onSuccess { following = it } }
     }
@@ -347,7 +364,7 @@ private fun FeedCard(
                 }
                 item.actorId?.let { actorId ->
                     AnimeSecondaryButton(
-                        if (following) "已关注" else "关注",
+                        if (following) animeString(AnimeCopy.activityFollowing) else animeString(AnimeCopy.actionFollow),
                         onClick = {
                             scope.launch {
                                 val result =
@@ -358,7 +375,7 @@ private fun FeedCard(
                                     } else {
                                         repository.followUser(actorId)
                                     }
-                                result.onSuccess { following = it }.onFailure { followMessage = "操作失败" }
+                                result.onSuccess { following = it }.onFailure { followMessage = actionFailedLabel }
                             }
                         },
                     )
@@ -400,9 +417,9 @@ private fun FeedCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item.subjectId?.let { AnimeSecondaryButton("查看作品", { onSubjectClick(it) }) }
-                        item.reviewId?.let { AnimeSecondaryButton("阅读评价", { onReviewClick(it) }) }
-                        item.listId?.let { AnimeSecondaryButton("查看片单", { onListClick(it) }) }
+                        item.subjectId?.let { AnimeSecondaryButton(animeString(AnimeCopy.actionViewSubject), { onSubjectClick(it) }) }
+                        item.reviewId?.let { AnimeSecondaryButton(animeString(AnimeCopy.actionViewReview), { onReviewClick(it) }) }
+                        item.listId?.let { AnimeSecondaryButton(animeString(AnimeCopy.actionViewList), { onListClick(it) }) }
                     }
                 }
             }
@@ -416,12 +433,12 @@ private fun ActivityModeFilters(
     onSelected: (String) -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf("动态", "通知").forEach { label ->
+        listOf(MODE_FEED to AnimeCopy.activityModeFeed, MODE_NOTIFICATIONS to AnimeCopy.activityModeNotifications).forEach { (mode, resource) ->
             Surface(
-                onClick = { onSelected(label) },
+                onClick = { onSelected(mode) },
                 shape = CircleShape,
                 color =
-                    if (label ==
+                    if (mode ==
                         selected
                     ) {
                         MaterialTheme.colorScheme.primary
@@ -429,7 +446,7 @@ private fun ActivityModeFilters(
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f)
                     },
                 contentColor =
-                    if (label ==
+                    if (mode ==
                         selected
                     ) {
                         MaterialTheme.colorScheme.onPrimary
@@ -437,7 +454,7 @@ private fun ActivityModeFilters(
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
             ) {
-                Text(label, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Text(animeString(resource), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
         }
     }
@@ -454,7 +471,7 @@ private fun NotificationPanel(
 ) {
     val scope = rememberCoroutineScope()
     if (notifications.isEmpty()) {
-        EmptyPanel("还没有通知", "新的回复和关注会显示在这里。", null, {})
+        EmptyPanel(animeString(AnimeCopy.stateNoNotifications), animeString(AnimeCopy.activityNotificationsDescription), null, {})
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -523,43 +540,52 @@ private fun NotificationPanel(
     }
 }
 
+@Composable
 private fun notificationLabel(notification: CommunityNotification): String =
     when (notification.kind) {
-        "comment_reply" -> "有人回复了你的讨论"
-        "user_follow" -> "有人关注了你"
-        "list_follow" -> "有人关注了你的片单"
-        else -> "社区有一条新通知"
+        "comment_reply" -> animeString(AnimeCopy.notificationCommentReply)
+        "user_follow" -> animeString(AnimeCopy.notificationUserFollow)
+        "list_follow" -> animeString(AnimeCopy.notificationListFollow)
+        else -> animeString(AnimeCopy.notificationDefault)
     }
 
+@Composable
 private fun actionLabel(kind: String): String =
     when (kind) {
-        "rated" -> "记录了评分"
-        "reviewed" -> "发表了评价"
-        "commented" -> "参与了讨论"
-        "collected" -> "更新了收藏"
-        "created_list" -> "创建了片单"
-        else -> "更新了动态"
+        "rated" -> animeString(AnimeCopy.activityRecordedRating)
+        "reviewed" -> animeString(AnimeCopy.activityPublishedReview)
+        "commented" -> animeString(AnimeCopy.activityJoinedDiscussion)
+        "collected" -> animeString(AnimeCopy.activityUpdatedCollection)
+        "created_list" -> animeString(AnimeCopy.activityCreatedList)
+        else -> animeString(AnimeCopy.activityUpdated)
     }
 
 private fun initialFeedLabel(feed: String): String =
     when (feed) {
-        "popular" -> "热门"
-        "public" -> "全站"
-        else -> "关注"
+        "popular" -> FEED_POPULAR
+        "public" -> FEED_ALL
+        else -> FEED_FOLLOWING
     }
 
 private fun selectedFeedWire(feed: String): String =
     when (feed) {
-        "热门" -> "popular"
-        "全站", "讨论" -> "public"
+        FEED_POPULAR -> "popular"
+        FEED_ALL, FEED_DISCUSSION -> "public"
         else -> "following"
     }
+
+private fun feedResource(feed: String) = when (feed) {
+    FEED_POPULAR -> AnimeCopy.activityFeedPopular
+    FEED_ALL -> AnimeCopy.activityFeedAll
+    FEED_DISCUSSION -> AnimeCopy.activityFeedDiscussion
+    else -> AnimeCopy.activityFeedFollowing
+}
 
 @Composable private fun DiscussionPanel(
     feed: List<CommunityActivity>,
     onSubjectClick: (Long) -> Unit,
 ) {
-    SidePanel("最近讨论") {
+    SidePanel(animeString(AnimeCopy.activityRecentDiscussions)) {
         val items =
             feed
                 .filter {
@@ -567,7 +593,7 @@ private fun selectedFeedWire(feed: String): String =
                         "commented"
                 }.take(3)
         ; if (items.isEmpty()) {
-            Text("还没有作品讨论", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(animeString(AnimeCopy.activityNoDiscussions), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             items.forEachIndexed { index, item ->
                 Surface(
@@ -591,22 +617,22 @@ private fun selectedFeedWire(feed: String): String =
     onListClick: (String) -> Unit,
     onCreateList: () -> Unit,
 ) {
-    SidePanel("最新片单") {
-        AnimeSecondaryButton("新建片单", onCreateList)
+    SidePanel(animeString(AnimeCopy.activityLatestLists)) {
+        AnimeSecondaryButton(animeString(AnimeCopy.activityNewList), onCreateList)
         if (lists.isEmpty()) {
             Text(
-                "还没有公开片单",
+                animeString(AnimeCopy.stateNoPublicLists),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
             lists.take(3).forEach { item ->
                 Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "${item.itemCount} 部作品 · ${item.ownerName}",
+                    animeString(AnimeCopy.activityUpdatedListItem, item.itemCount, item.ownerName),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
-                AnimeSecondaryButton("查看片单", { onListClick(item.id) })
+                AnimeSecondaryButton(animeString(AnimeCopy.actionViewList), { onListClick(item.id) })
             }
         }
     }

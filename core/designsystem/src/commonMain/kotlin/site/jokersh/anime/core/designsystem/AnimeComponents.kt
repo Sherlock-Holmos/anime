@@ -46,6 +46,8 @@ import com.kyant.backdrop.catalog.components.LiquidButton
 import com.kyant.backdrop.catalog.components.LiquidToggle
 import site.jokersh.anime.core.model.ImageRef
 import site.jokersh.anime.core.model.SubjectId
+import site.jokersh.anime.core.model.AiringStatus
+import site.jokersh.anime.core.model.SubjectType
 
 @Immutable
 public data class SubjectCardUi(
@@ -57,6 +59,12 @@ public data class SubjectCardUi(
     public val rating: String?,
     public val collectionLabel: String?,
     public val accessibilityLabel: String,
+    public val year: Int? = null,
+    public val subjectType: SubjectType? = null,
+    public val airingStatus: AiringStatus? = null,
+    public val ratingScore: Double? = null,
+    public val ratingVotes: Int? = null,
+    public val watchedEpisodes: Int? = null,
 )
 
 public enum class PosterCardSize(
@@ -86,6 +94,55 @@ public data class StatePaneModel(
     public val message: String,
     public val actionLabel: String? = null,
 )
+
+@Composable
+public fun SubjectCardUi.localizedMetadata(): String {
+    val type = subjectType ?: return metadata
+    val status = airingStatus ?: return metadata
+    return animeString(
+        AnimeCopy.subjectMetadata,
+        year?.toString() ?: animeString(AnimeCopy.subjectYearUnknown),
+        animeString(type.resource()),
+        animeString(status.resource()),
+    )
+}
+
+@Composable
+public fun SubjectCardUi.localizedRating(): String? =
+    ratingScore?.let { animeString(AnimeCopy.subjectRating, it.toString()) } ?: rating
+
+@Composable
+public fun SubjectCardUi.localizedCollectionLabel(): String? =
+    watchedEpisodes?.let { animeString(AnimeCopy.collectionWatchedEpisodes, it) } ?: collectionLabel
+
+@Composable
+public fun SubjectCardUi.localizedAccessibilityLabel(): String =
+    if (subjectType == null || airingStatus == null) {
+        accessibilityLabel
+    } else {
+        animeString(
+            AnimeCopy.subjectCardAccessibility,
+            title,
+            localizedMetadata(),
+        )
+    }
+
+private fun SubjectType.resource(): org.jetbrains.compose.resources.StringResource =
+    when (this) {
+        SubjectType.Tv -> AnimeCopy.subjectTypeTv
+        SubjectType.Web -> AnimeCopy.subjectTypeWeb
+        SubjectType.Ova -> AnimeCopy.subjectTypeOva
+        SubjectType.Movie -> AnimeCopy.subjectTypeMovie
+        SubjectType.Other -> AnimeCopy.subjectTypeOther
+    }
+
+private fun AiringStatus.resource(): org.jetbrains.compose.resources.StringResource =
+    when (this) {
+        AiringStatus.Announced -> AnimeCopy.subjectAiringAnnounced
+        AiringStatus.Airing -> AnimeCopy.subjectAiringAiring
+        AiringStatus.Finished -> AnimeCopy.subjectAiringFinished
+        AiringStatus.Unknown -> AnimeCopy.subjectAiringUnknown
+    }
 
 @Composable
 public fun AnimePrimaryButton(
@@ -241,6 +298,7 @@ public fun AnimePosterCard(
     modifier: Modifier = Modifier,
     size: PosterCardSize = PosterCardSize.Standard,
 ) {
+    val accessibilityLabel = model.localizedAccessibilityLabel()
     Card(
         onClick = onClick,
         modifier =
@@ -251,7 +309,7 @@ public fun AnimePosterCard(
                 .height(size.height + 82.dp)
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
-                    contentDescription = model.accessibilityLabel
+                    contentDescription = accessibilityLabel
                 },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 1.dp),
@@ -275,14 +333,14 @@ public fun AnimePosterCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = model.rating ?: model.metadata,
+                    text = model.localizedRating() ?: model.localizedMetadata(),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                model.collectionLabel?.let { label ->
+                model.localizedCollectionLabel()?.let { label ->
                     Surface(
                         shape = RoundedCornerShape(AnimeRadius.round),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
@@ -307,6 +365,7 @@ public fun AnimeCompactSubjectCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val accessibilityLabel = model.localizedAccessibilityLabel()
     Surface(
         modifier =
             modifier
@@ -314,7 +373,7 @@ public fun AnimeCompactSubjectCard(
                 .heightIn(min = AnimeSize.posterCompactHeight)
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
-                    contentDescription = model.accessibilityLabel
+                    contentDescription = accessibilityLabel
                 },
         shape = RoundedCornerShape(AnimeRadius.card),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
@@ -340,8 +399,8 @@ public fun AnimeCompactSubjectCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Text(model.metadata, style = MaterialTheme.typography.labelSmall)
-                model.rating?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+                Text(model.localizedMetadata(), style = MaterialTheme.typography.labelSmall)
+                model.localizedRating()?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
             }
         }
     }

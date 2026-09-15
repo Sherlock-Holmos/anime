@@ -25,5 +25,6 @@ kotlin {
 }
 
 compose.resources {
+    publicResClass = true
     packageOfResClass = "site.jokersh.anime.feature.discover.generated.resources"
 }
