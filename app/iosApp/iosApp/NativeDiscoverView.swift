@@ -1221,7 +1221,6 @@ private struct NativeDiscoverySectionView: View {
 private struct NativeDiscoverySectionListView: View {
     let section: NativeDiscoverySection
     @ObservedObject var model: NativeAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         ScrollView {
@@ -1245,12 +1244,7 @@ private struct NativeDiscoverySectionListView: View {
         }
     }
 
-    private var posterGridColumns: [GridItem] {
-        Array(
-            repeating: GridItem(.flexible(), spacing: 14),
-            count: horizontalSizeClass == .regular ? 4 : 2,
-        )
-    }
+    private let posterGridColumns = [GridItem(.flexible()), GridItem(.flexible())]
 }
 
 private struct NativeHeroCard: View {

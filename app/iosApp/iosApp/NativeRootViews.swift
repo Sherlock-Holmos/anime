@@ -382,7 +382,6 @@ struct NativeReactionSnapshot: Codable {
 
 struct NativeLibraryView: View {
     @ObservedObject var model: NativeAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var libraryTitleOpacity = 1.0
     @State private var query = ""
     @State private var results: [NativeSubjectSummary] = []
@@ -549,12 +548,7 @@ struct NativeLibraryView: View {
         }
     }
 
-    private var posterGridColumns: [GridItem] {
-        Array(
-            repeating: GridItem(.flexible(), spacing: 12),
-            count: horizontalSizeClass == .regular ? 4 : 2,
-        )
-    }
+    private let posterGridColumns = [GridItem(.flexible()), GridItem(.flexible())]
 
     private func submitSearch() {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -719,7 +713,6 @@ private struct NativeSearchFiltersSheet: View {
 
 struct NativeCollectionView: View {
     @ObservedObject var model: NativeAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedStatus = "Watching"
     @State private var errorMessage: String?
 
@@ -813,12 +806,7 @@ struct NativeCollectionView: View {
         }
     }
 
-    private var posterGridColumns: [GridItem] {
-        Array(
-            repeating: GridItem(.flexible(), spacing: 12),
-            count: horizontalSizeClass == .regular ? 4 : 2,
-        )
-    }
+    private let posterGridColumns = [GridItem(.flexible()), GridItem(.flexible())]
 }
 
 struct NativeRatingsView: View {
@@ -3714,24 +3702,23 @@ struct NativePosterImage: View {
     }
 
     var body: some View {
-        Group {
-            if let width, let height {
-                posterImage
-                    .frame(width: width, height: height)
-            } else {
-                Rectangle()
-                    .fill(Color.clear)
-                    .aspectRatio(aspectRatio ?? 3 / 4, contentMode: .fit)
-                    .overlay {
-                        posterImage
-                    }
-            }
-        }
+        posterImage
+            .frame(width: width, height: height)
+            .aspectRatio(width == nil && height == nil ? (aspectRatio ?? 3 / 4) : nil, contentMode: .fill)
+            .frame(maxWidth: width == nil && height == nil ? .infinity : nil)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     private var posterImage: some View {
+        NativePosterLoader(url: url)
+    }
+}
+
+private struct NativePosterLoader: View {
+    let url: URL?
+
+    var body: some View {
         AsyncImage(url: url) { phase in
             switch phase {
             case .success(let image): image.resizable().scaledToFill()
