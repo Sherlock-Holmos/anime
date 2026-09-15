@@ -61,6 +61,7 @@ import site.jokersh.anime.core.designsystem.animeColors
 import site.jokersh.anime.core.model.AppSettings
 import site.jokersh.anime.core.model.GlassPreference
 import site.jokersh.anime.core.model.ImageRef
+import site.jokersh.anime.core.model.LanguagePreference
 import site.jokersh.anime.core.model.Provider
 import site.jokersh.anime.core.model.ReduceMotionPreference
 import site.jokersh.anime.core.model.SessionState
@@ -83,6 +84,7 @@ public fun ProfileScreen(
     settings: AppSettings,
     onThemeChange: (ThemePreference) -> Unit,
     onGlassChange: (GlassPreference) -> Unit,
+    onLanguageChange: (LanguagePreference) -> Unit,
     onReduceMotionChange: (ReduceMotionPreference) -> Unit,
     onDiagnostics: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -91,6 +93,7 @@ public fun ProfileScreen(
     var showAccountDialog by rememberSaveable { mutableStateOf(false) }
     val theme = settings.theme.label()
     val glass = settings.glass.label()
+    val language = settings.language.label()
     val reduceMotion = settings.reduceMotion == ReduceMotionPreference.On
 
     if (showAccountDialog) {
@@ -149,6 +152,8 @@ public fun ProfileScreen(
                             onThemeChange = { onThemeChange(it.toThemePreference()) },
                             glass = glass,
                             onGlassChange = { onGlassChange(it.toGlassPreference()) },
+                            language = language,
+                            onLanguageChange = { onLanguageChange(it.toLanguagePreference()) },
                             modifier = Modifier.weight(1.35f),
                         )
                         PreferencePanel(
@@ -171,6 +176,8 @@ public fun ProfileScreen(
                             onThemeChange = { onThemeChange(it.toThemePreference()) },
                             glass = glass,
                             onGlassChange = { onGlassChange(it.toGlassPreference()) },
+                            language = language,
+                            onLanguageChange = { onLanguageChange(it.toLanguagePreference()) },
                         )
                         PreferencePanel(
                             reduceMotion = reduceMotion,
@@ -653,11 +660,14 @@ private fun AppearancePanel(
     onThemeChange: (String) -> Unit,
     glass: String,
     onGlassChange: (String) -> Unit,
+    language: String,
+    onLanguageChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SettingsPanel(title = "外观", subtitle = "选择更适合当前桌面的视觉氛围。", modifier = modifier) {
         ChoiceGroup("主题", listOf("跟随系统", "浅色", "深色"), theme, onThemeChange)
         ChoiceGroup("玻璃效果", listOf("节能", "平衡", "通透"), glass, onGlassChange)
+        ChoiceGroup("语言", listOf("跟随系统", "简体中文", "繁体中文", "English", "日本語"), language, onLanguageChange)
         Text(
             "设置在当前预览中即时生效，正式数据接入后会持久化到本机。",
             style = MaterialTheme.typography.bodySmall,
@@ -728,6 +738,24 @@ private fun String.toGlassPreference(): GlassPreference =
         "节能" -> GlassPreference.Off
         "通透" -> GlassPreference.On
         else -> GlassPreference.Auto
+    }
+
+private fun LanguagePreference.label(): String =
+    when (this) {
+        LanguagePreference.System -> "跟随系统"
+        LanguagePreference.SimplifiedChinese -> "简体中文"
+        LanguagePreference.TraditionalChinese -> "繁体中文"
+        LanguagePreference.English -> "English"
+        LanguagePreference.Japanese -> "日本語"
+    }
+
+private fun String.toLanguagePreference(): LanguagePreference =
+    when (this) {
+        "简体中文" -> LanguagePreference.SimplifiedChinese
+        "繁体中文" -> LanguagePreference.TraditionalChinese
+        "English" -> LanguagePreference.English
+        "日本語" -> LanguagePreference.Japanese
+        else -> LanguagePreference.System
     }
 
 @Composable

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="discover_brand">Anime</string>
+    <string name="discover_title">發現</string>
+    <string name="discover_today">今日精選</string>
+    <string name="discover_hero_eyebrow">本季口碑新作</string>
+    <string name="discover_hero_title">星海郵差</string>
+    <string name="discover_hero_summary">在群星之間傳遞未寄出的思念，一場安靜又遼闊的旅程。</string>
+    <string name="discover_hero_rating">8.6  Bangumi</string>
+    <string name="discover_hero_accessibility">星海郵差，本季口碑新作，Bangumi 評分 8.6 分</string>
+    <string name="discover_airing">正在熱播</string>
+    <string name="discover_airing_description">此刻大家正在追</string>
+    <string name="discover_top_rated">高分精選</string>
+    <string name="discover_top_rated_description">來自 Bangumi 的高口碑作品</string>
+    <string name="discover_see_all">查看全部</string>
+    <string name="discover_refresh">重新整理</string>
+    <string name="discover_offline">目前離線，正在顯示已快取內容</string>
+    <string name="discover_empty_title">這裡暫時還沒有內容</string>
+    <string name="discover_empty_body">可以稍後回來看看，或者重新載入一次。</string>
+    <string name="discover_empty_action">重新載入</string>
+    <string name="discover_error_offline">網路似乎沒有連線</string>
+    <string name="discover_error_rate_limited">請求有些頻繁，請稍後再試</string>
+    <string name="discover_error_service">內容服務暫時不可用</string>
+    <string name="discover_error_data">內容格式出現異常</string>
+    <string name="discover_error_unknown">載入未成功，已有內容不會受到影響。</string>
+    <string name="discover_error_action">再試一次</string>
+</resources>

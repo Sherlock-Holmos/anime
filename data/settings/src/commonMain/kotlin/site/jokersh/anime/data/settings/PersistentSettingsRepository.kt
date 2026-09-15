@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import site.jokersh.anime.core.model.AppSettings
 import site.jokersh.anime.core.model.GlassPreference
+import site.jokersh.anime.core.model.LanguagePreference
 import site.jokersh.anime.core.model.ReduceMotionPreference
 import site.jokersh.anime.core.model.ThemePreference
 
@@ -53,6 +54,9 @@ public class PersistentSettingsRepository(
     override suspend fun setReduceMotion(value: ReduceMotionPreference): Unit =
         update(state.value.copy(reduceMotion = value))
 
+    override suspend fun setLanguage(value: LanguagePreference): Unit =
+        update(state.value.copy(language = value))
+
     override suspend fun setDiagnosticsConsent(value: Boolean): Unit =
         update(state.value.copy(diagnosticsConsent = value))
 
@@ -70,6 +74,7 @@ public class PersistentSettingsRepository(
         store.write(GLASS, settings.glass.name)
         store.write(REDUCE_MOTION, settings.reduceMotion.name)
         store.write(DIAGNOSTICS, settings.diagnosticsConsent.toString())
+        store.write(LANGUAGE, settings.language.name)
         state.value = settings
     }
 
@@ -80,6 +85,7 @@ public class PersistentSettingsRepository(
             glass = store.read(GLASS).enumOrDefault(GlassPreference.Auto),
             reduceMotion = store.read(REDUCE_MOTION).enumOrDefault(ReduceMotionPreference.FollowSystem),
             diagnosticsConsent = store.read(DIAGNOSTICS)?.toBooleanStrictOrNull() ?: false,
+            language = store.read(LANGUAGE).enumOrDefault(LanguagePreference.System),
         )
 
     private inline fun <reified T : Enum<T>> String?.enumOrDefault(default: T): T =
@@ -91,7 +97,8 @@ public class PersistentSettingsRepository(
         const val GLASS = "glass"
         const val REDUCE_MOTION = "reduce_motion"
         const val DIAGNOSTICS = "diagnostics_consent"
-        val KEYS = listOf(THEME, DYNAMIC_COLOR, GLASS, REDUCE_MOTION, DIAGNOSTICS)
+        const val LANGUAGE = "language"
+        val KEYS = listOf(THEME, DYNAMIC_COLOR, GLASS, REDUCE_MOTION, DIAGNOSTICS, LANGUAGE)
         val DEFAULT_SETTINGS =
             AppSettings(
                 theme = ThemePreference.System,
@@ -99,6 +106,7 @@ public class PersistentSettingsRepository(
                 glass = GlassPreference.Auto,
                 reduceMotion = ReduceMotionPreference.FollowSystem,
                 diagnosticsConsent = false,
+                language = LanguagePreference.System,
             )
     }
 }

@@ -110,11 +110,14 @@ import site.jokersh.anime.core.designsystem.AnimeRadius
 import site.jokersh.anime.core.designsystem.AnimeSize
 import site.jokersh.anime.core.designsystem.AnimeSpacing
 import site.jokersh.anime.core.designsystem.AnimeTheme
+import site.jokersh.anime.core.designsystem.AppLocale
 import site.jokersh.anime.core.model.AiringStatus
 import site.jokersh.anime.core.model.AnimeLoginCredentials
 import site.jokersh.anime.core.model.AnimeRegistration
 import site.jokersh.anime.core.model.CollectionStatus
 import site.jokersh.anime.core.model.GlassPreference
+import site.jokersh.anime.core.model.LanguagePreference
+import site.jokersh.anime.core.model.localeTag
 import site.jokersh.anime.core.model.LoginRequest
 import site.jokersh.anime.core.model.ReduceMotionPreference
 import site.jokersh.anime.core.model.SearchSort
@@ -194,6 +197,7 @@ fun AnimeApp(
     onNativeGlassStateChanged: (Boolean) -> Unit = {},
     onNativeRootNavigationVisibilityChanged: (Boolean) -> Unit = {},
     onNativeContentHeightChanged: (Double) -> Unit = {},
+    onLanguageChange: (LanguagePreference) -> Unit = {},
     lifecycleOwner: Boolean = true,
 ) {
     val sessionState by appContainer.sessionRepository.observeSession().collectAsState(SessionState.Guest)
@@ -374,15 +378,16 @@ fun AnimeApp(
     LaunchedEffect(settings.glass, reduceMotionEnabled) {
         onNativeGlassStateChanged(settings.glass != GlassPreference.Off && !reduceMotionEnabled)
     }
-    AnimeTheme(
-        darkTheme =
-            when (settings.theme) {
-                ThemePreference.System -> systemDark
-                ThemePreference.Light -> false
-                ThemePreference.Dark -> true
-            },
-    ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    AppLocale(settings.language.localeTag) {
+        AnimeTheme(
+            darkTheme =
+                when (settings.theme) {
+                    ThemePreference.System -> systemDark
+                    ThemePreference.Light -> false
+                    ThemePreference.Dark -> true
+                },
+        ) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val discoverLabel = stringResource(Res.string.root_discover)
             val libraryLabel = stringResource(Res.string.root_library)
             val activityLabel = stringResource(Res.string.root_activity)
@@ -448,6 +453,12 @@ fun AnimeApp(
                             settings = settings,
                             onThemeChange = { sessionScope.launch { appContainer.settingsRepository.setTheme(it) } },
                             onGlassChange = { sessionScope.launch { appContainer.settingsRepository.setGlass(it) } },
+                            onLanguageChange = {
+                                sessionScope.launch {
+                                    appContainer.settingsRepository.setLanguage(it)
+                                    onLanguageChange(it)
+                                }
+                            },
                             onReduceMotionChange = {
                                 sessionScope.launch {
                                     appContainer.settingsRepository
@@ -540,6 +551,7 @@ fun AnimeApp(
                     }
                 },
             )
+            }
         }
     }
 }
@@ -697,6 +709,7 @@ private fun AppNavigationLayer(
     settings: site.jokersh.anime.core.model.AppSettings,
     onThemeChange: (site.jokersh.anime.core.model.ThemePreference) -> Unit,
     onGlassChange: (site.jokersh.anime.core.model.GlassPreference) -> Unit,
+    onLanguageChange: (site.jokersh.anime.core.model.LanguagePreference) -> Unit,
     onReduceMotionChange: (site.jokersh.anime.core.model.ReduceMotionPreference) -> Unit,
     nativeRootNavigation: Boolean,
     onNativeContentHeightChanged: (Double) -> Unit,
@@ -946,6 +959,7 @@ private fun AppNavigationLayer(
                                 settings = settings,
                                 onThemeChange = onThemeChange,
                                 onGlassChange = onGlassChange,
+                                onLanguageChange = onLanguageChange,
                                 onReduceMotionChange = onReduceMotionChange,
                                 onDiagnostics = { navigator.push(AppRoute.Diagnostics) },
                                 contentUnderSystemBars = nativeRootNavigation,

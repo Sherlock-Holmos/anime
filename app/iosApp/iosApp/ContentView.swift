@@ -11,16 +11,16 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedRootIndex) {
             NativeDiscoverView(model: nativeModel)
-                .tabItem { Label(tabs[0].title, systemImage: tabs[0].systemImage) }
+                .tabItem { Label { Text(LocalizedStringKey(tabs[0].title)) } icon: { Image(systemName: tabs[0].systemImage) } }
                 .tag(0)
             NativeLibraryView(model: nativeModel)
-                .tabItem { Label(tabs[1].title, systemImage: tabs[1].systemImage) }
+                .tabItem { Label { Text(LocalizedStringKey(tabs[1].title)) } icon: { Image(systemName: tabs[1].systemImage) } }
                 .tag(1)
             NativeActivityView(model: nativeModel)
-                .tabItem { Label(tabs[2].title, systemImage: tabs[2].systemImage) }
+                .tabItem { Label { Text(LocalizedStringKey(tabs[2].title)) } icon: { Image(systemName: tabs[2].systemImage) } }
                 .tag(2)
             NativeProfileView(model: nativeModel)
-                .tabItem { Label(tabs[3].title, systemImage: tabs[3].systemImage) }
+                .tabItem { Label { Text(LocalizedStringKey(tabs[3].title)) } icon: { Image(systemName: tabs[3].systemImage) } }
                 .tag(3)
         }
         .tint(.accentColor)
@@ -31,6 +31,7 @@ struct ContentView: View {
             for: .tabBar
         )
         .background(Color.clear)
+        .environment(\.locale, nativeModel.languagePreference.locale)
         .preferredColorScheme(preferredColorScheme)
         .transaction { transaction in
             if nativeModel.reduceMotionEnabled {

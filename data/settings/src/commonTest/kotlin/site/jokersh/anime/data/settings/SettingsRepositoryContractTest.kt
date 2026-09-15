@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import site.jokersh.anime.core.model.AppSettings
 import site.jokersh.anime.core.model.GlassPreference
+import site.jokersh.anime.core.model.LanguagePreference
 import site.jokersh.anime.core.model.ReduceMotionPreference
 import site.jokersh.anime.core.model.ThemePreference
 import kotlin.test.Test
@@ -20,6 +21,7 @@ private val defaultSettings =
         glass = GlassPreference.Auto,
         reduceMotion = ReduceMotionPreference.FollowSystem,
         diagnosticsConsent = false,
+        language = LanguagePreference.System,
     )
 
 abstract class SettingsRepositoryContract {
@@ -32,10 +34,12 @@ abstract class SettingsRepositoryContract {
 
             repository.setTheme(ThemePreference.Dark)
             repository.setGlass(GlassPreference.Off)
+            repository.setLanguage(LanguagePreference.Japanese)
 
             val settings = repository.observeSettings().first()
             assertEquals(ThemePreference.Dark, settings.theme)
             assertEquals(GlassPreference.Off, settings.glass)
+            assertEquals(LanguagePreference.Japanese, settings.language)
             assertTrue(settings.dynamicColor)
         }
 
@@ -52,6 +56,18 @@ abstract class SettingsRepositoryContract {
             assertFalse(settings.diagnosticsConsent)
             assertTrue(settings.dynamicColor)
             assertEquals(ThemePreference.System, settings.theme)
+        }
+
+    @Test
+    fun `language preference survives repository recreation`() =
+        runTest {
+            val store = InMemorySettingsStore()
+            val repository = PersistentSettingsRepository(store)
+
+            repository.setLanguage(LanguagePreference.TraditionalChinese)
+
+            val restored = PersistentSettingsRepository(store)
+            assertEquals(LanguagePreference.TraditionalChinese, restored.observeSettings().first().language)
         }
 }
 
@@ -78,6 +94,10 @@ private class InMemorySettingsRepository : SettingsRepository {
 
     override suspend fun setReduceMotion(value: ReduceMotionPreference) {
         state.value = state.value.copy(reduceMotion = value)
+    }
+
+    override suspend fun setLanguage(value: LanguagePreference) {
+        state.value = state.value.copy(language = value)
     }
 
     override suspend fun setDiagnosticsConsent(value: Boolean) {

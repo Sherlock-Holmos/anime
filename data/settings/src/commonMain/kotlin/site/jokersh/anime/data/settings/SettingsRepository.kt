@@ -3,6 +3,7 @@ package site.jokersh.anime.data.settings
 import kotlinx.coroutines.flow.Flow
 import site.jokersh.anime.core.model.AppSettings
 import site.jokersh.anime.core.model.GlassPreference
+import site.jokersh.anime.core.model.LanguagePreference
 import site.jokersh.anime.core.model.ReduceMotionPreference
 import site.jokersh.anime.core.model.ThemePreference
 
@@ -16,6 +17,8 @@ public interface SettingsRepository {
     public suspend fun setGlass(value: GlassPreference)
 
     public suspend fun setReduceMotion(value: ReduceMotionPreference)
+
+    public suspend fun setLanguage(value: LanguagePreference)
 
     public suspend fun setDiagnosticsConsent(value: Boolean)
 

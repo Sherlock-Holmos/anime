@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="discover_brand">Anime</string>
+    <string name="discover_title">見つける</string>
+    <string name="discover_today">今日のおすすめ</string>
+    <string name="discover_hero_eyebrow">今季の注目作</string>
+    <string name="discover_hero_title">星海の郵便屋</string>
+    <string name="discover_hero_summary">星々の間で届かなかった想いを届ける、静かで広大な旅。</string>
+    <string name="discover_hero_rating">8.6  Bangumi</string>
+    <string name="discover_hero_accessibility">星海の郵便屋、今季の注目作、Bangumi 評価 8.6</string>
+    <string name="discover_airing">放送中</string>
+    <string name="discover_airing_description">今、みんなが見ている作品</string>
+    <string name="discover_top_rated">高評価</string>
+    <string name="discover_top_rated_description">Bangumi で高評価の作品</string>
+    <string name="discover_see_all">すべて見る</string>
+    <string name="discover_refresh">更新</string>
+    <string name="discover_offline">オフラインです。キャッシュを表示しています</string>
+    <string name="discover_empty_title">コンテンツがありません</string>
+    <string name="discover_empty_body">後でもう一度確認するか、再読み込みしてください。</string>
+    <string name="discover_empty_action">再読み込み</string>
+    <string name="discover_error_offline">ネットワークに接続されていません</string>
+    <string name="discover_error_rate_limited">リクエストが多すぎます。しばらくしてから再試行してください。</string>
+    <string name="discover_error_service">コンテンツサービスを一時的に利用できません。</string>
+    <string name="discover_error_data">コンテンツデータに問題があります。</string>
+    <string name="discover_error_unknown">読み込みに失敗しました。既存のコンテンツには影響ありません。</string>
+    <string name="discover_error_action">再試行</string>
+</resources>

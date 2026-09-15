@@ -43,6 +43,21 @@
         <span id="loading-message">正在加载 Web 应用…</span>
     </main>
     <script>
+        // Compose Multiplatform resources read navigator.languages. Keep the
+        // browser's real preference untouched while allowing the app's in-app
+        // language setting to provide an application-scoped override.
+        (function () {
+            var currentLanguagesImplementation = Object.getOwnPropertyDescriptor(Navigator.prototype, "languages");
+            if (!currentLanguagesImplementation || !currentLanguagesImplementation.get) return;
+            var newLanguagesImplementation = Object.assign({}, currentLanguagesImplementation, {
+                get: function () {
+                    if (window.__customLocale) return [window.__customLocale];
+                    return currentLanguagesImplementation.get.apply(this);
+                }
+            });
+            Object.defineProperty(Navigator.prototype, "languages", newLanguagesImplementation);
+        })();
+
         if (window.location.protocol === "file:") {
             document.getElementById("loading-message").textContent =
                 "不能直接打开此源码文件，请运行 Gradle Web 开发服务器。";

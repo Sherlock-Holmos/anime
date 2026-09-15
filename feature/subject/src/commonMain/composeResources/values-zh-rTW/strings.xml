@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subject_back">返回</string>
+    <string name="subject_summary">簡介</string>
+    <string name="subject_information">作品資訊</string>
+    <string name="subject_episodes">話數</string>
+    <string name="subject_status">狀態</string>
+    <string name="subject_source">資料來源</string>
+    <string name="subject_bangumi">Bangumi</string>
+    <string name="subject_votes">%1$d 人評分</string>
+    <string name="subject_no_rating">暫無評分</string>
+    <string name="subject_rating_accessibility">Bangumi 評分 %1$s 分，%2$d 人參與</string>
+    <string name="subject_loading">正在讀取作品資料</string>
+    <string name="subject_loading_description">馬上就好</string>
+    <string name="subject_error">暫時無法顯示作品</string>
+    <string name="subject_error_description">資料可能尚未同步，請稍後重試</string>
+    <string name="subject_retry">重試</string>
+    <string name="subject_episode_unknown">待定</string>
+</resources>

@@ -12,6 +12,11 @@
 		A10000000000000000000006 /* NativeRootViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* NativeRootViews.swift */; };
 		A10000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* Assets.xcassets */; };
 		A10000000000000000000004 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* PrivacyInfo.xcprivacy */; };
+		A10000000000000000000007 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* Localizable.strings */; };
+		A10000000000000000000008 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* Localizable.strings */; };
+		A10000000000000000000009 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* Localizable.strings */; };
+		A10000000000000000000010 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* Localizable.strings */; };
+		A10000000000000000000011 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +29,11 @@
 		B10000000000000000000007 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000008 /* NativeDiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeDiscoverView.swift; sourceTree = "<group>"; };
 		B10000000000000000000009 /* NativeRootViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRootViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000010 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = Base.lproj/Localizable.strings; sourceTree = "<group>"; };
+		B10000000000000000000011 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		B10000000000000000000012 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = zh-Hant.lproj/Localizable.strings; sourceTree = "<group>"; };
+		B10000000000000000000013 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
+		B10000000000000000000014 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = zh-Hans.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +65,11 @@
 				B10000000000000000000004 /* Info.plist */,
 				B10000000000000000000005 /* iosApp.entitlements */,
 				B10000000000000000000006 /* PrivacyInfo.xcprivacy */,
+				B10000000000000000000010 /* Localizable.strings */,
+				B10000000000000000000011 /* Localizable.strings */,
+				B10000000000000000000012 /* Localizable.strings */,
+				B10000000000000000000013 /* Localizable.strings */,
+				B10000000000000000000014 /* Localizable.strings */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -103,7 +118,7 @@
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base, zh-Hans);
+			knownRegions = (en, Base, zh-Hans, zh-Hant, ja);
 			mainGroup = D10000000000000000000001;
 			productRefGroup = D10000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -119,6 +134,11 @@
 			files = (
 				A10000000000000000000003 /* Assets.xcassets in Resources */,
 				A10000000000000000000004 /* PrivacyInfo.xcprivacy in Resources */,
+				A10000000000000000000007 /* Localizable.strings in Resources */,
+				A10000000000000000000008 /* Localizable.strings in Resources */,
+				A10000000000000000000009 /* Localizable.strings in Resources */,
+				A10000000000000000000010 /* Localizable.strings in Resources */,
+				A10000000000000000000011 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

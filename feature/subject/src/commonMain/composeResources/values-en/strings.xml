@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subject_back">Back</string>
+    <string name="subject_summary">Synopsis</string>
+    <string name="subject_information">Title Information</string>
+    <string name="subject_episodes">Episodes</string>
+    <string name="subject_status">Status</string>
+    <string name="subject_source">Source</string>
+    <string name="subject_bangumi">Bangumi</string>
+    <string name="subject_votes">%1$d ratings</string>
+    <string name="subject_no_rating">No rating</string>
+    <string name="subject_rating_accessibility">Bangumi rating %1$s, %2$d ratings</string>
+    <string name="subject_loading">Loading title information</string>
+    <string name="subject_loading_description">Almost there</string>
+    <string name="subject_error">Unable to show this title</string>
+    <string name="subject_error_description">The information may not be synced yet. Try again later.</string>
+    <string name="subject_retry">Retry</string>
+    <string name="subject_episode_unknown">TBD</string>
+</resources>

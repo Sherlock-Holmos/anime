@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Anime</string>
+    <string name="root_discover">Discover</string>
+    <string name="root_library">Library</string>
+    <string name="root_activity">Activity</string>
+    <string name="root_profile">Me</string>
+    <string name="shell_environment">CMP Android · %1$s</string>
+    <string name="f0_description">The F0 foundation is ready. Business state and fixtures will be integrated by feature contract.</string>
+    <string name="f0_status_title">Implementation baseline</string>
+    <string name="profile_data_mode">Data strategy</string>
+    <string name="profile_page_size">Search page size</string>
+    <string name="profile_page_size_value">%1$d items/page</string>
+    <string name="profile_diagnostics">Diagnostics</string>
+    <string name="profile_diagnostics_enabled">Enabled</string>
+    <string name="profile_diagnostics_disabled">Disabled</string>
+    <string name="data_mode_fixture">Fixture only</string>
+    <string name="data_mode_remote_fixture">Remote data, fixture switch available</string>
+    <string name="data_mode_remote">Remote data only</string>
+    <string name="f0_footer">Bangumi ratings are read-only · Android API 26+ · JVM 17</string>
+    <string name="navigation_not_implemented">This page is not available yet</string>
+    <string name="f1_catalog_title">F1 Component Catalog</string>
+    <string name="f1_catalog_description">Shared components use unified tokens, semantics and deterministic placeholders.</string>
+    <string name="f1_subject_primary">Stellar Messenger</string>
+    <string name="f1_subject_primary_metadata">2026 · TV · Airing</string>
+    <string name="f1_subject_secondary">Glass Garden</string>
+    <string name="f1_subject_secondary_metadata">Not aired · No poster</string>
+    <string name="f1_bangumi_source">Bangumi</string>
+    <string name="f1_bangumi_votes">1,234 ratings</string>
+    <string name="f1_bangumi_empty">No Bangumi rating</string>
+    <string name="f1_bangumi_accessibility">Bangumi rating 8.6, 1,234 ratings</string>
+    <string name="f1_subject_primary_accessibility">Stellar Messenger, 2026 TV anime, airing, Bangumi rating 8.6</string>
+    <string name="f1_subject_secondary_accessibility">Glass Garden, not aired, no poster, no rating</string>
+</resources>

@@ -3123,6 +3123,17 @@ struct NativeSettingsView: View {
                 ))
             }
 
+            Section("语言") {
+                Picker("应用语言", selection: Binding(
+                    get: { model.languagePreference.rawValue },
+                    set: { model.setLanguage($0) },
+                )) {
+                    ForEach(NativeLanguagePreference.allCases) { language in
+                        Text(LocalizedStringKey(language.displayName)).tag(language.rawValue)
+                    }
+                }
+            }
+
             Section("关于") {
                 LabeledContent("版本", value: appVersion)
                 LabeledContent("界面", value: "SwiftUI 原生")

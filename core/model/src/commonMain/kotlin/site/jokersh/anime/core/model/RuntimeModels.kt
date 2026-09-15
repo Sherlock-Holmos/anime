@@ -84,10 +84,37 @@ public enum class GlassPreference { Auto, On, Off }
 
 public enum class ReduceMotionPreference { FollowSystem, On, Off }
 
+/**
+ * The language selected for the application UI.
+ *
+ * System keeps the platform language as the default while the explicit values
+ * make the selection deterministic across Android, iOS, desktop and web.
+ */
+public enum class LanguagePreference {
+    System,
+    SimplifiedChinese,
+    TraditionalChinese,
+    English,
+    Japanese,
+}
+
+public val LanguagePreference.localeTag: String?
+    get() =
+        when (this) {
+            LanguagePreference.System -> null
+            LanguagePreference.SimplifiedChinese -> "zh-Hans"
+            // The current Compose Resources plugin resolves the region-qualified
+            // directory values-zh-rTW, so use its equivalent BCP-47 tag.
+            LanguagePreference.TraditionalChinese -> "zh-TW"
+            LanguagePreference.English -> "en"
+            LanguagePreference.Japanese -> "ja"
+        }
+
 public data class AppSettings(
     public val theme: ThemePreference,
     public val dynamicColor: Boolean,
     public val glass: GlassPreference,
     public val reduceMotion: ReduceMotionPreference,
     public val diagnosticsConsent: Boolean,
+    public val language: LanguagePreference = LanguagePreference.System,
 )

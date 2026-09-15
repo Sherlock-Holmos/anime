@@ -1,7 +1,9 @@
 package site.jokersh.anime
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
+import android.os.LocaleList
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,6 +23,7 @@ import site.jokersh.anime.app.Environment
 import site.jokersh.anime.app.createAppContainer
 import site.jokersh.anime.app.loadAllCollectionItems
 import site.jokersh.anime.core.model.AuthCallback
+import site.jokersh.anime.core.model.LanguagePreference
 import site.jokersh.anime.core.navigation.AnimeDeepLink
 import site.jokersh.anime.core.navigation.AppRoute
 import site.jokersh.anime.data.catalog.RemoteCatalogRepository
@@ -42,6 +45,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         pendingAuthCallback = intent.toAuthCallback()
         pendingDeepLinkRoute = intent.toAnimeRoute()
+        applyLanguage(readStoredLanguage())
         val appContainer = createAndroidContainer()
         setContent {
             AnimeApp(
@@ -49,6 +53,10 @@ class MainActivity : ComponentActivity() {
                 deepLinkRoute = pendingDeepLinkRoute,
                 openExternalUrl = { url ->
                     startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+                },
+                onLanguageChange = { language ->
+                    applyLanguage(language)
+                    recreate()
                 },
             )
             val callback = pendingAuthCallback
@@ -115,6 +123,31 @@ class MainActivity : ComponentActivity() {
                     currentUserId = { remoteSession.currentUserId() },
                 ),
         )
+    }
+
+    private fun readStoredLanguage(): LanguagePreference {
+        val name = getSharedPreferences("anime_settings", MODE_PRIVATE)
+            .getString("language", LanguagePreference.System.name)
+        return LanguagePreference.entries.firstOrNull { it.name == name } ?: LanguagePreference.System
+    }
+
+    private fun applyLanguage(language: LanguagePreference) {
+        val locales =
+            when (language) {
+                LanguagePreference.System -> LocaleList.getDefault()
+                LanguagePreference.SimplifiedChinese -> LocaleList.forLanguageTags("zh-Hans")
+                // The Compose resources plugin used by this project resolves the
+                // region-qualified Traditional Chinese directory (values-zh-rTW).
+                // Use the equivalent Android locale tag so resource lookup and
+                // configuration changes stay aligned.
+                LanguagePreference.TraditionalChinese -> LocaleList.forLanguageTags("zh-TW")
+                LanguagePreference.English -> LocaleList.forLanguageTags("en")
+                LanguagePreference.Japanese -> LocaleList.forLanguageTags("ja")
+            }
+        val configuration = Configuration(resources.configuration)
+        configuration.setLocales(locales)
+        @Suppress("DEPRECATION")
+        resources.updateConfiguration(configuration, resources.displayMetrics)
     }
 }
 

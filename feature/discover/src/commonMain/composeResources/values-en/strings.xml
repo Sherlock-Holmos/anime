@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="discover_brand">Anime</string>
+    <string name="discover_title">Discover</string>
+    <string name="discover_today">Today&apos;s Picks</string>
+    <string name="discover_hero_eyebrow">Top New Titles This Season</string>
+    <string name="discover_hero_title">Stellar Messenger</string>
+    <string name="discover_hero_summary">An expansive, quiet journey delivering unmailed feelings among the stars.</string>
+    <string name="discover_hero_rating">8.6  Bangumi</string>
+    <string name="discover_hero_accessibility">Stellar Messenger, a top new title this season, Bangumi rating 8.6</string>
+    <string name="discover_airing">Currently Airing</string>
+    <string name="discover_airing_description">What everyone is watching now</string>
+    <string name="discover_top_rated">Top Rated</string>
+    <string name="discover_top_rated_description">Highly rated titles from Bangumi</string>
+    <string name="discover_see_all">See All</string>
+    <string name="discover_refresh">Refresh</string>
+    <string name="discover_offline">Offline, showing cached content</string>
+    <string name="discover_empty_title">No content here yet</string>
+    <string name="discover_empty_body">Come back later or try loading again.</string>
+    <string name="discover_empty_action">Reload</string>
+    <string name="discover_error_offline">No network connection</string>
+    <string name="discover_error_rate_limited">Too many requests. Try again later.</string>
+    <string name="discover_error_service">The content service is temporarily unavailable.</string>
+    <string name="discover_error_data">The content data is invalid.</string>
+    <string name="discover_error_unknown">Loading failed, but existing content is safe.</string>
+    <string name="discover_error_action">Try Again</string>
+</resources>

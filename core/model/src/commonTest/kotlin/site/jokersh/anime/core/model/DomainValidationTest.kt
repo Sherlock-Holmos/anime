@@ -59,4 +59,13 @@ class DomainValidationTest {
             )
         }
     }
+
+    @Test
+    fun languagePreferencesUseStableLocaleTags() {
+        assertEquals(null, LanguagePreference.System.localeTag)
+        assertEquals("zh-Hans", LanguagePreference.SimplifiedChinese.localeTag)
+        assertEquals("zh-TW", LanguagePreference.TraditionalChinese.localeTag)
+        assertEquals("en", LanguagePreference.English.localeTag)
+        assertEquals("ja", LanguagePreference.Japanese.localeTag)
+    }
 }

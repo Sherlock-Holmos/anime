@@ -2,6 +2,55 @@ import Foundation
 import SwiftUI
 import AnimeShared
 
+enum NativeLanguagePreference: String, CaseIterable, Identifiable {
+    case system = "System"
+    case simplifiedChinese = "SimplifiedChinese"
+    case traditionalChinese = "TraditionalChinese"
+    case english = "English"
+    case japanese = "Japanese"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .system: return "跟随系统"
+        case .simplifiedChinese: return "简体中文"
+        case .traditionalChinese: return "繁体中文"
+        case .english: return "English"
+        case .japanese: return "日本語"
+        }
+    }
+
+    var localeIdentifier: String {
+        switch self {
+        case .system:
+            let identifier = Locale.preferredLanguages.first ?? Locale.current.identifier
+            let normalized = identifier.lowercased()
+            if normalized.hasPrefix("ja") { return "ja" }
+            if normalized.hasPrefix("en") { return "en" }
+            if normalized.hasPrefix("zh") {
+                return normalized.contains("tw") || normalized.contains("hk") || normalized.contains("mo") || normalized.contains("hant")
+                    ? "zh-Hant"
+                    : "zh-Hans"
+            }
+            return "zh-Hans"
+        case .simplifiedChinese: return "zh-Hans"
+        case .traditionalChinese: return "zh-Hant"
+        case .english: return "en"
+        case .japanese: return "ja"
+        }
+    }
+
+    var locale: Locale {
+        Locale(identifier: localeIdentifier)
+    }
+
+    static func from(rawValue: String?) -> NativeLanguagePreference {
+        guard let rawValue, let preference = NativeLanguagePreference(rawValue: rawValue) else { return .system }
+        return preference
+    }
+}
+
 @MainActor
 final class NativeAppModel: ObservableObject {
     @Published private(set) var discovery: NativeDiscoverySnapshot?
@@ -36,6 +85,7 @@ final class NativeAppModel: ObservableObject {
     @Published private(set) var appearanceTheme: String
     @Published private(set) var glassEnabled: Bool
     @Published private(set) var reduceMotionEnabled: Bool
+    @Published private(set) var languagePreference: NativeLanguagePreference
 
     private var facade: IosNativeAppFacade?
     private var hasStarted = false
@@ -48,6 +98,9 @@ final class NativeAppModel: ObservableObject {
     private static let appearanceThemeKey = "anime.ios.appearance.theme"
     private static let glassEnabledKey = "anime.ios.appearance.glass"
     private static let reduceMotionKey = "anime.ios.appearance.reduce-motion"
+    // Keep the language key identical to the KMP SettingsStore so native iOS and
+    // shared settings do not create competing preferences.
+    private static let languageKey = "anime.settings.language"
     private static let calendarCachePrefix = "anime.ios.calendar."
 
     var isAuthenticated: Bool {
@@ -113,6 +166,9 @@ final class NativeAppModel: ObservableObject {
         appearanceTheme = UserDefaults.standard.string(forKey: Self.appearanceThemeKey) ?? "system"
         glassEnabled = UserDefaults.standard.object(forKey: Self.glassEnabledKey) as? Bool ?? true
         reduceMotionEnabled = UserDefaults.standard.bool(forKey: Self.reduceMotionKey)
+        languagePreference = NativeLanguagePreference.from(
+            rawValue: UserDefaults.standard.string(forKey: Self.languageKey),
+        )
         pendingSubject = nil
     }
 
@@ -130,6 +186,12 @@ final class NativeAppModel: ObservableObject {
     func setReduceMotionEnabled(_ value: Bool) {
         reduceMotionEnabled = value
         UserDefaults.standard.set(value, forKey: Self.reduceMotionKey)
+    }
+
+    func setLanguage(_ rawValue: String) {
+        let preference = NativeLanguagePreference.from(rawValue: rawValue)
+        languagePreference = preference
+        UserDefaults.standard.set(preference.rawValue, forKey: Self.languageKey)
     }
 
     @discardableResult
