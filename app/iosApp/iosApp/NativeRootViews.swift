@@ -911,10 +911,9 @@ struct NativeMyReviewsView: View {
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("我的评价")
-            .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.large)
         .task { load() }
         .refreshable { await refresh() }
-    }
     }
 
     private func load() {
@@ -1051,7 +1050,6 @@ struct NativeAdminView: View {
             .navigationBarTitleDisplayMode(.large)
             .task { load() }
             .refreshable { await refresh() }
-        }
     }
 
     private func load() {
