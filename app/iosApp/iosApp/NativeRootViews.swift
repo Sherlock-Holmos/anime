@@ -912,9 +912,8 @@ struct NativeMyReviewsView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("我的评价")
             .navigationBarTitleDisplayMode(.large)
-            .task { load() }
-            .refreshable { await refresh() }
-        }
+        .task { load() }
+        .refreshable { await refresh() }
     }
 
     private func load() {
