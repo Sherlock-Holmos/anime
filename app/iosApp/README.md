@@ -5,6 +5,9 @@ subject detail, ratings, collection actions, community comments, account flows a
 diagnostics are native SwiftUI. Repositories, authentication, caching and domain state remain
 in KMP and are exposed through the Swift-friendly `IosNativeAppFacade`.
 
+For the complete current code map, ownership rules, runtime flows, storage boundaries and
+planned refactoring path, see [`docs/frontend/27-ios-client-code-architecture.md`](../../docs/frontend/27-ios-client-code-architecture.md).
+
 Android, Desktop and Web continue to use the Compose Multiplatform UI. iOS no longer embeds a
 Compose root for its main navigation; this keeps navigation, safe-area behavior, scroll-edge
 materials, sheets and system controls under SwiftUI while preserving the shared business layer.

@@ -6,6 +6,8 @@
 
 > 当前产品 R1 口径：iOS IPA 侧载首发，不上架 App Store；Android 为第二交付顺序；Desktop/Web 仅用于预览和测试。本文的 macOS/Xcode/App Store Archive 条目属于平台能力与后续阶段说明，不改变 R1 交付边界。
 
+> 当前实现说明：本文保留为 iOS 平台能力与交付基线；代码架构、页面职责、SwiftUI/KMP 边界和实际入口以 [`27-ios-client-code-architecture.md`](27-ios-client-code-architecture.md) 为准。当前 iOS 页面与根导航已经由 SwiftUI 原生承载，不再按历史 Compose 根页面描述理解。
+
 ## 1. 交付边界
 
 `app/iosApp` 是 SwiftUI 宿主，业务页面、导航状态机、Repository 和领域模型继续由 `shared/app` 与 `commonMain` 提供；根导航栏由宿主使用 iOS 26+ 官方 SwiftUI Liquid Glass 渲染，并通过 `IosBridge` 与共享导航状态同步。共享框架名固定为 `AnimeShared`，目标固定为 `iosArm64` 和 `iosSimulatorArm64`，最低系统版本为 iOS 26。

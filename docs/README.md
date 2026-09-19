@@ -123,6 +123,7 @@ WIKI_SYNC_TOKEN
 | 48 Client UI Design | `frontend/23-client-ui-design.md` |
 | 49 Current UI Design and Development Spec | `frontend/24-current-ui-design-development-spec.md` |
 | 50 Community Feature Contract | `frontend/features/community.md` |
+| 51 iOS Client Code Architecture | `frontend/27-ios-client-code-architecture.md` |
 | 41 Backend Specification Index | `backend/00-backend-specification-index.md` |
 | 42 Backend API Contract | `backend/01-api-contract.md` |
 | 43 Backend Database Contract | `backend/02-database-contract.md` |
