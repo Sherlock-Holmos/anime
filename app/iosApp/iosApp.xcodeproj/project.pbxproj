@@ -8,9 +8,21 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* AnimeIosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* AnimeIosApp.swift */; };
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* ContentView.swift */; };
-		A10000000000000000000005 /* NativeDiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* NativeDiscoverView.swift */; };
-		A10000000000000000000006 /* NativeRootViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* NativeRootViews.swift */; };
 		A10000000000000000000012 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* Localization.swift */; };
+		A10000000000000000000013 /* NativeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* NativeComponents.swift */; };
+		A10000000000000000000014 /* NativeSnapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* NativeSnapshots.swift */; };
+		A10000000000000000000015 /* NativeSnapshotExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* NativeSnapshotExtensions.swift */; };
+		A10000000000000000000016 /* NativeAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* NativeAppModel.swift */; };
+		A10000000000000000000017 /* NativeDiscoverViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* NativeDiscoverViews.swift */; };
+		A10000000000000000000018 /* NativeLibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* NativeLibraryViews.swift */; };
+		A10000000000000000000019 /* NativeProfileViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* NativeProfileViews.swift */; };
+		A10000000000000000000020 /* NativeAdminViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000023 /* NativeAdminViews.swift */; };
+		A10000000000000000000021 /* NativeCalendarViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000024 /* NativeCalendarViews.swift */; };
+		A10000000000000000000022 /* NativeSubjectViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* NativeSubjectViews.swift */; };
+		A10000000000000000000023 /* NativeActivityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* NativeActivityViews.swift */; };
+		A10000000000000000000024 /* NativeListViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* NativeListViews.swift */; };
+		A10000000000000000000025 /* NativeCommunityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* NativeCommunityViews.swift */; };
+		A10000000000000000000026 /* NativeSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* NativeSettingsViews.swift */; };
 		A10000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* Assets.xcassets */; };
 		A10000000000000000000004 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* PrivacyInfo.xcprivacy */; };
 		A10000000000000000000007 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* Localizable.strings */; };
@@ -28,14 +40,26 @@
 		B10000000000000000000005 /* iosApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iosApp.entitlements; sourceTree = "<group>"; };
 		B10000000000000000000006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B10000000000000000000007 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		B10000000000000000000008 /* NativeDiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeDiscoverView.swift; sourceTree = "<group>"; };
-		B10000000000000000000009 /* NativeRootViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRootViews.swift; sourceTree = "<group>"; };
 		B10000000000000000000010 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = Base.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B10000000000000000000011 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B10000000000000000000012 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = zh-Hant.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B10000000000000000000013 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B10000000000000000000014 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = zh-Hans.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B10000000000000000000015 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		B10000000000000000000016 /* NativeComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeComponents.swift; sourceTree = "<group>"; };
+		B10000000000000000000017 /* NativeSnapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSnapshots.swift; sourceTree = "<group>"; };
+		B10000000000000000000018 /* NativeSnapshotExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSnapshotExtensions.swift; sourceTree = "<group>"; };
+		B10000000000000000000019 /* NativeAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAppModel.swift; sourceTree = "<group>"; };
+		B10000000000000000000020 /* NativeDiscoverViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeDiscoverViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000021 /* NativeLibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLibraryViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000022 /* NativeProfileViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeProfileViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000023 /* NativeAdminViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAdminViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000024 /* NativeCalendarViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCalendarViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000025 /* NativeSubjectViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSubjectViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000026 /* NativeActivityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeActivityViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000027 /* NativeListViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeListViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000028 /* NativeCommunityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCommunityViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000029 /* NativeSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSettingsViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,9 +85,9 @@
 			children = (
 				B10000000000000000000001 /* AnimeIosApp.swift */,
 				B10000000000000000000002 /* ContentView.swift */,
-				B10000000000000000000008 /* NativeDiscoverView.swift */,
-				B10000000000000000000009 /* NativeRootViews.swift */,
 				B10000000000000000000015 /* Localization.swift */,
+				D10000000000000000000004 /* Core */,
+				D10000000000000000000008 /* Features */,
 				B10000000000000000000003 /* Assets.xcassets */,
 				B10000000000000000000004 /* Info.plist */,
 				B10000000000000000000005 /* iosApp.entitlements */,
@@ -77,6 +101,68 @@
 			path = iosApp;
 			sourceTree = "<group>";
 		};
+		D10000000000000000000004 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000005 /* Components */,
+				D10000000000000000000006 /* Models */,
+				D10000000000000000000007 /* State */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000005 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000016 /* NativeComponents.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000006 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000017 /* NativeSnapshots.swift */,
+				B10000000000000000000018 /* NativeSnapshotExtensions.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000007 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000019 /* NativeAppModel.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000008 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000009 /* Discover */,
+				D10000000000000000000010 /* Library */,
+				D10000000000000000000011 /* Profile */,
+				D10000000000000000000012 /* Admin */,
+				D10000000000000000000013 /* Calendar */,
+				D10000000000000000000014 /* Subject */,
+				D10000000000000000000015 /* Activity */,
+				D10000000000000000000016 /* Lists */,
+				D10000000000000000000017 /* Community */,
+				D10000000000000000000018 /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000009 /* Discover */ = { isa = PBXGroup; children = (B10000000000000000000020 /* NativeDiscoverViews.swift */, ); path = Discover; sourceTree = "<group>"; };
+		D10000000000000000000010 /* Library */ = { isa = PBXGroup; children = (B10000000000000000000021 /* NativeLibraryViews.swift */, ); path = Library; sourceTree = "<group>"; };
+		D10000000000000000000011 /* Profile */ = { isa = PBXGroup; children = (B10000000000000000000022 /* NativeProfileViews.swift */, ); path = Profile; sourceTree = "<group>"; };
+		D10000000000000000000012 /* Admin */ = { isa = PBXGroup; children = (B10000000000000000000023 /* NativeAdminViews.swift */, ); path = Admin; sourceTree = "<group>"; };
+		D10000000000000000000013 /* Calendar */ = { isa = PBXGroup; children = (B10000000000000000000024 /* NativeCalendarViews.swift */, ); path = Calendar; sourceTree = "<group>"; };
+		D10000000000000000000014 /* Subject */ = { isa = PBXGroup; children = (B10000000000000000000025 /* NativeSubjectViews.swift */, ); path = Subject; sourceTree = "<group>"; };
+		D10000000000000000000015 /* Activity */ = { isa = PBXGroup; children = (B10000000000000000000026 /* NativeActivityViews.swift */, ); path = Activity; sourceTree = "<group>"; };
+		D10000000000000000000016 /* Lists */ = { isa = PBXGroup; children = (B10000000000000000000027 /* NativeListViews.swift */, ); path = Lists; sourceTree = "<group>"; };
+		D10000000000000000000017 /* Community */ = { isa = PBXGroup; children = (B10000000000000000000028 /* NativeCommunityViews.swift */, ); path = Community; sourceTree = "<group>"; };
+		D10000000000000000000018 /* Settings */ = { isa = PBXGroup; children = (B10000000000000000000029 /* NativeSettingsViews.swift */, ); path = Settings; sourceTree = "<group>"; };
 		D10000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -169,9 +255,21 @@
 			files = (
 				A10000000000000000000001 /* AnimeIosApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
-				A10000000000000000000005 /* NativeDiscoverView.swift in Sources */,
-				A10000000000000000000006 /* NativeRootViews.swift in Sources */,
 				A10000000000000000000012 /* Localization.swift in Sources */,
+				A10000000000000000000013 /* NativeComponents.swift in Sources */,
+				A10000000000000000000014 /* NativeSnapshots.swift in Sources */,
+				A10000000000000000000015 /* NativeSnapshotExtensions.swift in Sources */,
+				A10000000000000000000016 /* NativeAppModel.swift in Sources */,
+				A10000000000000000000017 /* NativeDiscoverViews.swift in Sources */,
+				A10000000000000000000018 /* NativeLibraryViews.swift in Sources */,
+				A10000000000000000000019 /* NativeProfileViews.swift in Sources */,
+				A10000000000000000000020 /* NativeAdminViews.swift in Sources */,
+				A10000000000000000000021 /* NativeCalendarViews.swift in Sources */,
+				A10000000000000000000022 /* NativeSubjectViews.swift in Sources */,
+				A10000000000000000000023 /* NativeActivityViews.swift in Sources */,
+				A10000000000000000000024 /* NativeListViews.swift in Sources */,
+				A10000000000000000000025 /* NativeCommunityViews.swift in Sources */,
+				A10000000000000000000026 /* NativeSettingsViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
