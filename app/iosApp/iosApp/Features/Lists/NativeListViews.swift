@@ -3,7 +3,7 @@ import Foundation
 import PhotosUI
 import UIKit
 
-private struct NativeListSummaryRow: View {
+struct NativeListSummaryRow: View {
     let list: NativeListSummarySnapshot
 
     var body: some View {
@@ -269,4 +269,3 @@ private struct NativeListEditorView: View {
         }
     }
 }
-
